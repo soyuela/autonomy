@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomy — Gestión de Convenios</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --bg:#0f0f11;--surface:#17171b;--surface2:#1e1e24;--border:#2a2a32;
+    --accent:#e8ff47;--accent2:#7b6cff;--danger:#ff4f4f;--warning:#ffb547;--ok:#47ffb8;
+    --text:#f0f0f5;--muted:#72727d;
+    --fh:'Syne',sans-serif;--fm:'DM Mono',monospace;--fb:'DM Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px;min-height:100vh}
+  /* AUTH */
+  #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 48px;text-align:center;max-width:380px;width:100%}
+  .auth-logo{font-family:var(--fh);font-size:28px;font-weight:800;color:var(--accent);margin-bottom:8px}
+  .auth-sub{color:var(--muted);font-size:13px;margin-bottom:28px;line-height:1.6}
+  .auth-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;background:white;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--fb);transition:background .15s}
+  .auth-btn:hover{background:#f0f0f0}
+  .auth-btn img{width:20px}
+  .auth-note{color:var(--muted);font-size:11px;margin-top:16px;line-height:1.5}
+  .setup-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:500px;width:100%}
+  .setup-box h3{font-family:var(--fh);font-size:15px;margin-bottom:12px;color:var(--accent)}
+  .setup-box ol{padding-left:20px;color:var(--muted);font-size:13px;line-height:2}
+  .setup-box code{font-family:var(--fm);background:var(--surface2);padding:2px 6px;border-radius:4px;color:var(--text);font-size:12px}
+  .setup-box a{color:var(--accent2)}
+  .client-id-form{display:flex;gap:8px;margin-top:12px}
+  .client-id-form input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none}
+  .client-id-form input:focus{border-color:var(--accent)}
+  /* LAYOUT */
+  .app{display:none;min-height:100vh}
+  .app.visible{display:flex}
+  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
+  .logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+  .logo h1{font-family:var(--fh);font-size:18px;font-weight:800;color:var(--accent);letter-spacing:-0.5px}
+  .logo span{color:var(--muted);font-size:11px;font-family:var(--fm)}
+  .user-chip{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border);margin-top:auto}
+  .user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0}
+  .user-name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sign-out{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:4px 6px;border-radius:4px;margin-left:auto;white-space:nowrap}
+  .sign-out:hover{color:var(--danger)}
+  .nav{padding:16px 0;flex:1;overflow-y:auto}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
+  .nav-item:hover{color:var(--text);background:var(--surface2)}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(232,255,71,.06)}
+  .nav-item .icon{font-size:16px;width:20px;text-align:center}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);margin-left:auto}
+  .sync-dot.syncing{background:var(--warning);animation:pulse .8s infinite}
+  .sync-dot.error{background:var(--danger)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
+  /* HEADER */
+  .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  .page-title{font-family:var(--fh);font-size:24px;font-weight:800}
+  .page-sub{color:var(--muted);font-size:12px;margin-top:2px}
+  /* STATS */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+  .stat-card.accent::before{background:var(--accent)}
+  .stat-card.purple::before{background:var(--accent2)}
+  .stat-card.danger::before{background:var(--danger)}
+  .stat-card.warning::before{background:var(--warning)}
+  .stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+  .stat-value{font-family:var(--fh);font-size:28px;font-weight:800}
+  .stat-sub{color:var(--muted);font-size:11px;margin-top:4px;font-family:var(--fm)}
+  /* TABLE */
+  .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap}
+  .search-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--fb);font-size:13px;width:260px;outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--accent)}
+  .search-input::placeholder{color:var(--muted)}
+  .filter-select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;cursor:pointer}
+  table{width:100%;border-collapse:collapse}
+  thead{background:var(--surface2)}
+  th{text-align:left;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);white-space:nowrap}
+  td{padding:12px 16px;border-top:1px solid var(--border);font-size:13px;vertical-align:middle}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .mono{font-family:var(--fm);font-size:12px}
+  /* BADGES */
+  .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--fm);text-transform:uppercase;white-space:nowrap}
+  .badge-a{background:rgba(232,255,71,.12);color:var(--accent)}
+  .badge-i{background:rgba(123,108,255,.12);color:var(--accent2)}
+  .badge-s{background:rgba(255,181,71,.12);color:var(--warning)}
+  .badge-ok{background:rgba(71,255,184,.12);color:var(--ok)}
+  .badge-vencido{background:rgba(255,79,79,.12);color:var(--danger)}
+  .badge-pendiente{background:rgba(255,181,71,.12);color:var(--warning)}
+  .badge-firmado{background:rgba(71,255,184,.12);color:var(--ok)}
+  /* BUTTONS */
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);transition:all .15s;white-space:nowrap}
+  .btn-primary{background:var(--accent);color:#111}
+  .btn-primary:hover{background:#d4e840}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--text);border-color:var(--text)}
+  .btn-danger{background:rgba(255,79,79,.12);color:var(--danger);border:1px solid rgba(255,79,79,.2)}
+  .btn-danger:hover{background:rgba(255,79,79,.2)}
+  .btn-sm{padding:5px 10px;font-size:12px}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  /* MODAL */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px}
+  .modal-overlay.open{display:flex}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;animation:modalIn .2s ease}
+  @keyframes modalIn{from{opacity:0;transform:translateY(-12px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+  .modal-title{font-family:var(--fh);font-size:18px;font-weight:700}
+  .modal-body{padding:24px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .form-full{grid-column:1/-1}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.4px}
+  .field input,.field select,.field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;transition:border-color .15s}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+  .field textarea{resize:vertical;min-height:80px}
+  .form-section{font-family:var(--fh);font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border)}
+  /* DETAIL */
+  .detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .detail-item{background:var(--surface2);border-radius:8px;padding:12px}
+  .detail-item .lbl{font-size:11px;color:var(--muted);margin-bottom:4px}
+  .detail-item .val{font-family:var(--fm);font-size:14px;font-weight:500}
+  .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+  .progress-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .3s}
+  /* MISC */
+  .empty{padding:60px 20px;text-align:center;color:var(--muted)}
+  .empty .icon{font-size:40px;margin-bottom:12px}
+  #toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
+  #toast.show{opacity:1;transform:none}
+  #toast.success{border-color:var(--ok);color:var(--ok)}
+  #toast.error{border-color:var(--danger);color:var(--danger)}
+  #toast.info{border-color:var(--accent2);color:var(--accent2)}
+  .tabs{display:flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px;width:fit-content}
+  .tab{padding:7px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;color:var(--muted)}
+  .tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .view{display:none}
+  .view.active{display:block}
+  .importe{font-family:var(--fm);text-align:right}
+  .actions{display:flex;gap:6px;justify-content:flex-end}
+  .alert{border-radius:8px;padding:12px 16px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
+  .alert-warning{background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.2);color:var(--warning)}
+  .alert-info{background:rgba(123,108,255,.08);border:1px solid rgba(123,108,255,.2);color:var(--accent2)}
+  .cuota-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+  .cuota-row:last-child{border:none}
+  .dias-badge{font-family:var(--fm);font-size:12px;padding:2px 7px;border-radius:4px}
+  .dias-ok{background:rgba(71,255,184,.1);color:var(--ok)}
+  .dias-warn{background:rgba(255,181,71,.1);color:var(--warning)}
+  .dias-bad{background:rgba(255,79,79,.1);color:var(--danger)}
+  .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* CUIT LOOKUP */
+  .cuit-row{display:flex;gap:8px;align-items:flex-end}
+  .cuit-row .field{flex:1}
+  .lookup-result{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:4px}
+  .lookup-nombre{font-family:var(--fh);font-size:16px;font-weight:700;margin-bottom:4px}
+  .lookup-sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+  .lookup-deudas{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .lookup-deuda-item{background:var(--surface);border-radius:8px;padding:10px;border:1px solid var(--border)}
+  .lookup-deuda-item .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+  .lookup-deuda-item .val{font-family:var(--fm);font-size:13px;font-weight:600}
+  .lookup-deuda-item.tiene-convenio{border-color:var(--ok);background:rgba(71,255,184,.05)}
+  .lookup-deuda-item.tiene-convenio .lbl::after{content:' · EN CONVENIO';color:var(--ok)}
+  .lookup-convenios{margin-top:8px}
+  .lookup-conv-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:4px;font-size:12px;border:1px solid var(--border)}
+  .lookup-conv-item .conv-tipo{font-family:var(--fm);font-weight:600}
+  .lookup-conv-item .conv-progreso{color:var(--muted)}
+  .lookup-not-found{color:var(--danger);font-size:13px;padding:8px 0}
+  .cuit-searching{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:8px;padding:8px 0}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">AUTONOMY</div>
+    <div class="auth-sub">Gestión de convenios de pago<br>Iniciá sesión con tu cuenta Google para acceder</div>
+    <button class="auth-btn" onclick="signIn()">
+      <img src="https://www.google.com/favicon.ico" alt="">
+      Continuar con Google
+    </button>
+    <div class="auth-note">Todos los datos se guardan en Google Drive y son accesibles por el equipo</div>
+  </div>
+
+  <div class="setup-box">
+    <h3>⚙ Configuración (primer uso)</h3>
+    <ol>
+      <li>Abrí <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
+      <li>Creá un proyecto → <strong>APIs &amp; Services → OAuth 2.0 Client ID</strong></li>
+      <li>Tipo: <code>Web application</code>. En "Authorized JavaScript origins" agregá la URL donde subas este archivo (o <code>http://localhost</code> para pruebas locales)</li>
+      <li>Habilitá la <strong>Google Drive API</strong> en el proyecto</li>
+      <li>Pegá el Client ID acá y guardalo:</li>
+    </ol>
+    <div class="client-id-form">
+      <input id="input-client-id" type="text" placeholder="xxxxx.apps.googleusercontent.com" value="">
+      <button class="btn btn-primary btn-sm" onclick="guardarClientId()">Guardar</button>
+    </div>
+    <div id="client-id-status" style="color:var(--muted);font-size:11px;margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="logo"><h1>AUTONOMY</h1><span>Convenios · Drive</span></div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="setView('dashboard')">
+        <span class="icon">⬛</span> Dashboard
+        <span class="sync-dot" id="sync-dot"></span>
+      </div>
+      <div class="nav-item" onclick="setView('convenios')"><span class="icon">📄</span> Convenios</div>
+      <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span> Pagos</div>
+      <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span> Vencimientos</div>
+    </nav>
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <div class="user-name" id="user-name">—</div>
+      <button class="sign-out" onclick="signOut()">Salir</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <div id="view-dashboard" class="view active">
+      <div class="page-header">
+        <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-fecha"></div></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" onclick="syncFromDrive(true)">↻ Actualizar</button>
+          <button class="btn btn-primary" onclick="openNuevoConvenio()">＋ Nuevo convenio</button>
+        </div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card accent"><div class="stat-label">Convenios activos</div><div class="stat-value" id="stat-activos">—</div><div class="stat-sub">con cuotas pendientes</div></div>
+        <div class="stat-card danger"><div class="stat-label">Vencidos sin pago</div><div class="stat-value" id="stat-vencidos">—</div><div class="stat-sub">cuotas sin registrar</div></div>
+        <div class="stat-card warning"><div class="stat-label">Vencen esta semana</div><div class="stat-value" id="stat-semana">—</div><div class="stat-sub">próximos 7 días</div></div>
+        <div class="stat-card purple"><div class="stat-label">Firma pendiente</div><div class="stat-value" id="stat-firma">—</div><div class="stat-sub">convenios sin firmar</div></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar"><span style="font-family:var(--fh);font-weight:700;font-size:14px;">Próximas cuotas y vencidas</span></div>
+        <table><thead><tr><th>Titular</th><th>Tipo</th><th>Vencimiento</th><th>Importe</th><th>Estado</th></tr></thead>
+        <tbody id="tabla-proximas"></tbody></table>
+      </div>
+    </div>
+
+    <!-- CONVENIOS -->
+    <div id="view-convenios" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Convenios</div><div class="page-sub">Historial completo — datos congelados al crear</div></div>
+        <button class="btn btn-primary" onclick="openNuevoConvenio()">＋ Nuevo convenio</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <input class="search-input" id="search-convenios" placeholder="Buscar nombre, CUIT o dominio…" oninput="renderConvenios()">
+          <div style="display:flex;gap:8px;">
+            <select class="filter-select" id="filter-tipo" onchange="renderConvenios()">
+              <option value="">Todos los tipos</option>
+              <option value="Alquiler">Alquiler</option>
+              <option value="Infracciones">Infracciones</option>
+              <option value="Siniestros">Siniestros</option>
+            </select>
+            <select class="filter-select" id="filter-estado" onchange="renderConvenios()">
+              <option value="">Todos</option>
+              <option value="activo">Activos</option>
+              <option value="completado">Completados</option>
+              <option value="sin-firma">Sin firma</option>
+            </select>
+          </div>
+        </div>
+        <table><thead><tr><th>Titular</th><th>CUIT</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
+        <tbody id="tabla-convenios"></tbody></table>
+      </div>
+    </div>
+
+    <!-- PAGOS -->
+    <div id="view-pagos" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Pagos</div><div class="page-sub">Registro de cuotas abonadas</div></div>
+        <button class="btn btn-primary" onclick="openRegistrarPago()">＋ Registrar pago</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar"><input class="search-input" id="search-pagos" placeholder="Buscar por nombre o CUIT…" oninput="renderPagos()"></div>
+        <table><thead><tr><th>Titular</th><th>Convenio</th><th>Tipo</th><th>Fecha</th><th>Cuota N°</th><th>Monto</th><th>Reg. por</th><th></th></tr></thead>
+        <tbody id="tabla-pagos"></tbody></table>
+      </div>
+    </div>
+
+    <!-- VENCIMIENTOS -->
+    <div id="view-vencimientos" class="view">
+      <div class="page-header"><div><div class="page-title">Vencimientos</div><div class="page-sub">Cuotas por vencer y vencidas</div></div></div>
+      <div class="tabs">
+        <div class="tab active" onclick="setVencTab('prox',this)">Próximas (30 días)</div>
+        <div class="tab" onclick="setVencTab('vencidas',this)">Vencidas sin pago</div>
+        <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente</div>
+      </div>
+      <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
+      <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
+      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>Creado</th><th>Cuota</th><th>Enviado</th><th>Firmado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL CONVENIO -->
+<div class="modal-overlay" id="modal-convenio">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-convenio-title">Nuevo convenio</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-convenio')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- PASO 1: buscar CUIT (solo en modo nuevo) -->
+      <div id="cuit-lookup-section">
+        <div class="form-section">Buscar titular</div>
+        <div class="cuit-row">
+          <div class="field">
+            <label>CUIT *</label>
+            <input id="c-cuit-search" type="text" placeholder="Ingresá el CUIT sin guiones" oninput="onCuitInput(this.value)">
+          </div>
+          <button class="btn btn-ghost" onclick="buscarCuit()" id="btn-buscar-cuit">Buscar</button>
+        </div>
+        <div id="cuit-lookup-result"></div>
+      </div>
+
+      <!-- PASO 2: datos precargados (ocultos hasta buscar) -->
+      <div id="convenio-form-section" style="display:none">
+        <div class="form-section">Titular</div>
+        <div class="form-grid">
+          <input type="hidden" id="c-cuit">
+          <div class="field"><label>Nombre</label><input id="c-nombre" type="text" readonly style="opacity:.6"></div>
+          <div class="field"><label>Dominio</label><input id="c-dominio" type="text" readonly style="opacity:.6"></div>
+          <div class="field"><label>Teléfono</label><input id="c-telefono" type="text"></div>
+          <div class="field"><label>Mail</label><input id="c-mail" type="email"></div>
+          <div class="field form-full"><label>Dirección</label><input id="c-direccion" type="text"></div>
+        </div>
+
+        <div class="form-section">Deuda (desde Autonomy)</div>
+        <div class="form-grid">
+          <div class="field"><label>Deuda Alquiler</label><input id="c-deuda-alq" type="number" readonly style="opacity:.6"></div>
+          <div class="field"><label>Infracciones</label><input id="c-deuda-inf" type="number" readonly style="opacity:.6"></div>
+          <div class="field"><label>Siniestros</label><input id="c-deuda-sin" type="number" readonly style="opacity:.6"></div>
+          <div class="field"><label>Depósito disponible</label><input id="c-deposito" type="number" readonly style="opacity:.6"></div>
+        </div>
+
+        <div class="form-section">Convenio</div>
+        <div class="form-grid">
+          <div class="field"><label>Tipo *</label><select id="c-tipo" onchange="actualizarCuota()"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
+          <div class="field"><label>Modalidad</label><select id="c-modalidad"><option value="mensuales">Mensuales</option><option value="semanales">Semanales</option></select></div>
+          <div class="field"><label>Cantidad de cuotas *</label><input id="c-cant-cuotas" type="number" min="1" placeholder="6" oninput="actualizarCuota()"></div>
+          <div class="field"><label>Usa depósito</label><select id="c-usa-deposito" onchange="actualizarCuota()"><option value="NO">No</option><option value="SI">Sí</option></select></div>
+          <div class="field"><label>Quita (%)</label><input id="c-quita" type="number" min="0" max="100" placeholder="0" oninput="actualizarCuota()"></div>
+          <div class="field"><label>Importe por cuota</label><input id="c-importe-cuota" type="number"></div>
+          <div class="field"><label>Fecha primer vencimiento</label><input id="c-fecha-inicio" type="date"></div>
+          <div class="field"><label>Enviado para firmar</label><select id="c-enviado"><option value="">No enviado</option><option value="SI">Sí, enviado</option></select></div>
+          <div class="field"><label>Firmado</label><select id="c-firmado"><option value="">Pendiente</option><option value="SI">Sí</option></select></div>
+          <div class="field form-full"><label>Comentarios</label><textarea id="c-comentario" placeholder="Observaciones…"></textarea></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-convenio')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-conv" onclick="guardarConvenio()" style="display:none">Guardar convenio</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PAGO -->
+<div class="modal-overlay" id="modal-pago">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title">Registrar pago</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-pago')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field form-full"><label>Convenio *</label><select id="p-convenio-select" onchange="onSeleccionConvenio()"><option value="">— Seleccionar —</option></select></div>
+        <div class="field"><label>Tipo</label><select id="p-tipo"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
+        <div class="field"><label>N° de cuota</label><input id="p-cuota-num" type="number" min="1"></div>
+        <div class="field"><label>Monto *</label><input id="p-monto" type="number" placeholder="0"></div>
+        <div class="field"><label>Fecha *</label><input id="p-fecha" type="date"></div>
+        <div class="field form-full"><label>Observación</label><input id="p-obs" type="text" placeholder="Transferencia, efectivo…"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pago')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-pago" onclick="guardarPago()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <span class="modal-title" id="detalle-title">Detalle</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-detalle')">✕</button>
+    </div>
+    <div class="modal-body" id="detalle-body"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────────
+const FILE_ID    = '1SkkaS5eeUd3bSgGQdG9douqxWoZbuLOZ';
+const SHEET_ID   = '1LwplxWQtTAnNx1PKCPvgCq_hw8zJpFmMbRsQLDnrH3I';
+const SCOPES     = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
+
+let CLIENT_ID = localStorage.getItem('autonomy_client_id') || '';
+if (CLIENT_ID) document.getElementById('input-client-id').value = CLIENT_ID;
+
+function guardarClientId() {
+  const v = document.getElementById('input-client-id').value.trim();
+  if (!v) { document.getElementById('client-id-status').textContent = 'Ingresá un Client ID válido'; return; }
+  CLIENT_ID = v;
+  localStorage.setItem('autonomy_client_id', v);
+  document.getElementById('client-id-status').textContent = '✓ Guardado. Ahora podés iniciar sesión.';
+}
+
+// ─── AUTH ────────────────────────────────────────────────────────────────────
+let accessToken = null;
+let currentUser = null;
+let tokenClient = null;
+
+function initTokenClient() {
+  if (!CLIENT_ID) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    prompt: 'consent',
+    callback: (resp) => {
+      if (resp.error) { toast('Error auth: ' + resp.error, 'error'); return; }
+      accessToken = resp.access_token;
+      onSignedIn();
+    }
+  });
+}
+
+window.addEventListener('load', () => {
+  if (CLIENT_ID) {
+    // Wait for GSI to load
+    const wait = setInterval(() => {
+      if (window.google && google.accounts) {
+        clearInterval(wait);
+        initTokenClient();
+      }
+    }, 100);
+  }
+});
+
+function signIn() {
+  if (!CLIENT_ID) {
+    document.getElementById('client-id-status').textContent = '⚠ Primero ingresá el Client ID arriba';
+    document.getElementById('input-client-id').focus();
+    return;
+  }
+  if (!tokenClient) initTokenClient();
+  tokenClient.requestAccessToken();
+}
+
+function onSignedIn() {
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  }).then(r => r.json()).then(u => {
+    const ini = ((u.given_name||'')[0] + (u.family_name||'')[0]).toUpperCase();
+    document.getElementById('user-name').textContent = u.name || u.email;
+    document.getElementById('user-avatar').textContent = ini || '?';
+    currentUser = u;
+  });
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  syncFromDrive(true);
+  setInterval(() => syncFromDrive(true), 120000);
+  syncConveniosDesdeSheets();
+  syncConveniosDesdeSheets();
+}
+
+function signOut() {
+  if (accessToken) google.accounts.oauth2.revoke(accessToken);
+  accessToken = null;
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+// ─── DRIVE ───────────────────────────────────────────────────────────────────
+let DB = { convenios: [], pagos: [] };
+let writeTimer = null;
+
+async function driveGet() {
+  const r = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${FILE_ID}?alt=media`,
+    { headers: { Authorization: 'Bearer ' + accessToken } }
+  );
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+async function drivePut(data) {
+  const r = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }
+  );
+  if (!r.ok) throw new Error(r.status);
+}
+
+async function syncFromDrive(render) {
+  setSyncState('syncing');
+  try {
+    const data = await driveGet();
+    DB = { convenios: data.convenios || [], pagos: data.pagos || [] };
+    setSyncState('ok');
+    if (render) { renderDashboard(); renderConvenios(); renderPagos(); renderVencimientos(); }
+  } catch(e) {
+    setSyncState('error');
+    console.error('Drive read error', e);
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(writeTimer);
+  setSyncState('syncing');
+  writeTimer = setTimeout(async () => {
+    try { await drivePut(DB); setSyncState('ok'); }
+    catch(e) { setSyncState('error'); toast('Error al guardar en Drive','error'); }
+  }, 600);
+}
+
+function setSyncState(s) {
+  const d = document.getElementById('sync-dot');
+  d.className = 'sync-dot' + (s==='syncing'?' syncing':s==='error'?' error':'');
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+const fmtPeso = n => n==null?'—':'$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
+// Parsea montos en formato argentino: $1.156.071,00 → 1156071
+const parsePeso = s => { const clean=String(s||'0').replace(/[^0-9,]/g,'').replace(',','.'); return parseFloat(clean)||0; };
+const fmtFecha = d => d ? new Date(d).toLocaleDateString('es-AR') : '—';
+const today = () => new Date().toISOString().split('T')[0];
+const addDays = (ds,n) => { const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISOString().split('T')[0]; };
+const addMonths = (ds,n) => { const d=new Date(ds);d.setMonth(d.getMonth()+n);return d.toISOString().split('T')[0]; };
+const addWeeks = (ds,n) => addDays(ds,n*7);
+const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/86400000);
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
+
+function toast(msg,type='success'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='show '+type;
+  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',3000);
+}
+
+const pagosDeConv = (cid,tipo) => DB.pagos.filter(p=>p.convenioId===cid&&p.tipo===tipo);
+
+function generarCuotas(c) {
+  if(!c.fechaInicio||!c.cantCuotas) return [];
+  return Array.from({length:c.cantCuotas},(_,i)=>({
+    num:i+1,
+    vencimiento: c.modalidad==='semanales'?addWeeks(c.fechaInicio,i):addMonths(c.fechaInicio,i),
+    importe: c.importeCuota
+  }));
+}
+
+function calcStatus() {
+  const hoy=today(),prox=[],venc=[];
+  DB.convenios.forEach(c=>{
+    const pag=new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
+    generarCuotas(c).forEach(cq=>{
+      if(pag.has(cq.num))return;
+      const d=diffDays(hoy,cq.vencimiento);
+      if(d<0) venc.push({conv:c,cq,dias:Math.abs(d)});
+      else if(d<=30) prox.push({conv:c,cq,dias:d});
+    });
+  });
+  prox.sort((a,b)=>a.dias-b.dias);
+  venc.sort((a,b)=>b.dias-a.dias);
+  return {prox,venc};
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function setView(v) {
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','convenios','pagos','vencimientos'].indexOf(v)].classList.add('active');
+  if(v==='dashboard') renderDashboard();
+  if(v==='convenios') renderConvenios();
+  if(v==='pagos') renderPagos();
+  if(v==='vencimientos') renderVencimientos();
+}
+
+function openModal(id){document.getElementById(id).classList.add('open')}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+
+// ─── SHEETS LOOKUP ───────────────────────────────────────────────────────────
+async function buscarEnSheets(cuit) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:Q`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!r.ok) throw new Error('Sheets error ' + r.status);
+  const data = await r.json();
+  const rows = data.values || [];
+  // fila 0 = headers, buscar por CUIT (col 0)
+  const cuitStr = String(cuit).replace(/\D/g,'');
+  const row = rows.slice(1).find(r => String(r[0]||'').replace(/\D/g,'') === cuitStr);
+  if (!row) return null;
+  return {
+    cuit:     String(row[0]||'').replace(/\D/g,''),
+    nombre:   row[1]||'',
+    direccion:row[2]||'',
+    mail:     row[3]||'',
+    telefono: row[4]||'',
+    dominio:  row[5]||'',
+    deudaAlq: parsePeso(row[8]),
+    deudaInf: parsePeso(row[9]),
+    deudaSin: parsePeso(row[10]),
+    deposito: parsePeso(row[12]),
+  };
+}
+
+let cuitTimer = null;
+function onCuitInput(val) {
+  clearTimeout(cuitTimer);
+  const clean = val.replace(/\D/g,'');
+  if (clean.length >= 10) {
+    cuitTimer = setTimeout(() => buscarCuit(), 600);
+  } else {
+    document.getElementById('cuit-lookup-result').innerHTML = '';
+    document.getElementById('convenio-form-section').style.display = 'none';
+    document.getElementById('btn-guardar-conv').style.display = 'none';
+  }
+}
+
+async function buscarCuit() {
+  const val = document.getElementById('c-cuit-search').value.replace(/\D/g,'');
+  if (!val) return;
+  const res = document.getElementById('cuit-lookup-result');
+  res.innerHTML = `<div class="cuit-searching"><div class="spinner"></div> Buscando en Autonomy…</div>`;
+
+  try {
+    const titular = await buscarEnSheets(val);
+    if (!titular) {
+      res.innerHTML = `<div class="lookup-not-found">⚠ CUIT no encontrado en la hoja ORIGINAL. Podés cargarlo manualmente igual.</div>`;
+      // Mostrar form vacío para carga manual
+      precargarForm({cuit:val,nombre:'',direccion:'',mail:'',telefono:'',dominio:'',deudaAlq:0,deudaInf:0,deudaSin:0,deposito:0});
+      return;
+    }
+
+    // Convenios activos en la app para este CUIT
+    const convsExistentes = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === val);
+
+    // Determinar qué tipos ya tienen convenio activo
+    const tiposConConvenio = {};
+    convsExistentes.forEach(c => {
+      const pgos = pagosDeConv(c.id, c.tipo);
+      const activo = pgos.length < c.cantCuotas;
+      tiposConConvenio[c.tipo] = { activo, pagadas: pgos.length, total: c.cantCuotas, importe: c.importeCuota };
+    });
+
+    const deudaItems = [
+      { tipo: 'Alquiler',     val: titular.deudaAlq, key: 'Alquiler' },
+      { tipo: 'Infracciones', val: titular.deudaInf, key: 'Infracciones' },
+      { tipo: 'Siniestros',   val: titular.deudaSin, key: 'Siniestros' },
+    ].filter(d => d.val > 0);
+
+    const deudasHtml = deudaItems.map(d => {
+      const conv = tiposConConvenio[d.key];
+      const tieneConv = conv && conv.activo;
+      return `<div class="lookup-deuda-item ${tieneConv?'tiene-convenio':''}">
+        <div class="lbl">${d.tipo}</div>
+        <div class="val">${fmtPeso(d.val)}</div>
+        ${tieneConv ? `<div style="font-size:10px;color:var(--ok);margin-top:4px">${conv.pagadas}/${conv.total} cuotas · ${fmtPeso(conv.importe)}/cuota</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const depositoHtml = titular.deposito > 0 ? `<div class="lookup-deuda-item" style="border-color:var(--accent2);background:rgba(123,108,255,.05)"><div class="lbl" style="color:var(--accent2)">Depósito</div><div class="val" style="color:var(--accent2)">${fmtPeso(titular.deposito)}</div></div>` : "";
+
+    const convsHtml = convsExistentes.length ? `
+      <div class="lookup-convenios">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Convenios en la app</div>
+        ${convsExistentes.map(c => {
+          const pgos = pagosDeConv(c.id, c.tipo);
+          const activo = pgos.length < c.cantCuotas;
+          return `<div class="lookup-conv-item">
+            <span class="conv-tipo badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span>
+            <span class="conv-progreso">${pgos.length}/${c.cantCuotas} cuotas · ${fmtPeso(pgos.reduce((s,p)=>s+p.monto,0))} cobrado</span>
+            <span class="badge ${activo?'badge-pendiente':'badge-ok'}">${activo?'Activo':'Completado'}</span>
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    res.innerHTML = `
+      <div class="lookup-result">
+        <div class="lookup-nombre">${titular.nombre}</div>
+        <div class="lookup-sub">${titular.dominio} · ${titular.direccion}</div>
+        <div class="lookup-deudas">${deudasHtml}${depositoHtml}${!deudasHtml && !depositoHtml ? '<span style="color:var(--muted);font-size:12px">Sin deudas registradas</span>' : ''}</div>
+        ${convsHtml}
+      </div>`;
+
+    precargarForm(titular);
+
+  } catch(e) {
+    res.innerHTML = `<div class="lookup-not-found">Error al consultar Sheets: ${e.message}</div>`;
+  }
+}
+
+// ─── SHEETS CONVENIOS ────────────────────────────────────────────────────────
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function parseFechaArg(s) {
+  // dd/mm/yyyy → yyyy-mm-dd
+  if (!s) return '';
+  const p = String(s).split('/');
+  if (p.length === 3) return `${p[2].padStart(4,'0')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+  return '';
+}
+
+function rowToConvenio(row) {
+  // Columnas: 0=Dia 1=Mes 2=Año 3=CUIT 4=Nombre 5=Dir 6=Tel 7=Dom 8=FInicio 9=FFin
+  // 10=DeudaAlq 11=DeudaInf 12=DeudaSin 13=DeudaTotal 14=Deposito 15=DeudaNeta
+  // 16=Tipo(a/i/s) 17=CuotasSemanales 18=CuotasMensuales 19=UsaDeposito 20=Quita
+  // 21=ImporteCuota 22=ImporteDepUsado 23=DiaVenc 24=MesVenc 25=AnyoVenc
+  // 26=Tipo 27=TipoCuotas 28=CantCuotas 29=ConvenioID 30=ImporteTotal 31=InfActualizado
+  // 32=? 33=Enviado 34=Firmado
+  const tipoRaw = String(row[16]||row[26]||'').trim().toLowerCase();
+  const tipoMap = { a:'Alquiler', i:'Infracciones', s:'Siniestros' };
+  const tipo = tipoMap[tipoRaw] || (tipoRaw.startsWith('a')?'Alquiler':tipoRaw.startsWith('i')?'Infracciones':'Siniestros');
+  const modalidad = String(row[27]||'').toLowerCase().includes('sem') ? 'semanales' : 'mensuales';
+  const cantCuotas = parseInt(row[28])||0;
+  const convenioId = String(row[29]||'').trim();
+  const cuit = String(row[3]||'').replace(/\D/g,'');
+  return {
+    id: convenioId || (tipoRaw+'-'+cuit),
+    sheetId: convenioId,
+    cuit,
+    nombre: row[4]||'',
+    direccion: row[5]||'',
+    telefono: row[6]||'',
+    dominio: row[7]||'',
+    mail: '',
+    deudaAlq: parsePeso(row[10]),
+    deudaInf: parsePeso(row[11]),
+    deudaSin: parsePeso(row[12]),
+    deposito: parsePeso(row[14]),
+    tipo,
+    modalidad,
+    cantCuotas,
+    usaDeposito: String(row[19]||'NO').toUpperCase(),
+    quita: parseFloat(String(row[20]||'0').replace(/[^0-9.]/g,''))||0,
+    importeCuota: parsePeso(row[21]),
+    fechaInicio: (() => {
+      const dia = String(row[23]||'').trim();
+      const mesNom = String(row[24]||'').trim();
+      const anyo = String(row[25]||'').trim();
+      if (!dia || !mesNom || !anyo) return parseFechaArg(row[8]);
+      const mesIdx = MESES.findIndex(m => m.toLowerCase() === mesNom.toLowerCase());
+      if (mesIdx < 0) return parseFechaArg(row[8]);
+      return `${anyo.padStart(4,'0')}-${String(mesIdx+1).padStart(2,'0')}-${dia.padStart(2,'0')}`;
+    })(),
+    firmado: String(row[34]||'').toUpperCase()==='SI' ? 'SI' : '',
+    enviado: String(row[33]||'').toUpperCase()==='SI' ? 'SI' : '',
+    comentario: '',
+    creadoEn: new Date().toISOString(),
+    creadoPor: 'Sheets',
+    fromSheet: true
+  };
+}
+
+async function syncConveniosDesdeSheets() {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!r.ok) return;
+    const data = await r.json();
+    const rows = (data.values || []).slice(1).filter(r => r[3] && String(r[3]).replace(/\D/g,'').length >= 10);
+    let changed = false;
+    rows.forEach(row => {
+      const conv = rowToConvenio(row);
+      if (!conv.cuit || !conv.cantCuotas) return;
+      const key = conv.tipo[0].toLowerCase() + '-' + conv.cuit;
+      const idx = DB.convenios.findIndex(c => {
+        const ck = c.tipo[0].toLowerCase() + '-' + String(c.cuit).replace(/\D/g,'');
+        return ck === key;
+      });
+      if (idx >= 0) {
+        // Sobreescribir preservando id interno y pagos
+        DB.convenios[idx] = { ...conv, id: DB.convenios[idx].id };
+        changed = true;
+      } else {
+        DB.convenios.push(conv);
+        changed = true;
+      }
+    });
+    if (changed) { scheduleSave(); renderConvenios(); renderDashboard(); renderVencimientos(); toast('Convenios sincronizados desde Sheets ✓','info'); }
+  } catch(e) {
+    console.warn('syncConveniosDesdeSheets error', e);
+  }
+}
+
+async function writeConvenioToSheets(conv) {
+  try {
+    // Leer filas actuales para saber cuántas hay
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:A`;
+    const rRead = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead = await rRead.json();
+    const nextRow = (dRead.values||[]).length + 1;
+
+    const fecha = new Date(conv.creadoEn||new Date());
+    const dia = fecha.getDate(), mes = MESES[fecha.getMonth()], anyo = fecha.getFullYear();
+    const tipoLetra = conv.tipo[0].toLowerCase();
+    const sheetId = tipoLetra+'-'+conv.cuit;
+    const valores = [
+      dia, mes, anyo,
+      conv.cuit, conv.nombre, conv.direccion||'', conv.telefono||'', conv.dominio||'',
+      conv.fechaInicio||'', '',
+      conv.deudaAlq||0, conv.deudaInf||0, conv.deudaSin||0,
+      (conv.deudaAlq||0)+(conv.deudaInf||0)+(conv.deudaSin||0),
+      conv.deposito||0,
+      (conv.tipo==='Alquiler'?conv.deudaAlq:conv.tipo==='Infracciones'?conv.deudaInf:conv.deudaSin)-(conv.usaDeposito==='SI'?conv.deposito:0),
+      tipoLetra, '', conv.cantCuotas,
+      conv.usaDeposito||'NO', conv.quita||0,
+      conv.importeCuota||0, 0,
+      '', '', '',
+      conv.tipo, conv.modalidad, conv.cantCuotas, sheetId,
+      conv.importeCuota*conv.cantCuotas, '',
+      '', conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO'
+    ];
+    const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${nextRow}:AI${nextRow}?valueInputOption=USER_ENTERED`;
+    await fetch(urlWrite, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [valores] })
+    });
+  } catch(e) {
+    console.warn('writeConvenioToSheets error', e);
+    toast('Convenio guardado en app pero no en Sheets','error');
+  }
+}
+
+async function updateConvenioEnSheets(conv) {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const data = await r.json();
+    const rows = data.values || [];
+    const key = conv.tipo[0].toLowerCase() + '-' + String(conv.cuit).replace(/\D/g,'');
+    const rowIdx = rows.findIndex((row, i) => i > 0 && String(row[29]||'').trim() === key);
+    if (rowIdx < 0) { await writeConvenioToSheets(conv); return; }
+    const sheetRow = rowIdx + 1;
+    const tipoLetra = conv.tipo[0].toLowerCase();
+    const fecha = new Date(conv.creadoEn||new Date());
+    const dia = fecha.getDate(), mes = MESES[fecha.getMonth()], anyo = fecha.getFullYear();
+    // Parse fechaInicio back to dia/mes/anyo for cols X,Y,Z
+    let diaVenc='', mesVenc='', anyoVenc='';
+    if (conv.fechaInicio) {
+      const fp = conv.fechaInicio.split('-');
+      if (fp.length===3) { anyoVenc=fp[0]; mesVenc=MESES[parseInt(fp[1])-1]; diaVenc=parseInt(fp[2]); }
+    }
+    const valores = [
+      dia, mes, anyo,
+      conv.cuit, conv.nombre, conv.direccion||'', conv.telefono||'', conv.dominio||'',
+      conv.fechaInicio||'', '',
+      conv.deudaAlq||0, conv.deudaInf||0, conv.deudaSin||0,
+      (conv.deudaAlq||0)+(conv.deudaInf||0)+(conv.deudaSin||0),
+      conv.deposito||0,
+      (conv.tipo==='Alquiler'?conv.deudaAlq:conv.tipo==='Infracciones'?conv.deudaInf:conv.deudaSin)-(conv.usaDeposito==='SI'?conv.deposito:0),
+      tipoLetra, '', conv.cantCuotas,
+      conv.usaDeposito||'NO', conv.quita||0,
+      conv.importeCuota||0, 0,
+      diaVenc, mesVenc, anyoVenc,
+      conv.tipo, conv.modalidad, conv.cantCuotas, key,
+      conv.importeCuota*conv.cantCuotas, '',
+      '', conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO'
+    ];
+    const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
+    await fetch(urlWrite, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [valores] })
+    });
+    toast('Convenio actualizado en Sheets ✓', 'info');
+  } catch(e) {
+    console.warn('updateConvenioEnSheets error', e);
+    toast('Guardado en app pero error al actualizar Sheets', 'error');
+  }
+}
+
+async function updateEstadoEnSheets(conv) {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const data = await r.json();
+    const rows = data.values || [];
+    const key = conv.tipo[0].toLowerCase() + '-' + conv.cuit;
+    const rowIdx = rows.findIndex((row, i) => i > 0 && String(row[29]||'').trim() === key);
+    if (rowIdx < 0) return;
+    const sheetRow = rowIdx + 1;
+    // Col AH = col 33 (0-indexed) = Enviado, Col AI = col 34 = Firmado
+    const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AH${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
+    await fetch(urlWrite, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO']] })
+    });
+  } catch(e) {
+    console.warn('updateEstadoEnSheets error', e);
+  }
+}
+
+function precargarForm(t) {
+  document.getElementById('c-cuit').value      = t.cuit;
+  document.getElementById('c-nombre').value    = t.nombre;
+  document.getElementById('c-dominio').value   = t.dominio;
+  document.getElementById('c-telefono').value  = t.telefono;
+  document.getElementById('c-mail').value      = t.mail;
+  document.getElementById('c-direccion').value = t.direccion;
+  document.getElementById('c-deuda-alq').value = t.deudaAlq||0;
+  document.getElementById('c-deuda-inf').value = t.deudaInf||0;
+  document.getElementById('c-deuda-sin').value = t.deudaSin||0;
+  document.getElementById('c-deposito').value  = t.deposito||0;
+  document.getElementById('convenio-form-section').style.display = 'block';
+  document.getElementById('btn-guardar-conv').style.display = 'inline-flex';
+  actualizarCuota();
+}
+
+// ─── CONVENIO ─────────────────────────────────────────────────────────────────
+let editId = null;
+
+function openNuevoConvenio() {
+  editId = null;
+  document.getElementById('modal-convenio-title').textContent = 'Nuevo convenio';
+  // Mostrar sección búsqueda, ocultar form
+  document.getElementById('cuit-lookup-section').style.display = 'block';
+  document.getElementById('convenio-form-section').style.display = 'none';
+  document.getElementById('btn-guardar-conv').style.display = 'none';
+  document.getElementById('c-cuit-search').value = '';
+  document.getElementById('cuit-lookup-result').innerHTML = '';
+  // Limpiar campos
+  ['c-cuit','c-nombre','c-dominio','c-telefono','c-direccion','c-mail',
+   'c-deuda-alq','c-deuda-inf','c-deuda-sin','c-deposito',
+   'c-cant-cuotas','c-quita','c-importe-cuota','c-comentario'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('c-tipo').value='Alquiler';
+  document.getElementById('c-modalidad').value='mensuales';
+  document.getElementById('c-usa-deposito').value='NO';
+  document.getElementById('c-firmado').value='';
+  document.getElementById('c-fecha-inicio').value=today();
+  openModal('modal-convenio');
+}
+
+function actualizarCuota() {
+  const tipo=document.getElementById('c-tipo').value;
+  const alq=parseFloat(document.getElementById('c-deuda-alq').value)||0;
+  const inf=parseFloat(document.getElementById('c-deuda-inf').value)||0;
+  const sin=parseFloat(document.getElementById('c-deuda-sin').value)||0;
+  const dep=parseFloat(document.getElementById('c-deposito').value)||0;
+  const usa=document.getElementById('c-usa-deposito').value==='SI';
+  const qui=parseFloat(document.getElementById('c-quita').value)||0;
+  const cant=parseInt(document.getElementById('c-cant-cuotas').value)||0;
+  let base=tipo==='Alquiler'?alq:tipo==='Infracciones'?inf:sin;
+  if(usa) base=Math.max(0,base-dep);
+  base=base*(1-qui/100);
+  if(cant>0&&base>0) document.getElementById('c-importe-cuota').value=Math.round(base/cant*100)/100;
+}
+
+async function guardarConvenio() {
+  const cuit=document.getElementById('c-cuit').value.trim();
+  const nombre=document.getElementById('c-nombre').value.trim();
+  const tipo=document.getElementById('c-tipo').value;
+  const cant=parseInt(document.getElementById('c-cant-cuotas').value);
+  const imp=parseFloat(document.getElementById('c-importe-cuota').value);
+  if(!cuit||!nombre||!tipo||!cant||!imp){toast('Completá los campos obligatorios','error');return;}
+
+  const conv={
+    id: editId||uid(), cuit, nombre,
+    dominio: document.getElementById('c-dominio').value.trim(),
+    telefono: document.getElementById('c-telefono').value.trim(),
+    direccion: document.getElementById('c-direccion').value.trim(),
+    mail: document.getElementById('c-mail').value.trim(),
+    deudaAlq: parseFloat(document.getElementById('c-deuda-alq').value)||0,
+    deudaInf: parseFloat(document.getElementById('c-deuda-inf').value)||0,
+    deudaSin: parseFloat(document.getElementById('c-deuda-sin').value)||0,
+    deposito: parseFloat(document.getElementById('c-deposito').value)||0,
+    tipo, modalidad: document.getElementById('c-modalidad').value,
+    cantCuotas: cant,
+    usaDeposito: document.getElementById('c-usa-deposito').value,
+    quita: parseFloat(document.getElementById('c-quita').value)||0,
+    importeCuota: imp,
+    fechaInicio: document.getElementById('c-fecha-inicio').value,
+    firmado: document.getElementById('c-firmado').value,
+    enviado: document.getElementById('c-enviado').value,
+    comentario: document.getElementById('c-comentario').value.trim(),
+    creadoEn: new Date().toISOString(),
+    creadoPor: currentUser?.name||currentUser?.email||'—'
+  };
+
+  const btn=document.getElementById('btn-guardar-conv');
+  btn.disabled=true; btn.textContent='Guardando…';
+
+  if(editId) { const i=DB.convenios.findIndex(c=>c.id===editId); if(i>=0) DB.convenios[i]=conv; toast('Convenio actualizado ✓'); updateConvenioEnSheets(conv); }
+  else { DB.convenios.push(conv); toast('Convenio guardado ✓'); writeConvenioToSheets(conv); }
+
+  scheduleSave();
+  closeModal('modal-convenio');
+  btn.disabled=false; btn.textContent='Guardar convenio';
+  renderConvenios(); renderDashboard();
+}
+
+function editarConvenio(id) {
+  const c=DB.convenios.find(x=>x.id===id); if(!c) return;
+  editId=id;
+  document.getElementById('modal-convenio-title').textContent='Editar convenio';
+  // En edición: ocultar buscador, mostrar form directo
+  document.getElementById('cuit-lookup-section').style.display='none';
+  document.getElementById('convenio-form-section').style.display='block';
+  document.getElementById('btn-guardar-conv').style.display='inline-flex';
+  document.getElementById('c-cuit').value=c.cuit;
+  document.getElementById('c-nombre').value=c.nombre;
+  document.getElementById('c-dominio').value=c.dominio||'';
+  document.getElementById('c-telefono').value=c.telefono||'';
+  document.getElementById('c-direccion').value=c.direccion||'';
+  document.getElementById('c-mail').value=c.mail||'';
+  document.getElementById('c-deuda-alq').value=c.deudaAlq||0;
+  document.getElementById('c-deuda-inf').value=c.deudaInf||0;
+  document.getElementById('c-deuda-sin').value=c.deudaSin||0;
+  document.getElementById('c-deposito').value=c.deposito||0;
+  document.getElementById('c-tipo').value=c.tipo;
+  document.getElementById('c-modalidad').value=c.modalidad;
+  document.getElementById('c-cant-cuotas').value=c.cantCuotas;
+  document.getElementById('c-usa-deposito').value=c.usaDeposito||'NO';
+  document.getElementById('c-quita').value=c.quita||0;
+  document.getElementById('c-importe-cuota').value=c.importeCuota;
+  document.getElementById('c-fecha-inicio').value=c.fechaInicio||today();
+  document.getElementById('c-firmado').value=c.firmado||'';
+  document.getElementById('c-enviado').value=c.enviado||'';
+  document.getElementById('c-comentario').value=c.comentario||'';
+  // En edición los campos de deuda son editables
+  ['c-deuda-alq','c-deuda-inf','c-deuda-sin','c-deposito','c-nombre','c-dominio'].forEach(id=>{
+    const el=document.getElementById(id); if(el){el.removeAttribute('readonly');el.style.opacity='1';}
+  });
+  openModal('modal-convenio');
+}
+
+async function toggleEstado(id, campo) {
+  const c = DB.convenios.find(x => x.id === id); if (!c) return;
+  c[campo] = c[campo] === 'SI' ? '' : 'SI';
+  scheduleSave();
+  updateEstadoEnSheets(c);
+  renderConvenios(); renderDashboard(); renderVencimientos();
+  toast(campo === 'firmado' ? (c.firmado==='SI' ? '✓ Marcado como firmado' : 'Firma removida') : (c.enviado==='SI' ? '✓ Marcado como enviado' : 'Envío removido'));
+}
+
+async function borrarConvenio(id) {
+  if(!confirm('¿Eliminar este convenio y sus pagos?')) return;
+  DB.convenios=DB.convenios.filter(c=>c.id!==id);
+  DB.pagos=DB.pagos.filter(p=>p.convenioId!==id);
+  scheduleSave(); renderConvenios(); renderDashboard(); toast('Convenio eliminado');
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  document.getElementById('dash-fecha').textContent=
+    new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const {prox,venc}=calcStatus();
+  const activos=DB.convenios.filter(c=>pagosDeConv(c.id,c.tipo).length<c.cantCuotas);
+  document.getElementById('stat-activos').textContent=activos.length;
+  document.getElementById('stat-vencidos').textContent=venc.length;
+  document.getElementById('stat-semana').textContent=prox.filter(p=>p.dias<=7).length;
+  document.getElementById('stat-firma').textContent=DB.convenios.filter(c=>c.firmado!=='SI').length;
+  const tbody=document.getElementById('tabla-proximas');
+  const todos=[...venc.map(x=>({...x,esV:true})),...prox.slice(0,15)];
+  if(!todos.length){tbody.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="icon">✅</div><p>Sin cuotas próximas ni vencidas</p></div></td></tr>`;return;}
+  tbody.innerHTML=todos.map(({conv,cq,dias,esV})=>`
+    <tr>
+      <td><div style="font-weight:500">${conv.nombre}</div><div class="mono" style="color:var(--muted)">${conv.cuit}</div></td>
+      <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
+      <td class="mono">${fmtFecha(cq.vencimiento)}</td>
+      <td class="importe">${fmtPeso(cq.importe)}</td>
+      <td>${esV?`<span class="badge badge-vencido">Vencida ${dias}d</span>`:`<span class="badge badge-pendiente">En ${dias}d</span>`}</td>
+    </tr>`).join('');
+}
+
+// ─── CONVENIOS ────────────────────────────────────────────────────────────────
+function renderConvenios() {
+  const q=(document.getElementById('search-convenios')?.value||'').toLowerCase();
+  const fT=document.getElementById('filter-tipo')?.value||'';
+  const fE=document.getElementById('filter-estado')?.value||'';
+  const lista=DB.convenios.filter(c=>{
+    const oQ=!q||c.nombre.toLowerCase().includes(q)||c.cuit.includes(q)||(c.dominio||'').toLowerCase().includes(q);
+    const oT=!fT||c.tipo===fT;
+    const p=pagosDeConv(c.id,c.tipo).length;
+    const comp=p>=c.cantCuotas;
+    const oE=!fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
+    return oQ&&oT&&oE;
+  });
+  const tbody=document.getElementById('tabla-convenios');
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`;return;}
+  tbody.innerHTML=lista.map(c=>{
+    const pg=pagosDeConv(c.id,c.tipo);
+    const pct=Math.round(pg.length/c.cantCuotas*100);
+    const deuda=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+    return `<tr>
+      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
+      <td class="mono">${c.cuit}</td>
+      <td class="mono">${c.dominio||'—'}</td>
+      <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
+      <td class="importe">${fmtPeso(deuda)}</td>
+      <td class="importe">${fmtPeso(c.importeCuota)}</td>
+      <td class="mono" style="text-align:center">${pg.length}/${c.cantCuotas}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></td>
+      <td class="importe">${fmtPeso(pg.reduce((s,p)=>s+p.monto,0))}</td>
+      <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓ Enviado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\')" style="cursor:pointer" class="badge badge-pendiente">No enviado</span>'}</td>
+      <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓ Firmado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">Pendiente</span>'}</td>
+      <td><div class="actions">
+        <button class="btn btn-ghost btn-sm" onclick="verDetalle('${c.id}')">Ver</button>
+        <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
+        <button class="btn btn-danger btn-sm" onclick="borrarConvenio('${c.id}')">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── DETALLE ─────────────────────────────────────────────────────────────────
+function verDetalle(id) {
+  const c=DB.convenios.find(x=>x.id===id); if(!c) return;
+  const pgos=pagosDeConv(c.id,c.tipo);
+  const pagadas=new Set(pgos.map(p=>p.cuotaNum));
+  const cuotas=generarCuotas(c);
+  const hoy=today();
+  const deuda=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+  document.getElementById('detalle-title').textContent=c.nombre+' — '+c.tipo;
+  document.getElementById('detalle-body').innerHTML=`
+    <div class="detail-grid">
+      <div class="detail-item"><div class="lbl">CUIT</div><div class="val">${c.cuit}</div></div>
+      <div class="detail-item"><div class="lbl">Dominio</div><div class="val">${c.dominio||'—'}</div></div>
+      <div class="detail-item"><div class="lbl">Teléfono</div><div class="val">${c.telefono||'—'}</div></div>
+      <div class="detail-item"><div class="lbl">Deuda original</div><div class="val">${fmtPeso(deuda)}</div></div>
+      <div class="detail-item"><div class="lbl">Importe cuota</div><div class="val">${fmtPeso(c.importeCuota)}</div></div>
+      <div class="detail-item"><div class="lbl">${c.cantCuotas} cuotas ${c.modalidad}</div><div class="val">${pgos.length} pagadas</div></div>
+      <div class="detail-item"><div class="lbl">Total cobrado</div><div class="val" style="color:var(--ok)">${fmtPeso(pgos.reduce((s,p)=>s+p.monto,0))}</div></div>
+      <div class="detail-item"><div class="lbl">Creado por</div><div class="val" style="font-size:11px">${c.creadoPor||'—'}</div></div>
+      <div class="detail-item"><div class="lbl">Enviado</div><div class="val">${c.enviado==='SI'?'✓ Sí':'No enviado'}</div></div>
+      <div class="detail-item"><div class="lbl">Firmado</div><div class="val">${c.firmado==='SI'?'✓ Sí':'Pendiente'}</div></div>
+    </div>
+    ${c.comentario?`<div class="alert alert-info" style="margin-bottom:16px">💬 ${c.comentario}</div>`:''}
+    <div style="font-family:var(--fh);font-weight:700;margin-bottom:12px;font-size:14px">CUOTAS</div>
+    ${cuotas.map(cq=>{
+      const pag=pgos.find(p=>p.cuotaNum===cq.num);
+      const dias=diffDays(hoy,cq.vencimiento);
+      let badge,lbl;
+      if(pag){badge='badge-ok';lbl='✓ Pagada '+fmtFecha(pag.fecha);}
+      else if(dias<0){badge='badge-vencido';lbl='Vencida '+Math.abs(dias)+'d';}
+      else if(dias<=7){badge='badge-pendiente';lbl='En '+dias+'d';}
+      else{badge='';lbl=fmtFecha(cq.vencimiento);}
+      return `<div class="cuota-row">
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class="mono" style="color:var(--muted);width:28px">#${cq.num}</span>
+          <span class="mono" style="font-size:12px;color:var(--muted)">${fmtFecha(cq.vencimiento)}</span>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class="importe">${fmtPeso(cq.importe)}</span>
+          <span class="badge ${badge}" style="font-size:10px">${lbl}</span>
+          ${!pag?`<button class="btn btn-primary btn-sm" onclick="closeModal('modal-detalle');openRegistrarPago('${c.id}','${c.tipo}',${cq.num},${cq.importe})">Pagar</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}`;
+  openModal('modal-detalle');
+}
+
+// ─── PAGOS ───────────────────────────────────────────────────────────────────
+function openRegistrarPago(convId,tipo,cuotaNum,monto) {
+  const sel=document.getElementById('p-convenio-select');
+  sel.innerHTML='<option value="">— Seleccionar —</option>';
+  DB.convenios.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;
+    o.textContent=`${c.nombre} — ${c.tipo} (${c.cuit})`;
+    if(c.id===convId) o.selected=true;
+    sel.appendChild(o);
+  });
+  document.getElementById('p-fecha').value=today();
+  document.getElementById('p-cuota-num').value=cuotaNum||'';
+  document.getElementById('p-monto').value=monto||'';
+  document.getElementById('p-obs').value='';
+  if(tipo) document.getElementById('p-tipo').value=tipo;
+  openModal('modal-pago');
+}
+
+function onSeleccionConvenio() {
+  const id=document.getElementById('p-convenio-select').value;
+  const c=DB.convenios.find(x=>x.id===id); if(!c) return;
+  document.getElementById('p-tipo').value=c.tipo;
+  document.getElementById('p-monto').value=c.importeCuota;
+  const pags=new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
+  for(let i=1;i<=c.cantCuotas;i++){if(!pags.has(i)){document.getElementById('p-cuota-num').value=i;break;}}
+}
+
+async function guardarPago() {
+  const convId=document.getElementById('p-convenio-select').value;
+  const monto=parseFloat(document.getElementById('p-monto').value);
+  const fecha=document.getElementById('p-fecha').value;
+  if(!convId||!monto||!fecha){toast('Completá los campos obligatorios','error');return;}
+  const conv=DB.convenios.find(c=>c.id===convId);
+  DB.pagos.push({
+    id:uid(), convenioId:convId, cuit:conv?.cuit, nombre:conv?.nombre,
+    tipo:document.getElementById('p-tipo').value,
+    cuotaNum:parseInt(document.getElementById('p-cuota-num').value)||null,
+    monto, fecha, obs:document.getElementById('p-obs').value.trim(),
+    registradoPor:currentUser?.name||currentUser?.email||'—'
+  });
+  const btn=document.getElementById('btn-guardar-pago');
+  btn.disabled=true; btn.textContent='Guardando…';
+  scheduleSave(); toast('Pago registrado ✓'); closeModal('modal-pago');
+  btn.disabled=false; btn.textContent='Registrar';
+  renderPagos(); renderDashboard();
+}
+
+function renderPagos() {
+  const q=(document.getElementById('search-pagos')?.value||'').toLowerCase();
+  const lista=DB.pagos.filter(p=>!q||(p.nombre||'').toLowerCase().includes(q)||(p.cuit||'').includes(q)).slice().reverse();
+  const tbody=document.getElementById('tabla-pagos');
+  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="icon">💳</div><p>No hay pagos registrados</p></div></td></tr>`;return;}
+  tbody.innerHTML=lista.map(p=>`
+    <tr>
+      <td>${p.nombre||'—'}</td>
+      <td class="mono" style="font-size:11px">${p.cuit||'—'}</td>
+      <td><span class="badge badge-${(p.tipo||'')[0]?.toLowerCase()||''}">${p.tipo||'—'}</span></td>
+      <td class="mono">${fmtFecha(p.fecha)}</td>
+      <td class="mono" style="text-align:center">${p.cuotaNum||'—'}</td>
+      <td class="importe">${fmtPeso(p.monto)}</td>
+      <td style="color:var(--muted);font-size:11px">${p.registradoPor||'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="borrarPago('${p.id}')">🗑</button></td>
+    </tr>`).join('');
+}
+
+async function borrarPago(id) {
+  if(!confirm('¿Eliminar este pago?')) return;
+  DB.pagos=DB.pagos.filter(p=>p.id!==id);
+  scheduleSave(); renderPagos(); renderDashboard(); toast('Pago eliminado');
+}
+
+// ─── VENCIMIENTOS ────────────────────────────────────────────────────────────
+function setVencTab(t,el) {
+  document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active')); el.classList.add('active');
+  ['prox','vencidas','firma'].forEach(v=>document.getElementById('venc-'+v).style.display=v===t?'block':'none');
+  renderVencimientos();
+}
+
+function renderVencimientos() {
+  const {prox,venc}=calcStatus();
+  const tbP=document.getElementById('tabla-venc-prox');
+  tbP.innerHTML=!prox.length
+    ?`<tr><td colspan="7"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
+    :prox.map(({conv,cq,dias})=>`<tr>
+        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
+        <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
+        <td class="mono">${cq.num}/${conv.cantCuotas}</td>
+        <td class="mono">${fmtFecha(cq.vencimiento)}</td>
+        <td><span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span></td>
+        <td class="importe">${fmtPeso(cq.importe)}</td>
+        <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
+      </tr>`).join('');
+
+  const tbV=document.getElementById('tabla-venc-vencidas');
+  tbV.innerHTML=!venc.length
+    ?`<tr><td colspan="7"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
+    :venc.map(({conv,cq,dias})=>`<tr>
+        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
+        <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
+        <td class="mono">${cq.num}/${conv.cantCuotas}</td>
+        <td class="mono">${fmtFecha(cq.vencimiento)}</td>
+        <td><span class="dias-badge dias-bad">${dias}d</span></td>
+        <td class="importe">${fmtPeso(cq.importe)}</td>
+        <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
+      </tr>`).join('');
+
+  const sinFirma=DB.convenios.filter(c=>!c.firmado);
+  const tbF=document.getElementById('tabla-venc-firma');
+  tbF.innerHTML=!sinFirma.length
+    ?`<tr><td colspan="6"><div class="empty"><div class="icon">✅</div><p>Todos firmados</p></div></td></tr>`
+    :sinFirma.map(c=>`<tr>
+        <td><div style="font-weight:500">${c.nombre}</div></td>
+        <td class="mono">${c.cuit}</td>
+        <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
+        <td class="mono">${fmtFecha(c.creadoEn)}</td>
+        <td class="importe">${fmtPeso(c.importeCuota)}</td>
+        <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
+        <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
+        </td>
+      </tr>`).join('');
+}
+
+
+</script>
+</body>
+</html>
