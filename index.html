@@ -215,6 +215,7 @@
         <span class="sync-dot" id="sync-dot"></span>
       </div>
       <div class="nav-item" onclick="setView('busqueda')"><span class="icon">🔍</span> Búsqueda</div>
+      <div class="nav-item" onclick="setView('contactados')"><span class="icon">📋</span> Contactados</div>
       <div class="nav-item" onclick="setView('convenios')"><span class="icon">📄</span> Convenios</div>
       <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span> Pagos</div>
       <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span> Vencimientos</div>
@@ -321,6 +322,48 @@
         <div id="busqueda-sugerencias" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.08)"></div>
       </div>
       <div id="busqueda-resultado"></div>
+    </div>
+
+    <!-- CONTACTADOS -->
+    <div id="view-contactados" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Contactados</div>
+          <div class="page-sub">Titulares contactados por SMS — cruzado con deudas y convenios</div>
+        </div>
+        <button class="btn btn-ghost" onclick="cargarContactados()">↻ Actualizar</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar" style="flex-wrap:wrap;gap:12px">
+          <input class="search-input" id="search-contactados" placeholder="Buscar nombre o CUIT…" oninput="renderTablaContactados()">
+          <div style="display:flex;gap:8px">
+            <select class="filter-select" id="filter-contactados-convenio" onchange="renderTablaContactados()">
+              <option value="">Todos</option>
+              <option value="sin">Sin convenio</option>
+              <option value="con">Con convenio</option>
+            </select>
+            <select class="filter-select" id="filter-contactados-comentario" onchange="renderTablaContactados()">
+              <option value="">Con y sin comentario</option>
+              <option value="con">Con comentario</option>
+              <option value="sin">Sin comentario</option>
+            </select>
+          </div>
+          <span id="contactados-count" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Titular</th>
+            <th>Fecha contacto</th>
+            <th>Deuda Alquiler</th>
+            <th>Infracciones</th>
+            <th>Siniestros</th>
+            <th>Convenio</th>
+            <th>Comentario</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="tabla-contactados"></tbody>
+        </table>
+      </div>
     </div>
 
   </main>
@@ -782,11 +825,12 @@ function setView(v) {
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  document.querySelectorAll('.nav-item')[['dashboard','busqueda','convenios','pagos','vencimientos'].indexOf(v)].classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','busqueda','contactados','convenios','pagos','vencimientos'].indexOf(v)].classList.add('active');
   if(v==='dashboard') renderDashboard();
   if(v==='convenios') renderConvenios();
   if(v==='pagos') renderPagos();
   if(v==='vencimientos') renderVencimientos();
+  if(v==='contactados') cargarContactados();
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
@@ -1892,7 +1936,119 @@ async function guardarComentarioBusqueda(cuit) {
     if (btn) { btn.disabled=false; btn.textContent='💾 Guardar comentario'; }
   }
 }
-</script>
+// ─── CONTACTADOS ──────────────────────────────────────────────────────────────
+let _contactadosData = []; // cache para filtrado sin re-fetch
 
+async function cargarContactados() {
+  const tbody = document.getElementById('tabla-contactados');
+  tbody.innerHTML = `<tr><td colspan="8"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando contactados…</div></td></tr>`;
+
+  try {
+    // 1. Leer 1er CONTACTO (CUIT col A, fecha col B)
+    const r1 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d1 = await r1.json();
+    const contactRows = (d1.values||[]).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
+
+    if (!contactRows.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en la hoja "1er CONTACTO"</p></div></td></tr>`;
+      return;
+    }
+
+    // 2. Leer ORIGINAL para nombres y deudas
+    const r2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:M`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d2 = await r2.json();
+    const originalRows = (d2.values||[]).slice(1);
+    const originalMap = {};
+    originalRows.forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) originalMap[c] = r;
+    });
+
+    // 3. Leer COMENTARIOS para acción (col P = índice 15)
+    const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d3 = await r3.json();
+    const comentRows = (d3.values||[]).slice(1);
+    const comentMap = {};
+    comentRows.forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) comentMap[c] = r[15]||'';
+    });
+
+    // 4. Cruzar todo
+    _contactadosData = contactRows.map(row => {
+      const cuit    = String(row[0]||'').replace(/\D/g,'');
+      const fecha   = row[1]||'';
+      const orig    = originalMap[cuit] || [];
+      const nombre  = orig[1]||'—';
+      const deudaAlq= parsePeso(orig[8]);
+      const deudaInf= parsePeso(orig[9]);
+      const deudaSin= parsePeso(orig[10]);
+      const comentario = comentMap[cuit]||'';
+      // Convenios en la app
+      const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
+      return { cuit, fecha, nombre, deudaAlq, deudaInf, deudaSin, comentario, convs };
+    });
+
+    renderTablaContactados();
+
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${e.message}</p></div></td></tr>`;
+  }
+}
+
+function renderTablaContactados() {
+  const q      = (document.getElementById('search-contactados')?.value||'').toLowerCase();
+  const fConv  = document.getElementById('filter-contactados-convenio')?.value||'';
+  const fComent= document.getElementById('filter-contactados-comentario')?.value||'';
+
+  const lista = _contactadosData.filter(d => {
+    const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
+    const oC = !fConv || (fConv==='sin' && !d.convs.length) || (fConv==='con' && d.convs.length);
+    const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
+    return oQ && oC && oK;
+  });
+
+  document.getElementById('contactados-count').textContent = `${lista.length} titular${lista.length!==1?'es':''}`;
+
+  const tbody = document.getElementById('tabla-contactados');
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>Sin resultados</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(d => {
+    // Badge de convenios
+    const convBadges = d.convs.length
+      ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
+      : `<span class="badge badge-vencido">Sin convenio</span>`;
+
+    return `<tr>
+      <td>
+        <div style="font-weight:500">${d.nombre}</div>
+        <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
+      </td>
+      <td class="mono" style="white-space:nowrap">${d.fecha||'—'}</td>
+      <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
+      <td class="importe">${d.deudaInf > 0 ? fmtPeso(d.deudaInf) : '—'}</td>
+      <td class="importe">${d.deudaSin > 0 ? fmtPeso(d.deudaSin) : '—'}</td>
+      <td>${convBadges}</td>
+      <td style="max-width:220px;font-size:12px;color:var(--muted)">${d.comentario || '<em style="opacity:.5">Sin comentario</em>'}</td>
+      <td>
+        <div class="actions">
+          <button class="btn btn-ghost btn-sm" onclick="buscarDesdeContactados('${d.cuit}')">🔍 Ver</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function buscarDesdeContactados(cuit) {
+  setView('busqueda');
+  document.getElementById('busqueda-input').value = cuit;
+  ejecutarBusqueda();
+}
+
+
+</script>
 </body>
 </html>
