@@ -2567,15 +2567,14 @@ async function generarInforme() {
   <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:48px;font-family:'Georgia',serif;color:#111827;max-width:680px">
 
     <!-- MEMBRETE -->
-    <div style="text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111827">
-      <img src="./membrete.png" alt="Oyuela & Asociados Abogados" style="max-width:320px;width:100%;height:auto">
-      <div style="display:flex;justify-content:flex-end;margin-top:8px">
-        <div style="text-align:right">
-          <div style="font-size:11px;color:#6b7280;letter-spacing:.3px;font-family:'Helvetica Neue',Arial,sans-serif">INFORME DE GESTIÓN</div>
-          <div style="font-size:15px;font-weight:700;margin-top:2px;font-family:'Helvetica Neue',Arial,sans-serif">${nombreMes}</div>
-          <div style="font-size:10px;color:#9ca3af;margin-top:3px;font-family:'Helvetica Neue',Arial,sans-serif">Emitido: ${new Date().toLocaleDateString('es-AR')}</div>
-        </div>
-      </div>
+    <div style="text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid #d1d5db">
+      <img src="./membrete.png" alt="Oyuela & Asociados Abogados" style="max-width:340px;width:100%;height:auto">
+    </div>
+
+    <!-- TÍTULO DEL INFORME -->
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#6b7280;font-family:'Helvetica Neue',Arial,sans-serif">Informe de Gestión</div>
+      <div style="font-size:18px;font-weight:700;margin-top:6px;font-family:'Helvetica Neue',Arial,sans-serif;color:#111827">${nombreMes}</div>
     </div>
 
     <!-- INTRODUCCIÓN -->
@@ -2647,14 +2646,10 @@ async function generarInforme() {
       </table>
     </div>
 
-    <!-- FIRMA -->
-    <div style="margin-top:48px;padding-top:20px;border-top:1px solid #d1d5db;display:flex;justify-content:space-between;align-items:flex-end">
-      <div style="font-size:10px;color:#9ca3af">
-        Documento generado automáticamente por el sistema de gestión.<br>
-        Los datos surgen del registro interno del Estudio Oyuela.
-      </div>
-      <div style="text-align:center">
-        <div style="width:180px;border-top:1px solid #374151;padding-top:6px;font-size:10px;color:#374151">Firma y sello</div>
+    <!-- PIE DE PÁGINA -->
+    <div style="margin-top:48px;padding-top:16px;border-top:1px solid #d1d5db;text-align:center">
+      <div style="font-size:10px;color:#6b7280;font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.8">
+        Oyuela &amp; Asociados. Cerrito 1130 - piso 6° - (C1010AAX) Ciudad Autónoma de Buenos Aires – Argentina – Tel (54 11) 5235-8800
       </div>
     </div>
   </div>
@@ -2774,7 +2769,7 @@ function imprimirInforme(periodo) {
     body { font-family:'DM Sans',sans-serif; font-size:11px; color:#111827; background:white; padding:20px; }
     table { width:100%; border-collapse:collapse; }
     @page { margin:15mm; size:A4 portrait; }
-    @media print { body { padding:0; } }
+    @media print { body { padding:0; } html { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
   `;
   const win = window.open('', '_blank');
   const imgUrl = window.location.href.replace(/\/[^\/]*$/, '/membrete.png');
