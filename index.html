@@ -2564,22 +2564,22 @@ async function generarInforme() {
     `<tr><td colspan="2" style="padding:14px 12px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;border-top:1px solid #e5e7eb">${text}</td></tr>`;
 
   const informeHtml = `
-  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:48px;font-family:'Georgia',serif;color:#111827;max-width:680px">
+  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:32px 40px;font-family:'Georgia',serif;color:#111827;max-width:680px">
 
     <!-- MEMBRETE -->
-    <div style="text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid #d1d5db">
+    <div style="text-align:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #d1d5db">
       <img src="./membrete.png" alt="Oyuela & Asociados Abogados" style="max-width:340px;width:100%;height:auto">
     </div>
 
     <!-- TÍTULO DEL INFORME -->
-    <div style="text-align:center;margin-bottom:28px">
+    <div style="text-align:center;margin-bottom:16px">
       <div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#6b7280;font-family:'Helvetica Neue',Arial,sans-serif">Informe de Gestión</div>
       <div style="font-size:18px;font-weight:700;margin-top:6px;font-family:'Helvetica Neue',Arial,sans-serif;color:#111827">${nombreMes}</div>
     </div>
 
     <!-- INTRODUCCIÓN -->
-    <div style="margin-bottom:28px">
-      <p style="font-size:12px;color:#374151;line-height:1.7;text-align:justify">
+    <div style="margin-bottom:16px">
+      <p style="font-size:12px;color:#374151;line-height:1.5;text-align:justify">
         El presente informe resume la actividad de gestión de cobros correspondiente al período <strong>${nombreMes}</strong>,
         incluyendo los acuerdos de pago formalizados, el estado de firma de los mismos y los importes
         efectivamente recuperados. Se distingue entre <em>deuda antigua</em> —originada con fecha de fin de contrato
@@ -2589,9 +2589,9 @@ async function generarInforme() {
     </div>
 
     <!-- SECCIÓN I: CONVENIOS -->
-    <div style="margin-bottom:28px">
-      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">I. Convenios de Pago</div>
-      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:4px">I. Convenios de Pago</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;line-height:1.5">
         Se entiende por <em>convenio de pago</em> el acuerdo formalizado entre el estudio y el deudor para
         cancelar la deuda en cuotas. Un convenio se considera <em>firmado</em> cuando ambas partes suscribieron
         el instrumento; los <em>pendientes de firma</em> han sido acordados verbalmente pero aún no están
@@ -2611,9 +2611,9 @@ async function generarInforme() {
     </div>
 
     <!-- SECCIÓN II: RECUPERO DEL PERÍODO -->
-    <div style="margin-bottom:28px">
-      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">II. Recupero del Período</div>
-      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:4px">II. Recupero del Período</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;line-height:1.5">
         El <em>recupero del período</em> corresponde al total de pagos de cuotas efectivamente recibidos
         durante el período informado, independientemente de cuándo fue generado el convenio.
         El desglose por cartera permite evaluar la efectividad de la gestión sobre cada segmento de deuda.
@@ -2629,9 +2629,9 @@ async function generarInforme() {
     </div>
 
     <!-- SECCIÓN III: RECUPERO ACUMULADO -->
-    <div style="margin-bottom:32px">
-      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">III. Recupero Acumulado desde Inicio de Gestión</div>
-      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:4px">III. Recupero Acumulado desde Inicio de Gestión</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;line-height:1.5">
         El <em>recupero acumulado</em> consolida la totalidad de los pagos registrados desde el inicio
         de la gestión del estudio, sin restricción de período. Este indicador refleja el avance global
         de la recuperación y permite proyectar la tendencia de cobro sobre el universo total de deuda administrada.
@@ -2647,7 +2647,7 @@ async function generarInforme() {
     </div>
 
     <!-- PIE DE PÁGINA -->
-    <div style="margin-top:48px;padding-top:16px;border-top:1px solid #d1d5db;text-align:center">
+    <div style="margin-top:24px;padding-top:10px;border-top:1px solid #d1d5db;text-align:center">
       <div style="font-size:10px;color:#6b7280;font-family:'Helvetica Neue',Arial,sans-serif;line-height:1.8">
         Oyuela &amp; Asociados. Cerrito 1130 - piso 6° - (C1010AAX) Ciudad Autónoma de Buenos Aires – Argentina – Tel (54 11) 5235-8800
       </div>
