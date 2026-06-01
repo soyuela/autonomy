@@ -1640,6 +1640,16 @@ function renderVencimientos() {
         <td><button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button></td>
       </tr>`).join('');
 }
+let _busquedaTitular = null;
+
+function generarConvenioDesdeResultado() {
+  if (!_busquedaTitular) return;
+  openNuevoConvenio();
+  // Ocultar sección de búsqueda de CUIT y mostrar form directo con datos precargados
+  document.getElementById('cuit-lookup-section').style.display = 'none';
+  precargarForm(_busquedaTitular);
+}
+
 // ─── BÚSQUEDA ─────────────────────────────────────────────────────────────────
 let busquedaTimer = null;
 
@@ -1807,14 +1817,19 @@ async function ejecutarBusqueda() {
 
   res.innerHTML = `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px">
-      <div style="font-family:var(--fh);font-size:20px;font-weight:800;margin-bottom:4px">${datos.nombre||'—'}</div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
-        <span style="font-family:var(--fm);font-size:12px;color:var(--muted)">CUIT: <strong style="color:var(--text)">${datos.cuit||'—'}</strong></span>
-        ${datos.dominio?`<span style="font-family:var(--fm);font-size:12px;color:var(--muted)">Dominio: <strong style="color:var(--text)">${datos.dominio}</strong></span>`:''}
-        ${datos.telefono?`<span style="font-size:12px;color:var(--muted)">Tel: <strong style="color:var(--text)">${datos.telefono}</strong></span>`:''}
-        ${datos.direccion?`<span style="font-size:12px;color:var(--muted)">${datos.direccion}</span>`:''}
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:var(--fh);font-size:20px;font-weight:800;margin-bottom:4px">${datos.nombre||'—'}</div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+            <span style="font-family:var(--fm);font-size:12px;color:var(--muted)">CUIT: <strong style="color:var(--text)">${datos.cuit||'—'}</strong></span>
+            ${datos.dominio?`<span style="font-family:var(--fm);font-size:12px;color:var(--muted)">Dominio: <strong style="color:var(--text)">${datos.dominio}</strong></span>`:''}
+            ${datos.telefono?`<span style="font-size:12px;color:var(--muted)">Tel: <strong style="color:var(--text)">${datos.telefono}</strong></span>`:''}
+            ${datos.direccion?`<span style="font-size:12px;color:var(--muted)">${datos.direccion}</span>`:''}
+          </div>
+          ${deposito>0?`<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--accent2)">💰 Depósito disponible: <strong>${fmtPeso(deposito)}</strong></div>`:''}
+        </div>
+        <button class="btn btn-primary" onclick="generarConvenioDesdeResultado()">＋ Generar convenio</button>
       </div>
-      ${deposito>0?`<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--accent2)">💰 Depósito disponible: <strong>${fmtPeso(deposito)}</strong></div>`:''}
     </div>
     ${deudaSinConvHtml ? `<div style="margin-bottom:16px"><div style="font-family:var(--fh);font-weight:700;font-size:13px;color:var(--danger);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">⚠ Deudas sin convenio</div><div style="display:flex;flex-direction:column;gap:6px">${deudaSinConvHtml}</div></div>` : ''}
     <div style="font-family:var(--fh);font-weight:700;font-size:13px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">Convenios</div>
@@ -1827,6 +1842,13 @@ async function ejecutarBusqueda() {
         <button class="btn btn-primary" onclick="guardarComentarioBusqueda('${cuitClean}')">💾 Guardar comentario</button>
       </div>
     </div>`;
+
+  // Guardar datos del titular para poder abrir el modal de convenio directamente
+  _busquedaTitular = {
+    cuit: datos.cuit, nombre: datos.nombre, dominio: datos.dominio||'',
+    telefono: datos.telefono||'', mail: datos.mail||'', direccion: datos.direccion||'',
+    deudaAlq, deudaInf, deudaSin, deposito
+  };
 }
 
 async function guardarComentarioBusqueda(cuit) {
