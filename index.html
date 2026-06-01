@@ -305,13 +305,15 @@
     <div id="view-vencimientos" class="view">
       <div class="page-header"><div><div class="page-title">Vencimientos</div><div class="page-sub">Cuotas por vencer y vencidas</div></div></div>
       <div class="tabs">
-        <div class="tab active" onclick="setVencTab('prox',this)">Próximas (30 días)</div>
+        <div class="tab active" onclick="setVencTab('prox',this)">Próximas (7 días)</div>
         <div class="tab" onclick="setVencTab('vencidas',this)">Vencidas sin pago</div>
         <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente</div>
+        <div class="tab" onclick="setVencTab('sinfirma',this)">Sin firma <span id="badge-sinfirma" style="background:var(--warning);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
       </div>
       <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
       <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
       <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>Creado</th><th>Cuota</th><th>Enviado</th><th>Firmado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
+      <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
     <!-- BÚSQUEDA -->
     <div id="view-busqueda" class="view">
@@ -341,6 +343,19 @@
         </div>
         <button class="btn btn-ghost" onclick="cargarContactados()">↻ Actualizar</button>
       </div>
+
+      <!-- PANEL: A RECONTACTAR HOY -->
+      <div id="panel-recontactar" style="display:none;margin-bottom:20px">
+        <div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);border-radius:12px;padding:16px 20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <span style="font-size:18px">📞</span>
+            <div style="font-family:var(--fh);font-weight:700;font-size:14px;color:var(--danger)">A recontactar hoy</div>
+            <span id="recontactar-count" style="background:var(--danger);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px"></span>
+          </div>
+          <div id="recontactar-lista" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <div class="table-toolbar" style="flex-wrap:wrap;gap:12px">
           <input class="search-input" id="search-contactados" placeholder="Buscar nombre o CUIT…" oninput="renderTablaContactados()">
@@ -730,7 +745,7 @@ function calcStatus() {
       if(pag.has(cq.num)) return;
       const d=diffDays(hoy,cq.vencimiento);
       if(d<0) venc.push({conv:c,cq,dias:Math.abs(d)});
-      else if(d<=30) prox.push({conv:c,cq,dias:d});
+      else if(d<=7) prox.push({conv:c,cq,dias:d});
     });
   });
   prox.sort((a,b)=>a.dias-b.dias);
@@ -1731,7 +1746,7 @@ async function borrarPago(id) {
 // ─── VENCIMIENTOS ─────────────────────────────────────────────────────────────
 function setVencTab(t,el) {
   document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active')); el.classList.add('active');
-  ['prox','vencidas','firma'].forEach(v=>document.getElementById('venc-'+v).style.display=v===t?'block':'none');
+  ['prox','vencidas','firma','sinfirma'].forEach(v=>document.getElementById('venc-'+v).style.display=v===t?'block':'none');
   renderVencimientos();
 }
 
@@ -1777,6 +1792,30 @@ function renderVencimientos() {
         <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
         <td><button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button></td>
       </tr>`).join('');
+
+  // Sin firma: convenios activos pendientes de firma con próxima cuota en 7 días
+  const tbSF = document.getElementById('tabla-venc-sinfirma');
+  const badge = document.getElementById('badge-sinfirma');
+  const pendFirma = DB.convenios.filter(c => c.firmado !== 'SI');
+  if (badge) badge.textContent = pendFirma.length || '';
+  tbSF.innerHTML = !pendFirma.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Todos los convenios están firmados</p></div></td></tr>`
+    : pendFirma.map(c => {
+        const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        return `<tr>
+          <td><div style="font-weight:500">${c.nombre}</div></td>
+          <td class="mono">${c.cuit}</td>
+          <td style="font-size:13px">${c.telefono||'—'}</td>
+          <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
+          <td class="importe">${fmtPeso(deuda)}</td>
+          <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
+          <td class="mono">${fmtFecha(c.creadoEn)}</td>
+          <td><div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏ Editar</button>
+            <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Marcar firmado</button>
+          </div></td>
+        </tr>`;
+      }).join('');
 }
 function cerrarBusqueda() {
   document.getElementById('busqueda-input').value = '';
@@ -2200,14 +2239,15 @@ async function cargarContactados() {
     });
 
     // 3. Leer COMENTARIOS para acción (col P = índice 15) y días mora (col O = índice 14)
-    const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:S`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d3 = await r3.json();
     const comentRows = (d3.values||[]).slice(1);
     const comentMap = {};
     const moraMap   = {};
+    const recontactarMap = {};
     comentRows.forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; }
+      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; recontactarMap[c] = r[18]||''; }
     });
 
     // 4. Cruzar todo
@@ -2220,17 +2260,51 @@ async function cargarContactados() {
       const deudaAlq = parsePeso(orig[8]);
       const deudaInf = parsePeso(orig[9]);
       const deudaSin = parsePeso(orig[10]);
-      const comentario = comentMap[cuit]||'';
-      const diasMora   = moraMap[cuit]||'';
+      const comentario   = comentMap[cuit]||'';
+      const diasMora     = moraMap[cuit]||'';
+      const recontactar  = recontactarMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, convs };
     });
 
     renderTablaContactados();
+    renderPanelRecontactar();
 
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${e.message}</p></div></td></tr>`;
   }
+}
+
+function renderPanelRecontactar() {
+  const hoy = today(); // yyyy-mm-dd
+  // Convertir dd/mm/aaaa a yyyy-mm-dd para comparar
+  const toISO = s => { if (!s) return ''; const p=s.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; };
+
+  const aRecontactar = _contactadosData.filter(d => {
+    const f = toISO(d.recontactar||'');
+    return f && f <= hoy;
+  });
+
+  const panel = document.getElementById('panel-recontactar');
+  const lista  = document.getElementById('recontactar-lista');
+  const count  = document.getElementById('recontactar-count');
+
+  if (!aRecontactar.length) { panel.style.display = 'none'; return; }
+
+  panel.style.display = 'block';
+  count.textContent = aRecontactar.length;
+  lista.innerHTML = aRecontactar.map(d => `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:10px 14px;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:600;font-size:13px">${d.nombre}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">${d.cuit} · Tel: ${d.telefono||'—'}</div>
+        ${d.comentario?`<div style="font-size:11px;color:var(--muted);margin-top:2px;font-style:italic">${d.comentario}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:11px;color:var(--danger);font-family:var(--fm)">Recontactar: ${d.recontactar}</span>
+        <button class="btn btn-ghost btn-sm" onclick="buscarDesdeContactados('${d.cuit}')">🔍 Ver</button>
+      </div>
+    </div>`).join('');
 }
 
 let _contactadosSort = { col: 'fecha', dir: 'desc' };
