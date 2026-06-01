@@ -1902,6 +1902,16 @@ async function ejecutarBusqueda() {
             ${datos.direccion?`<span style="font-size:12px;color:var(--muted)">${datos.direccion}</span>`:''}
           </div>
           ${deposito>0?`<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--accent2)">💰 Depósito disponible: <strong>${fmtPeso(deposito)}</strong></div>`:''}
+          <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:12px">
+              <span style="color:var(--muted)">Deuda total: </span>
+              <strong style="font-family:var(--fm)">${fmtPeso(deudaAlq+deudaInf+deudaSin)}</strong>
+            </div>
+            <div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.15);border-radius:8px;padding:8px 14px;font-size:12px">
+              <span style="color:var(--muted)">Deuda neta (− depósito): </span>
+              <strong style="font-family:var(--fm);color:var(--danger)">${fmtPeso(Math.max(0, deudaAlq+deudaInf+deudaSin-deposito))}</strong>
+            </div>
+          </div>
         </div>
         <button class="btn btn-primary" onclick="generarConvenioDesdeResultado()">＋ Generar convenio</button>
       </div>
