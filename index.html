@@ -1926,8 +1926,9 @@ async function ejecutarBusqueda() {
   let accionExistente = '';
   let contactadoExistente = '';
   let bajaExistente = '';
+  let recontactarExistente = '';
   try {
-    const urlCom = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:R`;
+    const urlCom = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:S`;
     const rCom = await fetch(urlCom, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dCom = await rCom.json();
     const rowsCom = dCom.values || [];
@@ -1936,6 +1937,7 @@ async function ejecutarBusqueda() {
       accionExistente     = filaCom[15] || '';
       contactadoExistente = filaCom[16] || '';
       bajaExistente       = filaCom[17] || '';
+      recontactarExistente= filaCom[18] || '';
     }
   } catch(e) {}
 
@@ -1987,8 +1989,25 @@ async function ejecutarBusqueda() {
           </div>
         </div>
       </div>
-      <div style="margin-bottom:8px">
-        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar()">📋 Cargar texto estándar</button>
+      <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px">
+        <span style="font-size:13px;font-weight:500">📅 Recontactar</span>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+          <div style="position:relative">
+            <input id="busqueda-recontactar" type="text" placeholder="dd/mm/aaaa" maxlength="10"
+              oninput="autoFormatFecha(this)"
+              value="${recontactarExistente}"
+              style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--fm);font-size:13px;outline:none;width:130px;transition:border-color .15s"
+              onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('busqueda-recontactar-picker').showPicker()" title="Abrir calendario">📅</button>
+          <input id="busqueda-recontactar-picker" type="date" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="document.getElementById('busqueda-recontactar').value=isoADMY(this.value)">
+          <button class="btn btn-primary btn-sm" onclick="guardarRecontactar('${cuitClean}')">Guardar</button>
+          ${recontactarExistente ? `<span style="font-size:11px;color:var(--accent2)">Guardado: ${recontactarExistente}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(1)">📋 Texto estándar 1</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(2)">📋 Texto estándar 2</button>
       </div>
       <textarea id="busqueda-comentario" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;resize:vertical;min-height:80px;transition:border-color .15s" placeholder="Registrá el resultado del contacto telefónico…" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${accionExistente}</textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
@@ -2004,15 +2023,46 @@ async function ejecutarBusqueda() {
   };
 }
 
-function cargarComentarioEstandar() {
+function cargarComentarioEstandar(n) {
   const hoy    = new Date();
   const fmt    = d => d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
-  const fecha0 = fmt(hoy);
-  const fecha2 = fmt(new Date(hoy.getTime() + 2*86400000));
-  const fecha4 = fmt(new Date(hoy.getTime() + 4*86400000));
-  const texto  = `Enviamos mensaje vía SMS con fecha ${fecha0}, ${fecha2} y ${fecha4}. Reiterados mensaje de voz en celular, no hay teléfonos de contacto alternativos, intimado por mail, no responde intimación por carta.`;
-  const ta = document.getElementById('busqueda-comentario');
-  if (ta) ta.value = texto;
+  const ta     = document.getElementById('busqueda-comentario');
+  if (!ta) return;
+  if (n === 2) {
+    ta.value = 'No hay datos telefónicos correctos en asignación, no hay alternativos por domicilio, no respondió intimación por carta, intimado por mail sin respuesta.';
+  } else {
+    const fecha0 = fmt(hoy);
+    const fecha2 = fmt(new Date(hoy.getTime() + 2*86400000));
+    const fecha4 = fmt(new Date(hoy.getTime() + 4*86400000));
+    ta.value = `Enviamos mensaje vía SMS con fecha ${fecha0}, ${fecha2} y ${fecha4}. Reiterados mensaje de voz en celular, no hay teléfonos de contacto alternativos, intimado por mail, no responde intimación por carta.`;
+  }
+}
+
+async function guardarRecontactar(cuit) {
+  const fecha = document.getElementById('busqueda-recontactar').value.trim();
+  if (!fecha || fecha.length < 8) { toast('Ingresá una fecha válida', 'error'); return; }
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!S${sheetRow}?valueInputOption=USER_ENTERED`;
+      await fetch(urlWrite, { method:'PUT', headers:{ Authorization:'Bearer '+accessToken,'Content-Type':'application/json' }, body:JSON.stringify({ values:[[fecha]] }) });
+    } else {
+      const nextRow  = rows.length + 1;
+      const valores  = Array(19).fill('');
+      valores[0]  = cuit;
+      valores[18] = fecha;
+      const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:S${nextRow}?valueInputOption=USER_ENTERED`;
+      await fetch(urlWrite, { method:'PUT', headers:{ Authorization:'Bearer '+accessToken,'Content-Type':'application/json' }, body:JSON.stringify({ values:[valores] }) });
+    }
+    toast(`Fecha de recontacto guardada: ${fecha} ✓`);
+  } catch(e) {
+    toast('Error al guardar: ' + e.message, 'error');
+  }
 }
 
 async function toggleContactadoBaja(campo, valor, cuit) {
