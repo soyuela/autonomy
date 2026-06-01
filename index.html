@@ -353,6 +353,7 @@
         <table>
           <thead><tr>
             <th>Titular</th>
+            <th>Teléfono</th>
             <th>Fecha contacto</th>
             <th>Deuda Alquiler</th>
             <th>Infracciones</th>
@@ -1980,13 +1981,14 @@ async function cargarContactados() {
       const fecha   = row[1]||'';
       const orig    = originalMap[cuit] || [];
       const nombre  = orig[1]||'—';
+      const telefono= orig[4]||'';
       const deudaAlq= parsePeso(orig[8]);
       const deudaInf= parsePeso(orig[9]);
       const deudaSin= parsePeso(orig[10]);
       const comentario = comentMap[cuit]||'';
       // Convenios en la app
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, deudaAlq, deudaInf, deudaSin, comentario, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, convs };
     });
 
     renderTablaContactados();
@@ -2027,6 +2029,7 @@ function renderTablaContactados() {
         <div style="font-weight:500">${d.nombre}</div>
         <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
       </td>
+      <td style="font-size:13px;white-space:nowrap">${d.telefono||'—'}</td>
       <td class="mono" style="white-space:nowrap">${d.fecha||'—'}</td>
       <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
       <td class="importe">${d.deudaInf > 0 ? fmtPeso(d.deudaInf) : '—'}</td>
