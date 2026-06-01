@@ -2540,6 +2540,15 @@ async function generarInforme() {
   const totalNuevo    = pagosNuevos.reduce((s,p)=>s+p.monto,0);
   const totalRecupero = totalAntiguo + totalNuevo;
 
+  // Recupero acumulado total (todos los pagos desde siempre)
+  const todosPagos = DB.pagos.map(p => {
+    const conv = convsEnriquecidos.find(c => c.id === p.convenioId);
+    return { ...p, ffinOriginal: conv?.ffinOriginal || '' };
+  });
+  const acumAntiguo = todosPagos.filter(p=>esDeudaAntigua(p.ffinOriginal)).reduce((s,p)=>s+p.monto,0);
+  const acumNuevo   = todosPagos.filter(p=>!esDeudaAntigua(p.ffinOriginal)).reduce((s,p)=>s+p.monto,0);
+  const acumTotal   = acumAntiguo + acumNuevo;
+
   // Deuda convenida en el mes (total convenios del mes)
   const deudaConvenidaMes = convsDelMes.reduce((s,c) => {
     const d = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
@@ -2549,90 +2558,74 @@ async function generarInforme() {
   const nombreMes = periodoLabel;
 
   const informeHtml = `
-  <!-- ÁREA DE IMPRESIÓN PDF: solo resumen ejecutivo -->
-  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:36px;font-family:'DM Sans',sans-serif;color:#111827">
+  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:40px;font-family:'DM Sans',sans-serif;color:#111827;max-width:700px">
 
     <!-- ENCABEZADO -->
-    <div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:3px solid #4f46e5">
+    <div style="text-align:center;margin-bottom:36px;padding-bottom:24px;border-bottom:3px solid #4f46e5">
       <div style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#4f46e5;letter-spacing:-0.5px">Informe de Gestión</div>
       <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-top:6px;color:#111827">Estudio Oyuela</div>
       <div style="font-size:16px;color:#6b7280;margin-top:6px;font-weight:500">${nombreMes}</div>
     </div>
 
-    <!-- KPIs PRINCIPALES -->
-    ${seccionTitulo('Resumen ejecutivo')}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
-      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #4f46e5">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Convenios generados</div>
-        <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#111827">${convsDelMes.length}</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">${convsFirmados.length} firmados · ${convsPendientes.length} pendientes de firma</div>
+    <!-- BLOQUE 1: CONVENIOS -->
+    <div style="margin-bottom:28px">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#4f46e5;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #e8e8ff">Convenios del período</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Generados</div>
+          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#111827">${convsDelMes.length}</div>
+        </div>
+        <div style="background:#f0fdf4;border-radius:10px;padding:18px;text-align:center;border:1px solid #bbf7d0">
+          <div style="font-size:10px;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Firmados</div>
+          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#059669">${convsFirmados.length}</div>
+        </div>
+        <div style="background:#fffbeb;border-radius:10px;padding:18px;text-align:center;border:1px solid #fde68a">
+          <div style="font-size:10px;color:#d97706;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Pendientes firma</div>
+          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#d97706">${convsPendientes.length}</div>
+        </div>
       </div>
-      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #4f46e5">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Deuda convenida en el período</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#4f46e5">${fmtPeso(deudaConvenidaMes)}</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">deuda neta total comprometida a recuperar</div>
-      </div>
-      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #059669">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Recupero del período</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
-        <div style="font-size:12px;color:#6b7280;margin-top:6px">Deuda antigua: ${fmtPeso(totalAntiguo)}<br>Deuda nueva: ${fmtPeso(totalNuevo)}</div>
-      </div>
-    </div>
-
-    <!-- DESGLOSE CONVENIOS -->
-    ${seccionTitulo('Desglose de convenios')}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px">
-        <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">✓ Firmados (${convsFirmados.length})</div>
-        ${convsFirmados.length===0?'<p style="color:#6b7280;font-size:12px">Ninguno</p>':
-          convsFirmados.map(c=>{
-            const d=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
-            const dep=parseFloat(c.depositoAplicado)||0;
-            return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #d1fae5;font-size:11px">
-              <div><div style="font-weight:600">${c.nombre}</div><div style="color:#6b7280">${c.tipo} · ${c.cantCuotas} cuotas ${c.modalidad}</div></div>
-              <div style="text-align:right;font-family:'DM Mono',monospace"><div style="font-weight:600">${fmtPeso(d-dep)}</div><div style="color:#6b7280">${fmtPeso(c.importeCuota)}/cuota</div></div>
-            </div>`;
-          }).join('')}
-      </div>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px">
-        <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">⏳ Pendientes de firma (${convsPendientes.length})</div>
-        ${convsPendientes.length===0?'<p style="color:#6b7280;font-size:12px">Ninguno</p>':
-          convsPendientes.map(c=>{
-            const d=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
-            const dep=parseFloat(c.depositoAplicado)||0;
-            return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fde68a;font-size:11px">
-              <div><div style="font-weight:600">${c.nombre}</div><div style="color:#6b7280">${c.tipo} · ${c.cantCuotas} cuotas ${c.modalidad}</div></div>
-              <div style="text-align:right;font-family:'DM Mono',monospace"><div style="font-weight:600">${fmtPeso(d-dep)}</div><div style="color:#6b7280">${fmtPeso(c.importeCuota)}/cuota</div></div>
-            </div>`;
-          }).join('')}
+      <div style="background:#eff6ff;border-radius:10px;padding:16px 20px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;border:1px solid #bfdbfe">
+        <div style="font-size:12px;color:#1d4ed8;font-weight:600">Deuda neta convenida en el período</div>
+        <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:#1d4ed8">${fmtPeso(deudaConvenidaMes)}</div>
       </div>
     </div>
 
-    <!-- DESGLOSE RECUPERO -->
-    ${seccionTitulo('Desglose de recupero')}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
-      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px">
-        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Deuda antigua — ${fmtPeso(totalAntiguo)}</div>
-        ${pagosAntiguos.length===0?'<p style="color:#6b7280;font-size:12px">Sin pagos</p>':
-          pagosAntiguos.map(p=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fecaca;font-size:11px">
-            <div><div style="font-weight:600">${p.nombre||'—'}</div><div style="color:#6b7280">${p.tipo} · cuota #${p.cuotaNum||'?'} · ${isoADMY(p.fecha)}</div></div>
-            <div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(p.monto)}</div>
-          </div>`).join('')}
-      </div>
-      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px">
-        <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Deuda nueva — ${fmtPeso(totalNuevo)}</div>
-        ${pagosNuevos.length===0?'<p style="color:#6b7280;font-size:12px">Sin pagos</p>':
-          pagosNuevos.map(p=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #d1fae5;font-size:11px">
-            <div><div style="font-weight:600">${p.nombre||'—'}</div><div style="color:#6b7280">${p.tipo} · cuota #${p.cuotaNum||'?'} · ${isoADMY(p.fecha)}</div></div>
-            <div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(p.monto)}</div>
-          </div>`).join('')}
+    <!-- BLOQUE 2: RECUPERO DEL PERÍODO -->
+    <div style="margin-bottom:28px">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#059669;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #d1fae5">Recupero del período</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:#f0fdf4;border-radius:10px;padding:18px;text-align:center;border:1px solid #bbf7d0">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Total período</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda antigua</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#dc2626">${fmtPeso(totalAntiguo)}</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda nueva</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(totalNuevo)}</div>
+        </div>
       </div>
     </div>
 
-    <!-- TOTAL -->
-    <div style="background:#111827;border-radius:10px;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#fff">Total recuperado en el período</div>
-      <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:800;color:#34d399">${fmtPeso(totalRecupero)}</div>
+    <!-- BLOQUE 3: RECUPERO ACUMULADO -->
+    <div style="margin-bottom:28px">
+      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7c3aed;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #ede9fe">Recupero acumulado total (desde inicio de gestión)</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:#faf5ff;border-radius:10px;padding:18px;text-align:center;border:1px solid #ddd6fe">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Total acumulado</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#7c3aed">${fmtPeso(acumTotal)}</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda antigua</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#dc2626">${fmtPeso(acumAntiguo)}</div>
+        </div>
+        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
+          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda nueva</div>
+          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(acumNuevo)}</div>
+        </div>
+      </div>
     </div>
 
     <div style="padding-top:14px;border-top:1px solid #e2e4ea;font-size:10px;color:#9ca3af;text-align:right">
@@ -2645,7 +2638,7 @@ async function generarInforme() {
     <button class="btn btn-primary" onclick="imprimirInforme('${nombreMes}')">⬇ Exportar PDF</button>
   </div>`;
 
-  res.innerHTML = informeHtml;
+    res.innerHTML = informeHtml;
   // Guardar datos para exportar Excel
   _informeData = { convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, nombreMes };
 
@@ -2698,12 +2691,16 @@ function _generarExcel(convsFirmados, convsPendientes, pagosAntiguos, pagosNuevo
 
   // Columnas de pagos
   const headPagos = ['CUIT','Apellido y Nombre','Tipo','N° cuota','Fecha','Monto'];
-  const rowsPagos = (lista) => lista.map(p => [
-    p.cuit||'', p.nombre||'', p.tipo||'',
-    p.cuotaNum||'',
-    p.fecha ? isoADMY(p.fecha) : '',
-    n(p.monto)
-  ]);
+  const rowsPagos = (lista) => lista.map(p => {
+    // Resolver nombre: primero del pago, luego buscar por convenioId, luego por CUIT
+    let nombre = p.nombre||'';
+    if (!nombre) {
+      const conv = DB.convenios.find(c => c.id === p.convenioId) ||
+                   DB.convenios.find(c => String(c.cuit).replace(/\D/g,'') === String(p.cuit||'').replace(/\D/g,''));
+      nombre = conv?.nombre || '';
+    }
+    return [p.cuit||'', nombre, p.tipo||'', p.cuotaNum||'', p.fecha ? isoADMY(p.fecha) : '', n(p.monto)];
+  });
 
   // Helper para crear hoja con título de período en fila 1
   const crearHoja = (titulo, headers, rows) => {
