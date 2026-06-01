@@ -2557,79 +2557,106 @@ async function generarInforme() {
 
   const nombreMes = periodoLabel;
 
+  const fmtRow = (label, value, indent=false) =>
+    `<tr><td style="padding:7px 12px;font-size:12px;color:#374151;${indent?'padding-left:28px;color:#6b7280':''}">${label}</td><td style="padding:7px 12px;font-size:12px;font-family:'Courier New',monospace;text-align:right;font-weight:600;color:#111827">${value}</td></tr>`;
+
+  const sectionHeader = (text) =>
+    `<tr><td colspan="2" style="padding:14px 12px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6b7280;border-top:1px solid #e5e7eb">${text}</td></tr>`;
+
   const informeHtml = `
-  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:40px;font-family:'DM Sans',sans-serif;color:#111827;max-width:700px">
+  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:48px;font-family:'Georgia',serif;color:#111827;max-width:680px">
 
-    <!-- ENCABEZADO -->
-    <div style="text-align:center;margin-bottom:36px;padding-bottom:24px;border-bottom:3px solid #4f46e5">
-      <div style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#4f46e5;letter-spacing:-0.5px">Informe de Gestión</div>
-      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-top:6px;color:#111827">Estudio Oyuela</div>
-      <div style="font-size:16px;color:#6b7280;margin-top:6px;font-weight:500">${nombreMes}</div>
+    <!-- MEMBRETE -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111827">
+      <div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;color:#111827">ESTUDIO OYUELA</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:3px;letter-spacing:.3px">GESTIÓN DE COBROS Y RECUPERO DE DEUDA</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:#6b7280;letter-spacing:.3px">INFORME DE GESTIÓN</div>
+        <div style="font-size:15px;font-weight:700;margin-top:2px">${nombreMes}</div>
+        <div style="font-size:10px;color:#9ca3af;margin-top:3px">Emitido: ${new Date().toLocaleDateString('es-AR')}</div>
+      </div>
     </div>
 
-    <!-- BLOQUE 1: CONVENIOS -->
+    <!-- INTRODUCCIÓN -->
     <div style="margin-bottom:28px">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#4f46e5;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #e8e8ff">Convenios del período</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Generados</div>
-          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#111827">${convsDelMes.length}</div>
-        </div>
-        <div style="background:#f0fdf4;border-radius:10px;padding:18px;text-align:center;border:1px solid #bbf7d0">
-          <div style="font-size:10px;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Firmados</div>
-          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#059669">${convsFirmados.length}</div>
-        </div>
-        <div style="background:#fffbeb;border-radius:10px;padding:18px;text-align:center;border:1px solid #fde68a">
-          <div style="font-size:10px;color:#d97706;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Pendientes firma</div>
-          <div style="font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:#d97706">${convsPendientes.length}</div>
-        </div>
-      </div>
-      <div style="background:#eff6ff;border-radius:10px;padding:16px 20px;margin-top:12px;display:flex;justify-content:space-between;align-items:center;border:1px solid #bfdbfe">
-        <div style="font-size:12px;color:#1d4ed8;font-weight:600">Deuda neta convenida en el período</div>
-        <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:#1d4ed8">${fmtPeso(deudaConvenidaMes)}</div>
-      </div>
+      <p style="font-size:12px;color:#374151;line-height:1.7;text-align:justify">
+        El presente informe resume la actividad de gestión de cobros correspondiente al período <strong>${nombreMes}</strong>,
+        incluyendo los acuerdos de pago formalizados, el estado de firma de los mismos y los importes
+        efectivamente recuperados. Se distingue entre <em>deuda antigua</em> —originada con fecha de fin de contrato
+        anterior al 1° de enero de 2026— y <em>deuda nueva</em> —generada a partir de dicha fecha—,
+        a fin de evaluar el avance de la gestión por cartera.
+      </p>
     </div>
 
-    <!-- BLOQUE 2: RECUPERO DEL PERÍODO -->
+    <!-- SECCIÓN I: CONVENIOS -->
     <div style="margin-bottom:28px">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#059669;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #d1fae5">Recupero del período</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-        <div style="background:#f0fdf4;border-radius:10px;padding:18px;text-align:center;border:1px solid #bbf7d0">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Total período</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
-        </div>
-        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda antigua</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#dc2626">${fmtPeso(totalAntiguo)}</div>
-        </div>
-        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda nueva</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(totalNuevo)}</div>
-        </div>
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">I. Convenios de Pago</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+        Se entiende por <em>convenio de pago</em> el acuerdo formalizado entre el estudio y el deudor para
+        cancelar la deuda en cuotas. Un convenio se considera <em>firmado</em> cuando ambas partes suscribieron
+        el instrumento; los <em>pendientes de firma</em> han sido acordados verbalmente pero aún no están
+        instrumentados. La <em>deuda neta convenida</em> es el monto comprometido a recuperar, descontado
+        el depósito de garantía aplicado cuando correspondiere.
       </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif">
+        <tbody>
+          ${sectionHeader('Actividad del período')}
+          ${fmtRow('Convenios generados en el período', convsDelMes.length)}
+          ${fmtRow('— Firmados', convsFirmados.length, true)}
+          ${fmtRow('— Pendientes de firma', convsPendientes.length, true)}
+          ${sectionHeader('Monto comprometido')}
+          ${fmtRow('Deuda neta total convenida en el período', fmtPeso(deudaConvenidaMes))}
+        </tbody>
+      </table>
     </div>
 
-    <!-- BLOQUE 3: RECUPERO ACUMULADO -->
+    <!-- SECCIÓN II: RECUPERO DEL PERÍODO -->
     <div style="margin-bottom:28px">
-      <div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#7c3aed;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #ede9fe">Recupero acumulado total (desde inicio de gestión)</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
-        <div style="background:#faf5ff;border-radius:10px;padding:18px;text-align:center;border:1px solid #ddd6fe">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Total acumulado</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#7c3aed">${fmtPeso(acumTotal)}</div>
-        </div>
-        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda antigua</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#dc2626">${fmtPeso(acumAntiguo)}</div>
-        </div>
-        <div style="background:#f4f5f7;border-radius:10px;padding:18px;text-align:center">
-          <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px">Deuda nueva</div>
-          <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:800;color:#059669">${fmtPeso(acumNuevo)}</div>
-        </div>
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">II. Recupero del Período</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+        El <em>recupero del período</em> corresponde al total de pagos de cuotas efectivamente recibidos
+        durante el período informado, independientemente de cuándo fue generado el convenio.
+        El desglose por cartera permite evaluar la efectividad de la gestión sobre cada segmento de deuda.
       </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif">
+        <tbody>
+          ${sectionHeader('Pagos recibidos en el período')}
+          ${fmtRow('Total recuperado en el período', fmtPeso(totalRecupero))}
+          ${fmtRow('— Deuda antigua (vencida antes del 1/1/2026)', fmtPeso(totalAntiguo), true)}
+          ${fmtRow('— Deuda nueva (vencida desde el 1/1/2026)', fmtPeso(totalNuevo), true)}
+        </tbody>
+      </table>
     </div>
 
-    <div style="padding-top:14px;border-top:1px solid #e2e4ea;font-size:10px;color:#9ca3af;text-align:right">
-      Generado el ${new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
+    <!-- SECCIÓN III: RECUPERO ACUMULADO -->
+    <div style="margin-bottom:32px">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:6px">III. Recupero Acumulado desde Inicio de Gestión</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:12px;line-height:1.6">
+        El <em>recupero acumulado</em> consolida la totalidad de los pagos registrados desde el inicio
+        de la gestión del estudio, sin restricción de período. Este indicador refleja el avance global
+        de la recuperación y permite proyectar la tendencia de cobro sobre el universo total de deuda administrada.
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif">
+        <tbody>
+          ${sectionHeader('Total histórico de pagos recibidos')}
+          ${fmtRow('Total acumulado desde inicio de gestión', fmtPeso(acumTotal))}
+          ${fmtRow('— Deuda antigua', fmtPeso(acumAntiguo), true)}
+          ${fmtRow('— Deuda nueva', fmtPeso(acumNuevo), true)}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- FIRMA -->
+    <div style="margin-top:48px;padding-top:20px;border-top:1px solid #d1d5db;display:flex;justify-content:space-between;align-items:flex-end">
+      <div style="font-size:10px;color:#9ca3af">
+        Documento generado automáticamente por el sistema de gestión.<br>
+        Los datos surgen del registro interno del Estudio Oyuela.
+      </div>
+      <div style="text-align:center">
+        <div style="width:180px;border-top:1px solid #374151;padding-top:6px;font-size:10px;color:#374151">Firma y sello</div>
+      </div>
     </div>
   </div>
 
