@@ -299,8 +299,8 @@
         <div class="tab" onclick="setVencTab('vencidas',this)">Vencidas sin pago</div>
         <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente</div>
       </div>
-      <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
-      <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
+      <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
+      <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
       <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>Creado</th><th>Cuota</th><th>Enviado</th><th>Firmado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
     </div>
   </main>
@@ -1533,10 +1533,9 @@ function renderVencimientos() {
   const {prox,venc} = calcStatus();
   const tbP = document.getElementById('tabla-venc-prox');
   tbP.innerHTML = !prox.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
+    ? `<tr><td colspan="7"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
     : prox.map(({conv,cq,dias})=>`<tr>
-        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
-        <td class="mono" style="font-size:11px">${conv.cuit||'—'}</td>
+        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
         <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
         <td class="mono">${cq.num}/${conv.cantCuotas}</td>
         <td class="mono">${fmtFecha(cq.vencimiento)}</td>
@@ -1547,10 +1546,9 @@ function renderVencimientos() {
 
   const tbV = document.getElementById('tabla-venc-vencidas');
   tbV.innerHTML = !venc.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
+    ? `<tr><td colspan="7"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
     : venc.map(({conv,cq,dias})=>`<tr>
-        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
-        <td class="mono" style="font-size:11px">${conv.cuit||'—'}</td>
+        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
         <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
         <td class="mono">${cq.num}/${conv.cantCuotas}</td>
         <td class="mono">${fmtFecha(cq.vencimiento)}</td>
