@@ -173,6 +173,12 @@
   .field input.input-error{border-color:var(--danger)!important}
   .field input.input-ok{border-color:var(--ok)!important}
   .monto-display{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--fm);font-size:14px;font-weight:600;color:var(--text);min-height:40px}
+  .th-sort{cursor:pointer;user-select:none;white-space:nowrap}
+  .th-sort:hover{color:var(--text)}
+  .sort-icon{font-size:10px;opacity:.4;margin-left:2px}
+  .th-sort.asc .sort-icon::before{content:'↑';opacity:1}
+  .th-sort.desc .sort-icon::before{content:'↓';opacity:1}
+  .th-sort.asc .sort-icon,.th-sort.desc .sort-icon{opacity:1;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -354,10 +360,11 @@
           <thead><tr>
             <th>Titular</th>
             <th>Teléfono</th>
-            <th>Fecha contacto</th>
-            <th>Deuda Alquiler</th>
-            <th>Infracciones</th>
-            <th>Siniestros</th>
+            <th class="th-sort" onclick="setSortContactados('fecha')" id="th-cont-fecha">Fecha contacto <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('alq')" id="th-cont-alq">Deuda Alquiler <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('inf')" id="th-cont-inf">Infracciones <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('sin')" id="th-cont-sin">Siniestros <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('total')" id="th-cont-total">Total <span class="sort-icon">↕</span></th>
             <th>Convenio</th>
             <th>Comentario</th>
             <th></th>
@@ -513,19 +520,38 @@ let tokenClient = null;
 function initTokenClient() {
   if (!CLIENT_ID) return;
   tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID, scope: SCOPES, prompt: 'consent',
+    client_id: CLIENT_ID, scope: SCOPES, prompt: '',
     callback: (resp) => {
-      if (resp.error) { toast('Error auth: ' + resp.error, 'error'); return; }
+      if (resp.error) {
+        // Si el silent refresh falló, mostrar pantalla de login
+        document.getElementById('auth-screen').style.display = 'flex';
+        return;
+      }
       accessToken = resp.access_token;
+      // Guardar hint del usuario para futuros silent refresh
+      sessionStorage.setItem('autonomy_hint', resp.email || '');
       onSignedIn();
     }
   });
 }
 
+// Intenta renovar el token silenciosamente si hay sesión activa en Google
+function trySilentSignIn() {
+  if (!CLIENT_ID || !tokenClient) return;
+  // Usamos hint guardado si existe para acelerar
+  const hint = sessionStorage.getItem('autonomy_hint') || '';
+  tokenClient.requestAccessToken({ prompt: '', login_hint: hint });
+}
+
 window.addEventListener('load', () => {
   if (CLIENT_ID) {
     const wait = setInterval(() => {
-      if (window.google && google.accounts) { clearInterval(wait); initTokenClient(); }
+      if (window.google && google.accounts) {
+        clearInterval(wait);
+        initTokenClient();
+        // Intentar login silencioso automáticamente
+        setTimeout(trySilentSignIn, 200);
+      }
     }, 100);
   }
 });
@@ -533,7 +559,8 @@ window.addEventListener('load', () => {
 function signIn() {
   if (!CLIENT_ID) { document.getElementById('client-id-status').textContent = '⚠ Primero ingresá el Client ID arriba'; return; }
   if (!tokenClient) initTokenClient();
-  tokenClient.requestAccessToken();
+  // Login manual: mostrar selector de cuenta
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
 function onSignedIn() {
@@ -542,11 +569,14 @@ function onSignedIn() {
       const ini = ((u.given_name||'')[0] + (u.family_name||'')[0]).toUpperCase();
       document.getElementById('user-name').textContent = u.name || u.email;
       document.getElementById('user-avatar').textContent = ini || '?';
+      sessionStorage.setItem('autonomy_hint', u.email || '');
       currentUser = u;
     });
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   syncFromDrive(true);
+  // Renovar token silencioso cada 50 minutos (antes de que expire la hora)
+  setInterval(trySilentSignIn, 50 * 60 * 1000);
   setInterval(() => syncFromDrive(true), 120000);
   syncConveniosDesdeSheets();
   syncPagosDesdeSheets();
@@ -1998,32 +2028,63 @@ async function cargarContactados() {
   }
 }
 
+let _contactadosSort = { col: 'fecha', dir: 'desc' };
+
+function setSortContactados(col) {
+  if (_contactadosSort.col === col) {
+    _contactadosSort.dir = _contactadosSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _contactadosSort.col = col;
+    _contactadosSort.dir = 'desc';
+  }
+  ['fecha','alq','inf','sin','total'].forEach(c => {
+    const el = document.getElementById('th-cont-'+c);
+    if (!el) return;
+    el.classList.remove('asc','desc');
+    if (c === _contactadosSort.col) el.classList.add(_contactadosSort.dir);
+  });
+  renderTablaContactados();
+}
+
 function renderTablaContactados() {
   const q      = (document.getElementById('search-contactados')?.value||'').toLowerCase();
   const fConv  = document.getElementById('filter-contactados-convenio')?.value||'';
   const fComent= document.getElementById('filter-contactados-comentario')?.value||'';
 
-  const lista = _contactadosData.filter(d => {
+  let lista = _contactadosData.filter(d => {
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
     const oC = !fConv || (fConv==='sin' && !d.convs.length) || (fConv==='con' && d.convs.length);
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
     return oQ && oC && oK;
   });
 
+  const { col, dir } = _contactadosSort;
+  const mul = dir === 'asc' ? 1 : -1;
+  lista = [...lista].sort((a, b) => {
+    if (col === 'fecha') {
+      const toNum = s => { if (!s) return 0; const p=s.split('/'); return p.length===3?parseInt(p[2]+p[1].padStart(2,'0')+p[0].padStart(2,'0'))||0:0; };
+      return mul * (toNum(a.fecha) - toNum(b.fecha));
+    }
+    if (col === 'alq')   return mul * ((a.deudaAlq||0) - (b.deudaAlq||0));
+    if (col === 'inf')   return mul * ((a.deudaInf||0) - (b.deudaInf||0));
+    if (col === 'sin')   return mul * ((a.deudaSin||0) - (b.deudaSin||0));
+    if (col === 'total') return mul * (((a.deudaAlq||0)+(a.deudaInf||0)+(a.deudaSin||0)) - ((b.deudaAlq||0)+(b.deudaInf||0)+(b.deudaSin||0)));
+    return 0;
+  });
+
   document.getElementById('contactados-count').textContent = `${lista.length} titular${lista.length!==1?'es':''}`;
 
   const tbody = document.getElementById('tabla-contactados');
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>Sin resultados</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="icon">📋</div><p>Sin resultados</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = lista.map(d => {
-    // Badge de convenios
+    const total = (d.deudaAlq||0)+(d.deudaInf||0)+(d.deudaSin||0);
     const convBadges = d.convs.length
       ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
       : `<span class="badge badge-vencido">Sin convenio</span>`;
-
     return `<tr>
       <td>
         <div style="font-weight:500">${d.nombre}</div>
@@ -2034,8 +2095,9 @@ function renderTablaContactados() {
       <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
       <td class="importe">${d.deudaInf > 0 ? fmtPeso(d.deudaInf) : '—'}</td>
       <td class="importe">${d.deudaSin > 0 ? fmtPeso(d.deudaSin) : '—'}</td>
+      <td class="importe" style="font-weight:600">${total > 0 ? fmtPeso(total) : '—'}</td>
       <td>${convBadges}</td>
-      <td style="max-width:220px;font-size:12px;color:var(--muted)">${d.comentario || '<em style="opacity:.5">Sin comentario</em>'}</td>
+      <td style="max-width:200px;font-size:12px;color:var(--muted)">${d.comentario || '<em style="opacity:.5">Sin comentario</em>'}</td>
       <td>
         <div class="actions">
           <button class="btn btn-ghost btn-sm" onclick="buscarDesdeContactados('${d.cuit}')">🔍 Ver</button>
