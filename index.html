@@ -359,9 +359,11 @@
         </div>
         <table>
           <thead><tr>
+            <th style="width:40px;text-align:center">#</th>
             <th>Titular</th>
             <th>Teléfono</th>
             <th class="th-sort" onclick="setSortContactados('fecha')" id="th-cont-fecha">Fecha contacto <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('mora')" id="th-cont-mora">Días mora <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('alq')" id="th-cont-alq">Deuda Alquiler <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('inf')" id="th-cont-inf">Infracciones <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('sin')" id="th-cont-sin">Siniestros <span class="sort-icon">↕</span></th>
@@ -468,7 +470,16 @@
           </div>
 
           <div class="field"><label>Importe por cuota</label><input id="c-importe-cuota" type="text" placeholder="$0" readonly style="opacity:.8;font-weight:600;font-family:var(--fm)"></div>
-          <div class="field"><label>Fecha primer vencimiento</label><input id="c-fecha-inicio" type="text" placeholder="dd/mm/aaaa" maxlength="10" oninput="autoFormatFecha(this)"></div>
+          <div class="field">
+            <label>Fecha primer vencimiento</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="c-fecha-inicio" type="text" placeholder="dd/mm/aaaa" maxlength="10" oninput="autoFormatFecha(this)" style="flex:1">
+              <div style="position:relative">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('c-fecha-picker').showPicker()" title="Abrir calendario">📅</button>
+                <input id="c-fecha-picker" type="date" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;top:0;left:0" onchange="document.getElementById('c-fecha-inicio').value=isoADMY(this.value)">
+              </div>
+            </div>
+          </div>
           <div class="field"><label>Enviado para firmar</label><select id="c-enviado"><option value="">No enviado</option><option value="SI">Sí, enviado</option></select></div>
           <div class="field"><label>Firmado</label><select id="c-firmado"><option value="">Pendiente</option><option value="SI">Sí</option></select></div>
           <div class="field form-full"><label>Comentarios</label><textarea id="c-comentario" placeholder="Observaciones…"></textarea></div>
@@ -1911,15 +1922,21 @@ async function ejecutarBusqueda() {
     </div>`
   ).join('');
 
-  // Leer comentario existente en COMENTARIOS col P
+  // Leer comentario existente en COMENTARIOS cols P, Q, R
   let accionExistente = '';
+  let contactadoExistente = '';
+  let bajaExistente = '';
   try {
-    const urlCom = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`;
+    const urlCom = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:R`;
     const rCom = await fetch(urlCom, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dCom = await rCom.json();
     const rowsCom = dCom.values || [];
     const filaCom = rowsCom.find((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuitClean);
-    if (filaCom) accionExistente = filaCom[15] || '';
+    if (filaCom) {
+      accionExistente     = filaCom[15] || '';
+      contactadoExistente = filaCom[16] || '';
+      bajaExistente       = filaCom[17] || '';
+    }
   } catch(e) {}
 
   res.innerHTML = `
@@ -1954,6 +1971,25 @@ async function ejecutarBusqueda() {
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:16px">
       <div style="font-family:var(--fh);font-weight:700;font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.4px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">📞 Acción / Contacto telefónico</div>
       ${accionExistente ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Comentario actual: <em style="color:var(--text)">${accionExistente}</em></div>` : ''}
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;flex:1;min-width:200px">
+          <span style="font-size:13px;font-weight:500">Contactado</span>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button id="btn-contactado-si" class="btn btn-sm ${contactadoExistente==='SI'?'btn-primary':'btn-ghost'}" onclick="toggleContactadoBaja('contactado','SI','${cuitClean}')">Sí</button>
+            <button id="btn-contactado-no" class="btn btn-sm ${contactadoExistente==='NO'?'btn-danger':'btn-ghost'}" onclick="toggleContactadoBaja('contactado','NO','${cuitClean}')">No</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;flex:1;min-width:200px">
+          <span style="font-size:13px;font-weight:500">Baja por incobrable</span>
+          <div style="margin-left:auto;display:flex;gap:6px">
+            <button id="btn-baja-si" class="btn btn-sm ${bajaExistente==='SI'?'btn-primary':'btn-ghost'}" onclick="toggleContactadoBaja('baja','SI','${cuitClean}')">Sí</button>
+            <button id="btn-baja-no" class="btn btn-sm ${bajaExistente==='NO'?'btn-danger':'btn-ghost'}" onclick="toggleContactadoBaja('baja','NO','${cuitClean}')">No</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:8px">
+        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar()">📋 Cargar texto estándar</button>
+      </div>
       <textarea id="busqueda-comentario" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;resize:vertical;min-height:80px;transition:border-color .15s" placeholder="Registrá el resultado del contacto telefónico…" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${accionExistente}</textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
         <button class="btn btn-primary" onclick="guardarComentarioBusqueda('${cuitClean}')">💾 Guardar comentario</button>
@@ -1966,6 +2002,52 @@ async function ejecutarBusqueda() {
     telefono: datos.telefono||'', mail: datos.mail||'', direccion: datos.direccion||'',
     deudaAlq, deudaInf, deudaSin, deposito
   };
+}
+
+function cargarComentarioEstandar() {
+  const hoy    = new Date();
+  const fmt    = d => d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const fecha0 = fmt(hoy);
+  const fecha2 = fmt(new Date(hoy.getTime() + 2*86400000));
+  const fecha4 = fmt(new Date(hoy.getTime() + 4*86400000));
+  const texto  = `Enviamos mensaje vía SMS con fecha ${fecha0}, ${fecha2} y ${fecha4}. Reiterados mensaje de voz en celular, no hay teléfonos de contacto alternativos, intimado por mail, no responde intimación por carta.`;
+  const ta = document.getElementById('busqueda-comentario');
+  if (ta) ta.value = texto;
+}
+
+async function toggleContactadoBaja(campo, valor, cuit) {
+  // Actualizar UI inmediatamente
+  if (campo === 'contactado') {
+    document.getElementById('btn-contactado-si').className = `btn btn-sm ${valor==='SI'?'btn-primary':'btn-ghost'}`;
+    document.getElementById('btn-contactado-no').className = `btn btn-sm ${valor==='NO'?'btn-danger':'btn-ghost'}`;
+  } else {
+    document.getElementById('btn-baja-si').className = `btn btn-sm ${valor==='SI'?'btn-primary':'btn-ghost'}`;
+    document.getElementById('btn-baja-no').className = `btn btn-sm ${valor==='NO'?'btn-danger':'btn-ghost'}`;
+  }
+  const col = campo === 'contactado' ? 'Q' : 'R';
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead = await rRead.json();
+    const rows  = dRead.values || [];
+    const rowIdx = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!${col}${sheetRow}?valueInputOption=USER_ENTERED`;
+      await fetch(urlWrite, { method:'PUT', headers:{ Authorization:'Bearer '+accessToken,'Content-Type':'application/json' }, body:JSON.stringify({ values:[[valor]] }) });
+    } else {
+      // Fila nueva: CUIT en A, valor en Q o R
+      const nextRow = rows.length + 1;
+      const valores = Array(17).fill('');
+      valores[0] = cuit;
+      valores[campo==='contactado'?16:17] = valor;
+      const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:R${nextRow}?valueInputOption=USER_ENTERED`;
+      await fetch(urlWrite, { method:'PUT', headers:{ Authorization:'Bearer '+accessToken,'Content-Type':'application/json' }, body:JSON.stringify({ values:[valores] }) });
+    }
+    toast(`${campo==='contactado'?'Contactado':'Baja por incobrable'}: ${valor} ✓`);
+  } catch(e) {
+    toast('Error al guardar: ' + e.message, 'error');
+  }
 }
 
 async function guardarComentarioBusqueda(cuit) {
@@ -2037,30 +2119,31 @@ async function cargarContactados() {
       if (c) originalMap[c] = r;
     });
 
-    // 3. Leer COMENTARIOS para acción (col P = índice 15)
+    // 3. Leer COMENTARIOS para acción (col P = índice 15) y días mora (col O = índice 14)
     const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d3 = await r3.json();
     const comentRows = (d3.values||[]).slice(1);
     const comentMap = {};
+    const moraMap   = {};
     comentRows.forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) comentMap[c] = r[15]||'';
+      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; }
     });
 
     // 4. Cruzar todo
     _contactadosData = contactRows.map(row => {
-      const cuit    = String(row[0]||'').replace(/\D/g,'');
-      const fecha   = row[1]||'';
-      const orig    = originalMap[cuit] || [];
-      const nombre  = orig[1]||'—';
-      const telefono= orig[4]||'';
-      const deudaAlq= parsePeso(orig[8]);
-      const deudaInf= parsePeso(orig[9]);
-      const deudaSin= parsePeso(orig[10]);
+      const cuit     = String(row[0]||'').replace(/\D/g,'');
+      const fecha    = row[1]||'';
+      const orig     = originalMap[cuit] || [];
+      const nombre   = orig[1]||'—';
+      const telefono = orig[4]||'';
+      const deudaAlq = parsePeso(orig[8]);
+      const deudaInf = parsePeso(orig[9]);
+      const deudaSin = parsePeso(orig[10]);
       const comentario = comentMap[cuit]||'';
-      // Convenios en la app
+      const diasMora   = moraMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, convs };
     });
 
     renderTablaContactados();
@@ -2079,7 +2162,7 @@ function setSortContactados(col) {
     _contactadosSort.col = col;
     _contactadosSort.dir = 'desc';
   }
-  ['fecha','alq','inf','sin','total'].forEach(c => {
+  ['fecha','mora','alq','inf','sin','total'].forEach(c => {
     const el = document.getElementById('th-cont-'+c);
     if (!el) return;
     el.classList.remove('asc','desc');
@@ -2107,7 +2190,7 @@ function renderTablaContactados() {
       const toNum = s => { if (!s) return 0; const p=s.split('/'); return p.length===3?parseInt(p[2]+p[1].padStart(2,'0')+p[0].padStart(2,'0'))||0:0; };
       return mul * (toNum(a.fecha) - toNum(b.fecha));
     }
-    if (col === 'alq')   return mul * ((a.deudaAlq||0) - (b.deudaAlq||0));
+    if (col === 'mora')  return mul * ((parseInt(a.diasMora)||0) - (parseInt(b.diasMora)||0));
     if (col === 'inf')   return mul * ((a.deudaInf||0) - (b.deudaInf||0));
     if (col === 'sin')   return mul * ((a.deudaSin||0) - (b.deudaSin||0));
     if (col === 'total') return mul * (((a.deudaAlq||0)+(a.deudaInf||0)+(a.deudaSin||0)) - ((b.deudaAlq||0)+(b.deudaInf||0)+(b.deudaSin||0)));
@@ -2122,18 +2205,22 @@ function renderTablaContactados() {
     return;
   }
 
-  tbody.innerHTML = lista.map(d => {
+  tbody.innerHTML = lista.map((d, i) => {
     const total = (d.deudaAlq||0)+(d.deudaInf||0)+(d.deudaSin||0);
     const convBadges = d.convs.length
       ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
       : `<span class="badge badge-vencido">Sin convenio</span>`;
+    const mora = parseInt(d.diasMora)||0;
+    const moraColor = mora > 365 ? 'var(--danger)' : mora > 180 ? 'var(--warning)' : 'var(--muted)';
     return `<tr>
+      <td style="text-align:center;font-family:var(--fm);font-size:12px;color:var(--muted);width:40px">${i+1}</td>
       <td>
         <div style="font-weight:500">${d.nombre}</div>
         <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
       </td>
       <td style="font-size:13px;white-space:nowrap">${d.telefono||'—'}</td>
       <td class="mono" style="white-space:nowrap">${d.fecha||'—'}</td>
+      <td class="mono" style="text-align:center;color:${moraColor};font-weight:600">${mora > 0 ? mora : '—'}</td>
       <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
       <td class="importe">${d.deudaInf > 0 ? fmtPeso(d.deudaInf) : '—'}</td>
       <td class="importe">${d.deudaSin > 0 ? fmtPeso(d.deudaSin) : '—'}</td>
