@@ -2567,15 +2567,14 @@ async function generarInforme() {
   <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:48px;font-family:'Georgia',serif;color:#111827;max-width:680px">
 
     <!-- MEMBRETE -->
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111827">
-      <div>
-        <div style="font-size:22px;font-weight:700;letter-spacing:-.3px;color:#111827">ESTUDIO OYUELA</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:3px;letter-spacing:.3px">GESTIÓN DE COBROS Y RECUPERO DE DEUDA</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:11px;color:#6b7280;letter-spacing:.3px">INFORME DE GESTIÓN</div>
-        <div style="font-size:15px;font-weight:700;margin-top:2px">${nombreMes}</div>
-        <div style="font-size:10px;color:#9ca3af;margin-top:3px">Emitido: ${new Date().toLocaleDateString('es-AR')}</div>
+    <div style="text-align:center;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111827">
+      <img src="./membrete.png" alt="Oyuela & Asociados Abogados" style="max-width:320px;width:100%;height:auto">
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#6b7280;letter-spacing:.3px;font-family:'Helvetica Neue',Arial,sans-serif">INFORME DE GESTIÓN</div>
+          <div style="font-size:15px;font-weight:700;margin-top:2px;font-family:'Helvetica Neue',Arial,sans-serif">${nombreMes}</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:3px;font-family:'Helvetica Neue',Arial,sans-serif">Emitido: ${new Date().toLocaleDateString('es-AR')}</div>
+        </div>
       </div>
     </div>
 
@@ -2774,15 +2773,17 @@ function imprimirInforme(periodo) {
     * { box-sizing:border-box; margin:0; padding:0; }
     body { font-family:'DM Sans',sans-serif; font-size:11px; color:#111827; background:white; padding:20px; }
     table { width:100%; border-collapse:collapse; }
-    @page { margin:15mm; size:A4 landscape; }
+    @page { margin:15mm; size:A4 portrait; }
     @media print { body { padding:0; } }
   `;
   const win = window.open('', '_blank');
+  const imgUrl = window.location.href.replace(/\/[^\/]*$/, '/membrete.png');
+  const htmlContent = area.innerHTML.replace('./membrete.png', imgUrl);
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>Informe de Gestión — Estudio Oyuela — ${periodo}</title>
     <style>${estilos}</style>
-  </head><body>${area.innerHTML}</body></html>`);
+  </head><body>${htmlContent}</body></html>`);
   win.document.close();
   win.focus();
   setTimeout(() => { win.print(); }, 800);
