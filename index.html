@@ -8,14 +8,13 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
   :root {
-    --bg:#0f0f11;--surface:#17171b;--surface2:#1e1e24;--border:#2a2a32;
-    --accent:#e8ff47;--accent2:#7b6cff;--danger:#ff4f4f;--warning:#ffb547;--ok:#47ffb8;
-    --text:#f0f0f5;--muted:#72727d;
+    --bg:#f4f5f7;--surface:#ffffff;--surface2:#f0f1f4;--border:#e2e4ea;
+    --accent:#4f46e5;--accent2:#7c3aed;--danger:#dc2626;--warning:#d97706;--ok:#059669;
+    --text:#111827;--muted:#6b7280;
     --fh:'Syne',sans-serif;--fm:'DM Mono',monospace;--fb:'DM Sans',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font-family:var(--fb);font-size:14px;min-height:100vh}
-  /* AUTH */
   #auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px}
   .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 48px;text-align:center;max-width:380px;width:100%}
   .auth-logo{font-family:var(--fh);font-size:28px;font-weight:800;color:var(--accent);margin-bottom:8px}
@@ -32,7 +31,6 @@
   .client-id-form{display:flex;gap:8px;margin-top:12px}
   .client-id-form input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none}
   .client-id-form input:focus{border-color:var(--accent)}
-  /* LAYOUT */
   .app{display:none;min-height:100vh}
   .app.visible{display:flex}
   .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
@@ -47,18 +45,16 @@
   .nav{padding:16px 0;flex:1;overflow-y:auto}
   .nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .15s;border-left:2px solid transparent}
   .nav-item:hover{color:var(--text);background:var(--surface2)}
-  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(232,255,71,.06)}
+  .nav-item.active{color:var(--accent);border-left-color:var(--accent);background:rgba(79,70,229,.07)}
   .nav-item .icon{font-size:16px;width:20px;text-align:center}
   .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);margin-left:auto}
   .sync-dot.syncing{background:var(--warning);animation:pulse .8s infinite}
   .sync-dot.error{background:var(--danger)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .main{margin-left:220px;flex:1;padding:32px;min-height:100vh}
-  /* HEADER */
   .page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
   .page-title{font-family:var(--fh);font-size:24px;font-weight:800}
   .page-sub{color:var(--muted);font-size:12px;margin-top:2px}
-  /* STATS */
   .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
   .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
@@ -69,7 +65,6 @@
   .stat-label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
   .stat-value{font-family:var(--fh);font-size:28px;font-weight:800}
   .stat-sub{color:var(--muted);font-size:11px;margin-top:4px;font-family:var(--fm)}
-  /* TABLE */
   .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .table-toolbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap}
   .search-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:var(--fb);font-size:13px;width:260px;outline:none;transition:border-color .15s}
@@ -82,26 +77,23 @@
   td{padding:12px 16px;border-top:1px solid var(--border);font-size:13px;vertical-align:middle}
   tr:hover td{background:rgba(255,255,255,.02)}
   .mono{font-family:var(--fm);font-size:12px}
-  /* BADGES */
   .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--fm);text-transform:uppercase;white-space:nowrap}
-  .badge-a{background:rgba(232,255,71,.12);color:var(--accent)}
-  .badge-i{background:rgba(123,108,255,.12);color:var(--accent2)}
-  .badge-s{background:rgba(255,181,71,.12);color:var(--warning)}
-  .badge-ok{background:rgba(71,255,184,.12);color:var(--ok)}
-  .badge-vencido{background:rgba(255,79,79,.12);color:var(--danger)}
-  .badge-pendiente{background:rgba(255,181,71,.12);color:var(--warning)}
-  .badge-firmado{background:rgba(71,255,184,.12);color:var(--ok)}
-  /* BUTTONS */
+  .badge-a{background:rgba(79,70,229,.1);color:var(--accent)}
+  .badge-i{background:rgba(124,58,237,.1);color:var(--accent2)}
+  .badge-s{background:rgba(217,119,6,.1);color:var(--warning)}
+  .badge-ok{background:rgba(5,150,105,.1);color:var(--ok)}
+  .badge-vencido{background:rgba(220,38,38,.1);color:var(--danger)}
+  .badge-pendiente{background:rgba(217,119,6,.1);color:var(--warning)}
+  .badge-firmado{background:rgba(5,150,105,.1);color:var(--ok)}
   .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--fb);transition:all .15s;white-space:nowrap}
-  .btn-primary{background:var(--accent);color:#111}
-  .btn-primary:hover{background:#d4e840}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#4338ca}
   .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}
-  .btn-ghost:hover{color:var(--text);border-color:var(--text)}
-  .btn-danger{background:rgba(255,79,79,.12);color:var(--danger);border:1px solid rgba(255,79,79,.2)}
-  .btn-danger:hover{background:rgba(255,79,79,.2)}
+  .btn-ghost:hover{color:var(--text);border-color:#9ca3af}
+  .btn-danger{background:rgba(220,38,38,.08);color:var(--danger);border:1px solid rgba(220,38,38,.2)}
+  .btn-danger:hover{background:rgba(220,38,38,.15)}
   .btn-sm{padding:5px 10px;font-size:12px}
   .btn:disabled{opacity:.4;cursor:not-allowed}
-  /* MODAL */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:1000;align-items:center;justify-content:center;padding:20px}
   .modal-overlay.open{display:flex}
   .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;animation:modalIn .2s ease}
@@ -116,23 +108,21 @@
   .field input,.field select,.field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;transition:border-color .15s}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
   .field textarea{resize:vertical;min-height:80px}
-  .form-section{font-family:var(--fh);font-size:13px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .form-section{font-family:var(--fh);font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
   .modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border)}
-  /* DETAIL */
   .detail-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
   .detail-item{background:var(--surface2);border-radius:8px;padding:12px}
   .detail-item .lbl{font-size:11px;color:var(--muted);margin-bottom:4px}
   .detail-item .val{font-family:var(--fm);font-size:14px;font-weight:500}
   .progress-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
   .progress-fill{height:100%;border-radius:3px;background:var(--accent);transition:width .3s}
-  /* MISC */
   .empty{padding:60px 20px;text-align:center;color:var(--muted)}
   .empty .icon{font-size:40px;margin-bottom:12px}
   #toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none}
   #toast.show{opacity:1;transform:none}
-  #toast.success{border-color:var(--ok);color:var(--ok)}
-  #toast.error{border-color:var(--danger);color:var(--danger)}
-  #toast.info{border-color:var(--accent2);color:var(--accent2)}
+  #toast.success{border-color:var(--ok);color:#065f46;background:#f0fdf4}
+  #toast.error{border-color:var(--danger);color:#991b1b;background:#fef2f2}
+  #toast.info{border-color:var(--accent2);color:var(--accent2);background:#faf5ff}
   .tabs{display:flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px;width:fit-content}
   .tab{padding:7px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;color:var(--muted)}
   .tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.3)}
@@ -141,17 +131,18 @@
   .importe{font-family:var(--fm);text-align:right}
   .actions{display:flex;gap:6px;justify-content:flex-end}
   .alert{border-radius:8px;padding:12px 16px;font-size:13px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px}
-  .alert-warning{background:rgba(255,181,71,.08);border:1px solid rgba(255,181,71,.2);color:var(--warning)}
-  .alert-info{background:rgba(123,108,255,.08);border:1px solid rgba(123,108,255,.2);color:var(--accent2)}
+  .alert-warning{background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.25);color:#92400e}
+  .alert-info{background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);color:var(--accent2)}
+  .alert-danger{background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.25);color:#991b1b}
+  .alert-ok{background:rgba(5,150,105,.07);border:1px solid rgba(5,150,105,.2);color:#065f46}
   .cuota-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
   .cuota-row:last-child{border:none}
   .dias-badge{font-family:var(--fm);font-size:12px;padding:2px 7px;border-radius:4px}
-  .dias-ok{background:rgba(71,255,184,.1);color:var(--ok)}
-  .dias-warn{background:rgba(255,181,71,.1);color:var(--warning)}
-  .dias-bad{background:rgba(255,79,79,.1);color:var(--danger)}
+  .dias-ok{background:rgba(5,150,105,.1);color:var(--ok)}
+  .dias-warn{background:rgba(217,119,6,.1);color:var(--warning)}
+  .dias-bad{background:rgba(220,38,38,.1);color:var(--danger)}
   .spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:auto}
   @keyframes spin{to{transform:rotate(360deg)}}
-  /* CUIT LOOKUP */
   .cuit-row{display:flex;gap:8px;align-items:flex-end}
   .cuit-row .field{flex:1}
   .lookup-result{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:4px}
@@ -161,7 +152,7 @@
   .lookup-deuda-item{background:var(--surface);border-radius:8px;padding:10px;border:1px solid var(--border)}
   .lookup-deuda-item .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
   .lookup-deuda-item .val{font-family:var(--fm);font-size:13px;font-weight:600}
-  .lookup-deuda-item.tiene-convenio{border-color:var(--ok);background:rgba(71,255,184,.05)}
+  .lookup-deuda-item.tiene-convenio{border-color:var(--ok);background:rgba(5,150,105,.05)}
   .lookup-deuda-item.tiene-convenio .lbl::after{content:' · EN CONVENIO';color:var(--ok)}
   .lookup-convenios{margin-top:8px}
   .lookup-conv-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:6px;margin-bottom:4px;font-size:12px;border:1px solid var(--border)}
@@ -169,6 +160,18 @@
   .lookup-conv-item .conv-progreso{color:var(--muted)}
   .lookup-not-found{color:var(--danger);font-size:13px;padding:8px 0}
   .cuit-searching{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:8px;padding:8px 0}
+  /* Deposito widget */
+  .dep-widget{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:4px}
+  .dep-widget-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px}
+  .dep-widget-row:last-child{margin-bottom:0}
+  .dep-widget-label{color:var(--muted)}
+  .dep-widget-val{font-family:var(--fm);font-weight:600}
+  .dep-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin:6px 0}
+  .dep-bar-fill{height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
+  .dep-bar-fill.warning{background:var(--warning)}
+  .dep-bar-fill.danger{background:var(--danger)}
+  .field input.input-error{border-color:var(--danger)!important}
+  .field input.input-ok{border-color:var(--ok)!important}
 </style>
 </head>
 <body>
@@ -184,14 +187,13 @@
     </button>
     <div class="auth-note">Todos los datos se guardan en Google Drive y son accesibles por el equipo</div>
   </div>
-
   <div class="setup-box">
     <h3>⚙ Configuración (primer uso)</h3>
     <ol>
       <li>Abrí <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></li>
       <li>Creá un proyecto → <strong>APIs &amp; Services → OAuth 2.0 Client ID</strong></li>
-      <li>Tipo: <code>Web application</code>. En "Authorized JavaScript origins" agregá la URL donde subas este archivo (o <code>http://localhost</code> para pruebas locales)</li>
-      <li>Habilitá la <strong>Google Drive API</strong> en el proyecto</li>
+      <li>Tipo: <code>Web application</code>. En "Authorized JavaScript origins" agregá la URL donde subas este archivo</li>
+      <li>Habilitá la <strong>Google Drive API</strong> y <strong>Google Sheets API</strong></li>
       <li>Pegá el Client ID acá y guardalo:</li>
     </ol>
     <div class="client-id-form">
@@ -313,7 +315,7 @@
     </div>
     <div class="modal-body">
 
-      <!-- PASO 1: buscar CUIT (solo en modo nuevo) -->
+      <!-- PASO 1: buscar CUIT -->
       <div id="cuit-lookup-section">
         <div class="form-section">Buscar titular</div>
         <div class="cuit-row">
@@ -326,7 +328,7 @@
         <div id="cuit-lookup-result"></div>
       </div>
 
-      <!-- PASO 2: datos precargados (ocultos hasta buscar) -->
+      <!-- PASO 2: datos precargados -->
       <div id="convenio-form-section" style="display:none">
         <div class="form-section">Titular</div>
         <div class="form-grid">
@@ -343,16 +345,23 @@
           <div class="field"><label>Deuda Alquiler</label><input id="c-deuda-alq" type="number" readonly style="opacity:.6"></div>
           <div class="field"><label>Infracciones</label><input id="c-deuda-inf" type="number" readonly style="opacity:.6"></div>
           <div class="field"><label>Siniestros</label><input id="c-deuda-sin" type="number" readonly style="opacity:.6"></div>
-          <div class="field"><label>Depósito disponible</label><input id="c-deposito" type="number" readonly style="opacity:.6"></div>
+          <div class="field"><label>Depósito total</label><input id="c-deposito" type="number" readonly style="opacity:.6"></div>
         </div>
 
         <div class="form-section">Convenio</div>
         <div class="form-grid">
-          <div class="field"><label>Tipo *</label><select id="c-tipo" onchange="actualizarCuota()"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
+          <div class="field"><label>Tipo *</label><select id="c-tipo" onchange="onTipoChange()"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
           <div class="field"><label>Modalidad</label><select id="c-modalidad"><option value="mensuales">Mensuales</option><option value="semanales">Semanales</option></select></div>
           <div class="field"><label>Cantidad de cuotas *</label><input id="c-cant-cuotas" type="number" min="1" placeholder="6" oninput="actualizarCuota()"></div>
-          <div class="field"><label>Usa depósito</label><select id="c-usa-deposito" onchange="actualizarCuota()"><option value="NO">No</option><option value="SI">Sí</option></select></div>
           <div class="field"><label>Quita (%)</label><input id="c-quita" type="number" min="0" max="100" placeholder="0" oninput="actualizarCuota()"></div>
+
+          <!-- DEPÓSITO A APLICAR - reemplaza el toggle SI/NO -->
+          <div class="field form-full" id="deposito-field-wrap" style="display:none">
+            <label>Depósito a aplicar en este convenio ($)</label>
+            <input id="c-deposito-aplicado" type="number" min="0" placeholder="0" oninput="onDepositoAplicadoInput()">
+            <div id="deposito-widget"></div>
+          </div>
+
           <div class="field"><label>Importe por cuota</label><input id="c-importe-cuota" type="number"></div>
           <div class="field"><label>Fecha primer vencimiento</label><input id="c-fecha-inicio" type="date"></div>
           <div class="field"><label>Enviado para firmar</label><select id="c-enviado"><option value="">No enviado</option><option value="SI">Sí, enviado</option></select></div>
@@ -383,7 +392,7 @@
           <input id="p-buscar-conv" type="text" placeholder="Ingresá CUIT o teléfono…" oninput="filtrarConveniosPago(this.value)" autocomplete="off">
           <div id="p-conv-resultados" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:4px;max-height:180px;overflow-y:auto"></div>
           <input type="hidden" id="p-convenio-select">
-          <div id="p-conv-seleccionado" style="display:none;margin-top:6px;padding:8px 10px;background:var(--surface3);border-radius:6px;font-size:12px;color:var(--text)"></div>
+          <div id="p-conv-seleccionado" style="display:none;margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text)"></div>
         </div>
         <div class="field"><label>Tipo</label><select id="p-tipo"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
         <div class="field"><label>N° de cuota</label><input id="p-cuota-num" type="number" min="1"></div>
@@ -413,10 +422,10 @@
 <div id="toast"></div>
 
 <script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const FILE_ID    = '1SkkaS5eeUd3bSgGQdG9douqxWoZbuLOZ';
-const SHEET_ID   = '1LwplxWQtTAnNx1PKCPvgCq_hw8zJpFmMbRsQLDnrH3I';
-const SCOPES     = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const FILE_ID  = '1SkkaS5eeUd3bSgGQdG9douqxWoZbuLOZ';
+const SHEET_ID = '1LwplxWQtTAnNx1PKCPvgCq_hw8zJpFmMbRsQLDnrH3I';
+const SCOPES   = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
 
 let CLIENT_ID = localStorage.getItem('autonomy_client_id') || '';
 if (CLIENT_ID) document.getElementById('input-client-id').value = CLIENT_ID;
@@ -429,7 +438,7 @@ function guardarClientId() {
   document.getElementById('client-id-status').textContent = '✓ Guardado. Ahora podés iniciar sesión.';
 }
 
-// ─── AUTH ────────────────────────────────────────────────────────────────────
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
 let accessToken = null;
 let currentUser = null;
 let tokenClient = null;
@@ -437,9 +446,7 @@ let tokenClient = null;
 function initTokenClient() {
   if (!CLIENT_ID) return;
   tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    prompt: 'consent',
+    client_id: CLIENT_ID, scope: SCOPES, prompt: 'consent',
     callback: (resp) => {
       if (resp.error) { toast('Error auth: ' + resp.error, 'error'); return; }
       accessToken = resp.access_token;
@@ -450,41 +457,30 @@ function initTokenClient() {
 
 window.addEventListener('load', () => {
   if (CLIENT_ID) {
-    // Wait for GSI to load
     const wait = setInterval(() => {
-      if (window.google && google.accounts) {
-        clearInterval(wait);
-        initTokenClient();
-      }
+      if (window.google && google.accounts) { clearInterval(wait); initTokenClient(); }
     }, 100);
   }
 });
 
 function signIn() {
-  if (!CLIENT_ID) {
-    document.getElementById('client-id-status').textContent = '⚠ Primero ingresá el Client ID arriba';
-    document.getElementById('input-client-id').focus();
-    return;
-  }
+  if (!CLIENT_ID) { document.getElementById('client-id-status').textContent = '⚠ Primero ingresá el Client ID arriba'; return; }
   if (!tokenClient) initTokenClient();
   tokenClient.requestAccessToken();
 }
 
 function onSignedIn() {
-  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  }).then(r => r.json()).then(u => {
-    const ini = ((u.given_name||'')[0] + (u.family_name||'')[0]).toUpperCase();
-    document.getElementById('user-name').textContent = u.name || u.email;
-    document.getElementById('user-avatar').textContent = ini || '?';
-    currentUser = u;
-  });
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + accessToken } })
+    .then(r => r.json()).then(u => {
+      const ini = ((u.given_name||'')[0] + (u.family_name||'')[0]).toUpperCase();
+      document.getElementById('user-name').textContent = u.name || u.email;
+      document.getElementById('user-avatar').textContent = ini || '?';
+      currentUser = u;
+    });
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   syncFromDrive(true);
   setInterval(() => syncFromDrive(true), 120000);
-  syncConveniosDesdeSheets();
-  syncPagosDesdeSheets();
   syncConveniosDesdeSheets();
   syncPagosDesdeSheets();
 }
@@ -496,28 +492,22 @@ function signOut() {
   document.getElementById('auth-screen').style.display = 'flex';
 }
 
-// ─── DRIVE ───────────────────────────────────────────────────────────────────
+// ─── DRIVE ────────────────────────────────────────────────────────────────────
 let DB = { convenios: [], pagos: [] };
 let writeTimer = null;
 
 async function driveGet() {
-  const r = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${FILE_ID}?alt=media`,
-    { headers: { Authorization: 'Bearer ' + accessToken } }
-  );
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${FILE_ID}?alt=media`, { headers: { Authorization: 'Bearer ' + accessToken } });
   if (!r.ok) throw new Error(r.status);
   return r.json();
 }
 
 async function drivePut(data) {
-  const r = await fetch(
-    `https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`,
-    {
-      method: 'PATCH',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    }
-  );
+  const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
   if (!r.ok) throw new Error(r.status);
 }
 
@@ -528,10 +518,7 @@ async function syncFromDrive(render) {
     DB = { convenios: data.convenios || [], pagos: data.pagos || [] };
     setSyncState('ok');
     if (render) { renderDashboard(); renderConvenios(); renderPagos(); renderVencimientos(); }
-  } catch(e) {
-    setSyncState('error');
-    console.error('Drive read error', e);
-  }
+  } catch(e) { setSyncState('error'); console.error('Drive read error', e); }
 }
 
 function scheduleSave() {
@@ -541,39 +528,30 @@ function scheduleSave() {
 }
 
 async function trySave(attempt) {
-  try {
-    await drivePut(DB);
-    setSyncState('ok');
-  } catch(e) {
-    if (attempt < 4) {
-      setSyncState('error');
-      setTimeout(() => trySave(attempt+1), 15000);
-      if (attempt === 0) toast('Error al guardar, reintentando…', 'error');
-    } else {
-      setSyncState('error');
-      toast('No se pudo guardar en Drive. Los datos están en Sheets.', 'error');
-    }
+  try { await drivePut(DB); setSyncState('ok'); }
+  catch(e) {
+    if (attempt < 4) { setSyncState('error'); setTimeout(() => trySave(attempt+1), 15000); if (attempt===0) toast('Error al guardar, reintentando…','error'); }
+    else { setSyncState('error'); toast('No se pudo guardar en Drive.','error'); }
   }
 }
 
 function setSyncState(s) {
   const d = document.getElementById('sync-dot');
-  d.className = 'sync-dot' + (s==='syncing'?' syncing':s==='error'?' error':'');
+  d.className = 'sync-dot'+(s==='syncing'?' syncing':s==='error'?' error':'');
 }
 
-// ─── UTILS ───────────────────────────────────────────────────────────────────
-const fmtPeso = n => n==null?'—':'$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
-// Parsea montos en formato argentino: $1.156.071,00 → 1156071
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const fmtPeso  = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
 const parsePeso = s => { const clean=String(s||'0').replace(/[^0-9,]/g,'').replace(',','.'); return parseFloat(clean)||0; };
 const fmtFecha = d => d ? new Date(d).toLocaleDateString('es-AR') : '—';
-const today = () => new Date().toISOString().split('T')[0];
-const addDays = (ds,n) => { const d=new Date(ds);d.setDate(d.getDate()+n);return d.toISOString().split('T')[0]; };
-const addMonths = (ds,n) => { const d=new Date(ds);d.setMonth(d.getMonth()+n);return d.toISOString().split('T')[0]; };
+const today    = () => new Date().toISOString().split('T')[0];
+const addDays  = (ds,n) => { const d=new Date(ds); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
+const addMonths= (ds,n) => { const d=new Date(ds); d.setMonth(d.getMonth()+n); return d.toISOString().split('T')[0]; };
 const addWeeks = (ds,n) => addDays(ds,n*7);
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/86400000);
-const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
+const uid      = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 
-function toast(msg,type='success'){
+function toast(msg,type='success') {
   const el=document.getElementById('toast');
   el.textContent=msg; el.className='show '+type;
   clearTimeout(el._t); el._t=setTimeout(()=>el.className='',3000);
@@ -585,17 +563,17 @@ function generarCuotas(c) {
   if(!c.fechaInicio||!c.cantCuotas) return [];
   return Array.from({length:c.cantCuotas},(_,i)=>({
     num:i+1,
-    vencimiento: c.modalidad==='semanales'?addWeeks(c.fechaInicio,i):addMonths(c.fechaInicio,i),
+    vencimiento: c.modalidad==='semanales' ? addWeeks(c.fechaInicio,i) : addMonths(c.fechaInicio,i),
     importe: c.importeCuota
   }));
 }
 
 function calcStatus() {
-  const hoy=today(),prox=[],venc=[];
+  const hoy=today(), prox=[], venc=[];
   DB.convenios.forEach(c=>{
     const pag=new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
     generarCuotas(c).forEach(cq=>{
-      if(pag.has(cq.num))return;
+      if(pag.has(cq.num)) return;
       const d=diffDays(hoy,cq.vencimiento);
       if(d<0) venc.push({conv:c,cq,dias:Math.abs(d)});
       else if(d<=30) prox.push({conv:c,cq,dias:d});
@@ -606,7 +584,145 @@ function calcStatus() {
   return {prox,venc};
 }
 
-// ─── NAV ─────────────────────────────────────────────────────────────────────
+// ─── DEPÓSITO: lógica central ─────────────────────────────────────────────────
+// Calcula cuánto depósito ya fue asignado a otros convenios del mismo CUIT
+// (excluyendo el convenio en edición si aplica)
+function calcDepositoUsadoPorOtros(cuit, excludeId) {
+  const clean = String(cuit).replace(/\D/g,'');
+  return DB.convenios
+    .filter(c => String(c.cuit).replace(/\D/g,'') === clean && c.id !== excludeId)
+    .reduce((sum, c) => sum + (parseFloat(c.depositoAplicado) || 0), 0);
+}
+
+// Devuelve el depósito disponible restante para el titular
+function calcDepositoDisponible(cuit, depositoTotal, excludeId) {
+  const usado = calcDepositoUsadoPorOtros(cuit, excludeId);
+  return Math.max(0, depositoTotal - usado);
+}
+
+// ─── DEPÓSITO: widget de UI en el formulario ──────────────────────────────────
+function renderDepositoWidget() {
+  const cuit         = document.getElementById('c-cuit').value;
+  const depositoTotal= parseFloat(document.getElementById('c-deposito').value) || 0;
+  const tipo         = document.getElementById('c-tipo').value;
+  const deudaTipo    = getDeudaTipo(tipo);
+  const aplicadoInput= parseFloat(document.getElementById('c-deposito-aplicado').value) || 0;
+  const disponible   = calcDepositoDisponible(cuit, depositoTotal, editId);
+  const usadoPorOtros= depositoTotal - disponible;
+  const widget       = document.getElementById('deposito-widget');
+
+  if (depositoTotal <= 0) { widget.innerHTML = ''; return; }
+
+  const restante = disponible - aplicadoInput;
+  const pct      = Math.min(100, Math.round((aplicadoInput / disponible) * 100)) || 0;
+  const deudaNeta= Math.max(0, deudaTipo - aplicadoInput);
+
+  let alertHtml = '';
+  const inputEl = document.getElementById('c-deposito-aplicado');
+
+  if (aplicadoInput <= 0) {
+    // Sin depósito: OK
+    inputEl.className = '';
+    alertHtml = '';
+  } else if (aplicadoInput >= deudaTipo) {
+    // Deuda neta quedaría en 0 o negativa: ERROR
+    inputEl.className = 'input-error';
+    alertHtml = `<div class="alert alert-danger" style="margin-top:8px;margin-bottom:0">
+      ⚠ El depósito aplicado (${fmtPeso(aplicadoInput)}) no puede igualar o superar la deuda de ${tipo.toLowerCase()} (${fmtPeso(deudaTipo)}). La deuda neta debe quedar positiva.
+    </div>`;
+  } else if (aplicadoInput > disponible) {
+    // Supera el disponible: ERROR
+    inputEl.className = 'input-error';
+    alertHtml = `<div class="alert alert-danger" style="margin-top:8px;margin-bottom:0">
+      ⚠ No hay suficiente depósito. Disponible: ${fmtPeso(disponible)}.
+    </div>`;
+  } else {
+    inputEl.className = 'input-ok';
+    alertHtml = `<div class="alert alert-ok" style="margin-top:8px;margin-bottom:0">
+      ✓ Deuda neta de ${tipo.toLowerCase()} después de aplicar depósito: <strong>${fmtPeso(deudaNeta)}</strong>
+    </div>`;
+  }
+
+  const barClass = pct > 80 ? 'danger' : pct > 50 ? 'warning' : '';
+
+  widget.innerHTML = `
+    <div class="dep-widget">
+      <div class="dep-widget-row">
+        <span class="dep-widget-label">Depósito total del titular</span>
+        <span class="dep-widget-val">${fmtPeso(depositoTotal)}</span>
+      </div>
+      ${usadoPorOtros > 0 ? `<div class="dep-widget-row">
+        <span class="dep-widget-label">Usado en otros convenios</span>
+        <span class="dep-widget-val" style="color:var(--warning)">− ${fmtPeso(usadoPorOtros)}</span>
+      </div>` : ''}
+      <div class="dep-widget-row">
+        <span class="dep-widget-label">Disponible para este convenio</span>
+        <span class="dep-widget-val" style="color:var(--ok)">${fmtPeso(disponible)}</span>
+      </div>
+      <div class="dep-bar"><div class="dep-bar-fill ${barClass}" style="width:${pct}%"></div></div>
+      <div class="dep-widget-row" style="margin-top:2px">
+        <span class="dep-widget-label">Restante luego de aplicar</span>
+        <span class="dep-widget-val" style="color:${restante < 0 ? 'var(--danger)' : 'var(--muted)'}">${fmtPeso(Math.max(0,restante))}</span>
+      </div>
+    </div>
+    ${alertHtml}`;
+}
+
+function onDepositoAplicadoInput() {
+  renderDepositoWidget();
+  actualizarCuota();
+}
+
+function getDeudaTipo(tipo) {
+  const alq = parseFloat(document.getElementById('c-deuda-alq').value) || 0;
+  const inf = parseFloat(document.getElementById('c-deuda-inf').value) || 0;
+  const sin = parseFloat(document.getElementById('c-deuda-sin').value) || 0;
+  return tipo === 'Alquiler' ? alq : tipo === 'Infracciones' ? inf : sin;
+}
+
+function onTipoChange() {
+  recalcDepositoAplicadoAutomatico();
+  actualizarCuota();
+  renderDepositoWidget();
+}
+
+// Precalcula y asigna automáticamente el depósito al cambiar de tipo o al precargar
+// Si ya hay convenios del mismo CUIT que usaron parte del depósito,
+// aplica el remanente automáticamente (sin intervención del operador)
+function recalcDepositoAplicadoAutomatico() {
+  const cuit          = document.getElementById('c-cuit').value;
+  const depositoTotal = parseFloat(document.getElementById('c-deposito').value) || 0;
+  const tipo          = document.getElementById('c-tipo').value;
+  if (!cuit || depositoTotal <= 0) {
+    document.getElementById('deposito-field-wrap').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('deposito-field-wrap').style.display = '';
+
+  const disponible  = calcDepositoDisponible(cuit, depositoTotal, editId);
+  const deudaTipo   = getDeudaTipo(tipo);
+  const usadoPorOtros = depositoTotal - disponible;
+
+  const inputEl = document.getElementById('c-deposito-aplicado');
+
+  // Si hay depósito ya usado en otros convenios, el remanente se aplica automáticamente
+  // (solo si el campo aún no fue modificado manualmente por el operador en esta sesión)
+  if (usadoPorOtros > 0) {
+    // Hay convenio previo que consumió parte: auto-aplicar remanente
+    // pero no superar la deuda (debe quedar neta > 0)
+    const autoAplicar = Math.min(disponible, deudaTipo > 0 ? deudaTipo - 1 : 0);
+    inputEl.value = autoAplicar > 0 ? autoAplicar : 0;
+  } else {
+    // No hay uso previo: dejar en 0 para que el operador elija
+    if (!inputEl.value || parseFloat(inputEl.value) === 0) {
+      inputEl.value = 0;
+    }
+  }
+  renderDepositoWidget();
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
 function setView(v) {
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -618,17 +734,16 @@ function setView(v) {
   if(v==='vencimientos') renderVencimientos();
 }
 
-function openModal(id){document.getElementById(id).classList.add('open')}
-function closeModal(id){document.getElementById(id).classList.remove('open')}
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-// ─── SHEETS LOOKUP ───────────────────────────────────────────────────────────
+// ─── SHEETS LOOKUP ────────────────────────────────────────────────────────────
 async function buscarEnSheets(cuit) {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:Q`;
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
   if (!r.ok) throw new Error('Sheets error ' + r.status);
   const data = await r.json();
   const rows = data.values || [];
-  // fila 0 = headers, buscar por CUIT (col 0)
   const cuitStr = String(cuit).replace(/\D/g,'');
   const row = rows.slice(1).find(r => String(r[0]||'').replace(/\D/g,'') === cuitStr);
   if (!row) return null;
@@ -668,27 +783,22 @@ async function buscarCuit() {
   try {
     const titular = await buscarEnSheets(val);
     if (!titular) {
-      res.innerHTML = `<div class="lookup-not-found">⚠ CUIT no encontrado en la hoja ORIGINAL. Podés cargarlo manualmente igual.</div>`;
-      // Mostrar form vacío para carga manual
+      res.innerHTML = `<div class="lookup-not-found">⚠ CUIT no encontrado en la hoja ORIGINAL.</div>`;
       precargarForm({cuit:val,nombre:'',direccion:'',mail:'',telefono:'',dominio:'',deudaAlq:0,deudaInf:0,deudaSin:0,deposito:0});
       return;
     }
 
-    // Convenios activos en la app para este CUIT
     const convsExistentes = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === val);
-
-    // Determinar qué tipos ya tienen convenio activo
     const tiposConConvenio = {};
     convsExistentes.forEach(c => {
       const pgos = pagosDeConv(c.id, c.tipo);
-      const activo = pgos.length < c.cantCuotas;
-      tiposConConvenio[c.tipo] = { activo, pagadas: pgos.length, total: c.cantCuotas, importe: c.importeCuota };
+      tiposConConvenio[c.tipo] = { activo: pgos.length < c.cantCuotas, pagadas: pgos.length, total: c.cantCuotas, importe: c.importeCuota };
     });
 
     const deudaItems = [
-      { tipo: 'Alquiler',     val: titular.deudaAlq, key: 'Alquiler' },
-      { tipo: 'Infracciones', val: titular.deudaInf, key: 'Infracciones' },
-      { tipo: 'Siniestros',   val: titular.deudaSin, key: 'Siniestros' },
+      { tipo:'Alquiler',     val:titular.deudaAlq, key:'Alquiler' },
+      { tipo:'Infracciones', val:titular.deudaInf, key:'Infracciones' },
+      { tipo:'Siniestros',   val:titular.deudaSin, key:'Siniestros' },
     ].filter(d => d.val > 0);
 
     const deudasHtml = deudaItems.map(d => {
@@ -701,7 +811,7 @@ async function buscarCuit() {
       </div>`;
     }).join('');
 
-    const depositoHtml = titular.deposito > 0 ? `<div class="lookup-deuda-item" style="border-color:var(--accent2);background:rgba(123,108,255,.05)"><div class="lbl" style="color:var(--accent2)">Depósito</div><div class="val" style="color:var(--accent2)">${fmtPeso(titular.deposito)}</div></div>` : "";
+    const depositoHtml = titular.deposito > 0 ? `<div class="lookup-deuda-item" style="border-color:var(--accent2);background:rgba(123,108,255,.05)"><div class="lbl" style="color:var(--accent2)">Depósito</div><div class="val" style="color:var(--accent2)">${fmtPeso(titular.deposito)}</div></div>` : '';
 
     const convsHtml = convsExistentes.length ? `
       <div class="lookup-convenios">
@@ -709,9 +819,10 @@ async function buscarCuit() {
         ${convsExistentes.map(c => {
           const pgos = pagosDeConv(c.id, c.tipo);
           const activo = pgos.length < c.cantCuotas;
+          const depAplicado = parseFloat(c.depositoAplicado) || 0;
           return `<div class="lookup-conv-item">
             <span class="conv-tipo badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span>
-            <span class="conv-progreso">${pgos.length}/${c.cantCuotas} cuotas · ${fmtPeso(pgos.reduce((s,p)=>s+p.monto,0))} cobrado</span>
+            <span class="conv-progreso">${pgos.length}/${c.cantCuotas} cuotas · ${fmtPeso(pgos.reduce((s,p)=>s+p.monto,0))} cobrado${depAplicado>0?' · dep: '+fmtPeso(depAplicado):''}</span>
             <span class="badge ${activo?'badge-pendiente':'badge-ok'}">${activo?'Activo':'Completado'}</span>
           </div>`;
         }).join('')}
@@ -721,7 +832,7 @@ async function buscarCuit() {
       <div class="lookup-result">
         <div class="lookup-nombre">${titular.nombre}</div>
         <div class="lookup-sub">${titular.dominio} · ${titular.direccion}</div>
-        <div class="lookup-deudas">${deudasHtml}${depositoHtml}${!deudasHtml && !depositoHtml ? '<span style="color:var(--muted);font-size:12px">Sin deudas registradas</span>' : ''}</div>
+        <div class="lookup-deudas">${deudasHtml}${depositoHtml}</div>
         ${convsHtml}
       </div>`;
 
@@ -732,11 +843,10 @@ async function buscarCuit() {
   }
 }
 
-// ─── SHEETS CONVENIOS ────────────────────────────────────────────────────────
+// ─── SHEETS CONVENIOS ─────────────────────────────────────────────────────────
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 function parseFechaArg(s) {
-  // dd/mm/yyyy → yyyy-mm-dd
   if (!s) return '';
   const p = String(s).split('/');
   if (p.length === 3) return `${p[2].padStart(4,'0')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
@@ -744,12 +854,6 @@ function parseFechaArg(s) {
 }
 
 function rowToConvenio(row) {
-  // Columnas: 0=Dia 1=Mes 2=Año 3=CUIT 4=Nombre 5=Dir 6=Tel 7=Dom 8=FInicio 9=FFin
-  // 10=DeudaAlq 11=DeudaInf 12=DeudaSin 13=DeudaTotal 14=Deposito 15=DeudaNeta
-  // 16=Tipo(a/i/s) 17=CuotasSemanales 18=CuotasMensuales 19=UsaDeposito 20=Quita
-  // 21=ImporteCuota 22=ImporteDepUsado 23=DiaVenc 24=MesVenc 25=AnyoVenc
-  // 26=Tipo 27=TipoCuotas 28=CantCuotas 29=ConvenioID 30=ImporteTotal 31=InfActualizado
-  // 32=? 33=Enviado 34=Firmado
   const tipoRaw = String(row[16]||row[26]||'').trim().toLowerCase();
   const tipoMap = { a:'Alquiler', i:'Infracciones', s:'Siniestros' };
   const tipo = tipoMap[tipoRaw] || (tipoRaw.startsWith('a')?'Alquiler':tipoRaw.startsWith('i')?'Infracciones':'Siniestros');
@@ -757,40 +861,30 @@ function rowToConvenio(row) {
   const cantCuotas = parseInt(row[28])||0;
   const convenioId = String(row[29]||'').trim();
   const cuit = String(row[3]||'').replace(/\D/g,'');
+  const importeDepUsado = parsePeso(row[22]);
   return {
     id: convenioId || (tipoRaw+'-'+cuit),
     sheetId: convenioId,
-    cuit,
-    nombre: row[4]||'',
-    direccion: row[5]||'',
-    telefono: row[6]||'',
-    dominio: row[7]||'',
-    mail: '',
-    deudaAlq: parsePeso(row[10]),
-    deudaInf: parsePeso(row[11]),
-    deudaSin: parsePeso(row[12]),
+    cuit, nombre: row[4]||'', direccion: row[5]||'', telefono: row[6]||'',
+    dominio: row[7]||'', mail: '',
+    deudaAlq: parsePeso(row[10]), deudaInf: parsePeso(row[11]), deudaSin: parsePeso(row[12]),
     deposito: parsePeso(row[14]),
-    tipo,
-    modalidad,
-    cantCuotas,
-    usaDeposito: String(row[19]||'NO').toUpperCase(),
+    depositoAplicado: importeDepUsado,
+    // Para compatibilidad con código legacy
+    usaDeposito: importeDepUsado > 0 ? 'SI' : 'NO',
+    tipo, modalidad, cantCuotas,
     quita: parseFloat(String(row[20]||'0').replace(/[^0-9.]/g,''))||0,
     importeCuota: parsePeso(row[21]),
     fechaInicio: (() => {
-      const dia = String(row[23]||'').trim();
-      const mesNom = String(row[24]||'').trim();
-      const anyo = String(row[25]||'').trim();
-      if (!dia || !mesNom || !anyo) return parseFechaArg(row[8]);
-      const mesIdx = MESES.findIndex(m => m.toLowerCase() === mesNom.toLowerCase());
-      if (mesIdx < 0) return parseFechaArg(row[8]);
+      const dia=String(row[23]||'').trim(), mesNom=String(row[24]||'').trim(), anyo=String(row[25]||'').trim();
+      if (!dia||!mesNom||!anyo) return parseFechaArg(row[8]);
+      const mesIdx=MESES.findIndex(m=>m.toLowerCase()===mesNom.toLowerCase());
+      if (mesIdx<0) return parseFechaArg(row[8]);
       return `${anyo.padStart(4,'0')}-${String(mesIdx+1).padStart(2,'0')}-${dia.padStart(2,'0')}`;
     })(),
     firmado: String(row[34]||'').toUpperCase()==='SI' ? 'SI' : '',
     enviado: String(row[33]||'').toUpperCase()==='SI' ? 'SI' : '',
-    comentario: '',
-    creadoEn: new Date().toISOString(),
-    creadoPor: 'Sheets',
-    fromSheet: true
+    comentario: '', creadoEn: new Date().toISOString(), creadoPor: 'Sheets', fromSheet: true
   };
 }
 
@@ -800,77 +894,67 @@ async function syncConveniosDesdeSheets() {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     if (!r.ok) return;
     const data = await r.json();
-    const rows = (data.values || []).slice(1).filter(r => r[3] && String(r[3]).replace(/\D/g,'').length >= 10);
+    const rows = (data.values||[]).slice(1).filter(r => r[3] && String(r[3]).replace(/\D/g,'').length >= 10);
     let changed = false;
     rows.forEach(row => {
       const conv = rowToConvenio(row);
       if (!conv.cuit || !conv.cantCuotas) return;
-      const key = conv.tipo[0].toLowerCase() + '-' + conv.cuit;
-      const idx = DB.convenios.findIndex(c => {
-        const ck = c.tipo[0].toLowerCase() + '-' + String(c.cuit).replace(/\D/g,'');
-        return ck === key;
-      });
-      if (idx >= 0) {
-        // Sobreescribir preservando id interno y pagos
-        DB.convenios[idx] = { ...conv, id: DB.convenios[idx].id };
-        changed = true;
-      } else {
-        DB.convenios.push(conv);
-        changed = true;
-      }
+      const key = conv.tipo[0].toLowerCase()+'-'+conv.cuit;
+      const idx = DB.convenios.findIndex(c => c.tipo[0].toLowerCase()+'-'+String(c.cuit).replace(/\D/g,'') === key);
+      if (idx >= 0) { DB.convenios[idx] = { ...conv, id: DB.convenios[idx].id }; changed = true; }
+      else { DB.convenios.push(conv); changed = true; }
     });
     if (changed) { scheduleSave(); renderConvenios(); renderDashboard(); renderVencimientos(); toast('Convenios sincronizados desde Sheets ✓','info'); }
-  } catch(e) {
-    console.warn('syncConveniosDesdeSheets error', e);
+  } catch(e) { console.warn('syncConveniosDesdeSheets error', e); }
+}
+
+// Construye la fila para Sheets a partir del convenio
+function buildSheetRow(conv) {
+  const fecha = new Date(conv.creadoEn||new Date());
+  const dia=fecha.getDate(), mes=MESES[fecha.getMonth()], anyo=fecha.getFullYear();
+  const tipoLetra = conv.tipo[0].toLowerCase();
+  const sheetId   = tipoLetra+'-'+conv.cuit;
+  let diaVenc='', mesVenc='', anyoVenc='';
+  if (conv.fechaInicio) {
+    const fp = conv.fechaInicio.split('-');
+    if (fp.length===3) { anyoVenc=fp[0]; mesVenc=MESES[parseInt(fp[1])-1]; diaVenc=parseInt(fp[2]); }
   }
+  const depAplicado = parseFloat(conv.depositoAplicado) || 0;
+  const deudaTipo   = conv.tipo==='Alquiler' ? (conv.deudaAlq||0) : conv.tipo==='Infracciones' ? (conv.deudaInf||0) : (conv.deudaSin||0);
+  const deudaNeta   = deudaTipo - depAplicado;
+  const importeTotal= (conv.deudaAlq||0) + ((100-(conv.quita||0))/100)*(conv.deudaInf||0) + (conv.deudaSin||0) - depAplicado;
+  const usaDeposito = depAplicado > 0 ? 'SI' : 'NO';
+  return [
+    dia, mes, anyo,
+    conv.cuit, conv.nombre, conv.direccion||'', conv.telefono||'', conv.dominio||'',
+    conv.fechaInicio||'', '',
+    conv.deudaAlq||0, conv.deudaInf||0, conv.deudaSin||0,
+    (conv.deudaAlq||0)+(conv.deudaInf||0)+(conv.deudaSin||0),
+    conv.deposito||0,
+    deudaNeta,
+    tipoLetra, '', conv.cantCuotas,
+    usaDeposito, conv.quita||0,
+    conv.importeCuota||0, depAplicado,
+    diaVenc, mesVenc, anyoVenc,
+    conv.tipo, conv.modalidad, conv.cantCuotas, sheetId,
+    importeTotal, '',
+    '', conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO'
+  ];
 }
 
 async function writeConvenioToSheets(conv) {
   try {
-    // Leer filas actuales para saber cuántas hay
     const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:A`;
     const rRead = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dRead = await rRead.json();
     const nextRow = (dRead.values||[]).length + 1;
-
-    const fecha = new Date(conv.creadoEn||new Date());
-    const dia = fecha.getDate(), mes = MESES[fecha.getMonth()], anyo = fecha.getFullYear();
-    const tipoLetra = conv.tipo[0].toLowerCase();
-    const sheetId = tipoLetra+'-'+conv.cuit;
-    // Fecha primer vencimiento cols X,Y,Z
-    let diaVenc='', mesVenc='', anyoVenc='';
-    if (conv.fechaInicio) {
-      const fp = conv.fechaInicio.split('-');
-      if (fp.length===3) { anyoVenc=fp[0]; mesVenc=MESES[parseInt(fp[1])-1]; diaVenc=parseInt(fp[2]); }
-    }
-    // Fórmula importe total: DeudaAlq + (100-Quita)/100*DeudaInf + DeudaSin - Deposito (si usa)
-    const importeTotal = (conv.deudaAlq||0) + ((100-(conv.quita||0))/100)*(conv.deudaInf||0) + (conv.deudaSin||0) - (conv.usaDeposito==='SI'?(conv.deposito||0):0);
-    const valores = [
-      dia, mes, anyo,
-      conv.cuit, conv.nombre, conv.direccion||'', conv.telefono||'', conv.dominio||'',
-      conv.fechaInicio||'', '',
-      conv.deudaAlq||0, conv.deudaInf||0, conv.deudaSin||0,
-      (conv.deudaAlq||0)+(conv.deudaInf||0)+(conv.deudaSin||0),
-      conv.deposito||0,
-      (conv.tipo==='Alquiler'?conv.deudaAlq:conv.tipo==='Infracciones'?conv.deudaInf:conv.deudaSin)-(conv.usaDeposito==='SI'?conv.deposito:0),
-      tipoLetra, '', conv.cantCuotas,
-      conv.usaDeposito||'NO', conv.quita||0,
-      conv.importeCuota||0, conv.usaDeposito==='SI'?(conv.deposito||0):0,
-      diaVenc, mesVenc, anyoVenc,
-      conv.tipo, conv.modalidad, conv.cantCuotas, sheetId,
-      importeTotal, '',
-      '', conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO'
-    ];
     const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${nextRow}:AI${nextRow}?valueInputOption=USER_ENTERED`;
     await fetch(urlWrite, {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [valores] })
+      body: JSON.stringify({ values: [buildSheetRow(conv)] })
     });
-  } catch(e) {
-    console.warn('writeConvenioToSheets error', e);
-    toast('Convenio guardado en app pero no en Sheets','error');
-  }
+  } catch(e) { console.warn('writeConvenioToSheets error', e); toast('Convenio guardado en app pero no en Sheets','error'); }
 }
 
 async function updateConvenioEnSheets(conv) {
@@ -879,46 +963,18 @@ async function updateConvenioEnSheets(conv) {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     const data = await r.json();
     const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase() + '-' + String(conv.cuit).replace(/\D/g,'');
-    const rowIdx = rows.findIndex((row, i) => i > 0 && String(row[29]||'').trim() === key);
+    const key = conv.tipo[0].toLowerCase()+'-'+String(conv.cuit).replace(/\D/g,'');
+    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
     if (rowIdx < 0) { await writeConvenioToSheets(conv); return; }
     const sheetRow = rowIdx + 1;
-    const tipoLetra = conv.tipo[0].toLowerCase();
-    const fecha = new Date(conv.creadoEn||new Date());
-    const dia = fecha.getDate(), mes = MESES[fecha.getMonth()], anyo = fecha.getFullYear();
-    // Parse fechaInicio back to dia/mes/anyo for cols X,Y,Z
-    let diaVenc='', mesVenc='', anyoVenc='';
-    if (conv.fechaInicio) {
-      const fp = conv.fechaInicio.split('-');
-      if (fp.length===3) { anyoVenc=fp[0]; mesVenc=MESES[parseInt(fp[1])-1]; diaVenc=parseInt(fp[2]); }
-    }
-    const valores = [
-      dia, mes, anyo,
-      conv.cuit, conv.nombre, conv.direccion||'', conv.telefono||'', conv.dominio||'',
-      conv.fechaInicio||'', '',
-      conv.deudaAlq||0, conv.deudaInf||0, conv.deudaSin||0,
-      (conv.deudaAlq||0)+(conv.deudaInf||0)+(conv.deudaSin||0),
-      conv.deposito||0,
-      (conv.tipo==='Alquiler'?conv.deudaAlq:conv.tipo==='Infracciones'?conv.deudaInf:conv.deudaSin)-(conv.usaDeposito==='SI'?conv.deposito:0),
-      tipoLetra, '', conv.cantCuotas,
-      conv.usaDeposito||'NO', conv.quita||0,
-      conv.importeCuota||0, conv.usaDeposito==='SI'?(conv.deposito||0):0,
-      diaVenc, mesVenc, anyoVenc,
-      conv.tipo, conv.modalidad, conv.cantCuotas, key,
-      (conv.deudaAlq||0) + ((100-(conv.quita||0))/100)*(conv.deudaInf||0) + (conv.deudaSin||0) - (conv.usaDeposito==='SI'?(conv.deposito||0):0), '',
-      '', conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO'
-    ];
     const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
     await fetch(urlWrite, {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [valores] })
+      body: JSON.stringify({ values: [buildSheetRow(conv)] })
     });
-    toast('Convenio actualizado en Sheets ✓', 'info');
-  } catch(e) {
-    console.warn('updateConvenioEnSheets error', e);
-    toast('Guardado en app pero error al actualizar Sheets', 'error');
-  }
+    toast('Convenio actualizado en Sheets ✓','info');
+  } catch(e) { console.warn('updateConvenioEnSheets error', e); toast('Guardado en app pero error al actualizar Sheets','error'); }
 }
 
 async function updateEstadoEnSheets(conv) {
@@ -927,30 +983,26 @@ async function updateEstadoEnSheets(conv) {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     const data = await r.json();
     const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase() + '-' + conv.cuit;
-    const rowIdx = rows.findIndex((row, i) => i > 0 && String(row[29]||'').trim() === key);
+    const key = conv.tipo[0].toLowerCase()+'-'+conv.cuit;
+    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
     if (rowIdx < 0) return;
     const sheetRow = rowIdx + 1;
-    // Col AH = col 33 (0-indexed) = Enviado, Col AI = col 34 = Firmado
     const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AH${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
     await fetch(urlWrite, {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [[conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO']] })
     });
-  } catch(e) {
-    console.warn('updateEstadoEnSheets error', e);
-  }
+  } catch(e) { console.warn('updateEstadoEnSheets error', e); }
 }
 
-// ─── SHEETS PAGOS ────────────────────────────────────────────────────────────
+// ─── SHEETS PAGOS ─────────────────────────────────────────────────────────────
 function parseFechaArgCorta(s) {
-  // dd/mm/yy o dd/mm/yyyy → yyyy-mm-dd
   if (!s) return '';
   const p = String(s).trim().split('/');
   if (p.length !== 3) return '';
   let anyo = p[2].trim();
-  if (anyo.length === 2) anyo = '20' + anyo;
+  if (anyo.length === 2) anyo = '20'+anyo;
   return `${anyo}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
 }
 
@@ -968,39 +1020,21 @@ async function syncPagosDesdeSheets() {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     if (!r.ok) return;
     const data = await r.json();
-    const rows = (data.values || []).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
+    const rows = (data.values||[]).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
     let changed = false;
     rows.forEach(row => {
-      const cuit = String(row[0]||'').replace(/\D/g,'');
-      const tipo = tipoDesdeSheets(row[1]);
-      const fecha = parseFechaArgCorta(row[2]);
-      const cuotaNum = parseInt(row[3])||null;
-      const monto = parsePeso(row[4]);
-      if (!cuit || !monto || !fecha) return;
-      // Find matching convenio
-      const conv = DB.convenios.find(c => String(c.cuit).replace(/\D/g,'') === cuit && c.tipo === tipo);
-      const convenioId = conv?.id || '';
-      const nombre = conv?.nombre || '';
-      // Check if already exists (same cuit+tipo+fecha+cuota)
-      const existe = DB.pagos.some(p =>
-        String(p.cuit).replace(/\D/g,'') === cuit &&
-        p.tipo === tipo &&
-        p.fecha === fecha &&
-        p.cuotaNum === cuotaNum
-      );
+      const cuit=String(row[0]||'').replace(/\D/g,''), tipo=tipoDesdeSheets(row[1]);
+      const fecha=parseFechaArgCorta(row[2]), cuotaNum=parseInt(row[3])||null, monto=parsePeso(row[4]);
+      if (!cuit||!monto||!fecha) return;
+      const conv = DB.convenios.find(c => String(c.cuit).replace(/\D/g,'')=== cuit && c.tipo===tipo);
+      const existe = DB.pagos.some(p => String(p.cuit).replace(/\D/g,'')=== cuit && p.tipo===tipo && p.fecha===fecha && p.cuotaNum===cuotaNum);
       if (!existe) {
-        DB.pagos.push({
-          id: uid(), convenioId, cuit, nombre, tipo,
-          cuotaNum, monto, fecha,
-          obs: '', registradoPor: 'Sheets', fromSheet: true
-        });
+        DB.pagos.push({ id:uid(), convenioId:conv?.id||'', cuit, nombre:conv?.nombre||'', tipo, cuotaNum, monto, fecha, obs:'', registradoPor:'Sheets', fromSheet:true });
         changed = true;
       }
     });
-    if (changed) { scheduleSave(); renderPagos(); renderDashboard(); toast('Pagos sincronizados desde Sheets ✓', 'info'); }
-  } catch(e) {
-    console.warn('syncPagosDesdeSheets error', e);
-  }
+    if (changed) { scheduleSave(); renderPagos(); renderDashboard(); toast('Pagos sincronizados desde Sheets ✓','info'); }
+  } catch(e) { console.warn('syncPagosDesdeSheets error', e); }
 }
 
 async function writePagoToSheets(pago) {
@@ -1009,32 +1043,21 @@ async function writePagoToSheets(pago) {
     const rRead = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dRead = await rRead.json();
     const nextRow = (dRead.values||[]).length + 1;
-    // Fecha: yyyy-mm-dd → dd/mm/yy
     let fechaFmt = '';
     if (pago.fecha) {
       const fp = pago.fecha.split('-');
       if (fp.length===3) fechaFmt = `${parseInt(fp[2])}/${parseInt(fp[1])}/${fp[0].slice(2)}`;
     }
-    const valores = [
-      pago.cuit||'',
-      pago.tipo?.toUpperCase()||'',
-      fechaFmt,
-      pago.cuotaNum||'',
-      pago.monto||0,
-      pago.modalidad||''
-    ];
     const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/PAGOS!A${nextRow}:F${nextRow}?valueInputOption=USER_ENTERED`;
     await fetch(urlWrite, {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [valores] })
+      body: JSON.stringify({ values: [[pago.cuit||'', pago.tipo?.toUpperCase()||'', fechaFmt, pago.cuotaNum||'', pago.monto||0, pago.modalidad||'']] })
     });
-  } catch(e) {
-    console.warn('writePagoToSheets error', e);
-    toast('Pago guardado en app pero error al escribir en Sheets', 'error');
-  }
+  } catch(e) { console.warn('writePagoToSheets error', e); toast('Pago guardado en app pero error al escribir en Sheets','error'); }
 }
 
+// ─── PRECARGAR FORM ───────────────────────────────────────────────────────────
 function precargarForm(t) {
   document.getElementById('c-cuit').value      = t.cuit;
   document.getElementById('c-nombre').value    = t.nombre;
@@ -1046,8 +1069,10 @@ function precargarForm(t) {
   document.getElementById('c-deuda-inf').value = t.deudaInf||0;
   document.getElementById('c-deuda-sin').value = t.deudaSin||0;
   document.getElementById('c-deposito').value  = t.deposito||0;
+  document.getElementById('c-deposito-aplicado').value = 0;
   document.getElementById('convenio-form-section').style.display = 'block';
   document.getElementById('btn-guardar-conv').style.display = 'inline-flex';
+  recalcDepositoAplicadoAutomatico();
   actualizarCuota();
 }
 
@@ -1057,77 +1082,98 @@ let editId = null;
 function openNuevoConvenio() {
   editId = null;
   document.getElementById('modal-convenio-title').textContent = 'Nuevo convenio';
-  // Mostrar sección búsqueda, ocultar form
   document.getElementById('cuit-lookup-section').style.display = 'block';
   document.getElementById('convenio-form-section').style.display = 'none';
   document.getElementById('btn-guardar-conv').style.display = 'none';
   document.getElementById('c-cuit-search').value = '';
   document.getElementById('cuit-lookup-result').innerHTML = '';
-  // Limpiar campos
+  document.getElementById('deposito-field-wrap').style.display = 'none';
+  document.getElementById('deposito-widget').innerHTML = '';
   ['c-cuit','c-nombre','c-dominio','c-telefono','c-direccion','c-mail',
-   'c-deuda-alq','c-deuda-inf','c-deuda-sin','c-deposito',
+   'c-deuda-alq','c-deuda-inf','c-deuda-sin','c-deposito','c-deposito-aplicado',
    'c-cant-cuotas','c-quita','c-importe-cuota','c-comentario'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
   document.getElementById('c-tipo').value='Alquiler';
   document.getElementById('c-modalidad').value='mensuales';
-  document.getElementById('c-usa-deposito').value='NO';
   document.getElementById('c-firmado').value='';
   document.getElementById('c-fecha-inicio').value=today();
   openModal('modal-convenio');
 }
 
 function actualizarCuota() {
-  const tipo=document.getElementById('c-tipo').value;
-  const alq=parseFloat(document.getElementById('c-deuda-alq').value)||0;
-  const inf=parseFloat(document.getElementById('c-deuda-inf').value)||0;
-  const sin=parseFloat(document.getElementById('c-deuda-sin').value)||0;
-  const dep=parseFloat(document.getElementById('c-deposito').value)||0;
-  const usa=document.getElementById('c-usa-deposito').value==='SI';
-  const qui=parseFloat(document.getElementById('c-quita').value)||0;
-  const cant=parseInt(document.getElementById('c-cant-cuotas').value)||0;
-  let base=tipo==='Alquiler'?alq:tipo==='Infracciones'?inf:sin;
-  if(usa) base=Math.max(0,base-dep);
-  base=base*(1-qui/100);
-  if(cant>0&&base>0) document.getElementById('c-importe-cuota').value=Math.round(base/cant*100)/100;
+  const tipo = document.getElementById('c-tipo').value;
+  const deuda= getDeudaTipo(tipo);
+  const dep  = parseFloat(document.getElementById('c-deposito-aplicado').value) || 0;
+  const qui  = parseFloat(document.getElementById('c-quita').value) || 0;
+  const cant = parseInt(document.getElementById('c-cant-cuotas').value) || 0;
+  // Base = deuda del tipo seleccionado - depósito aplicado, con quita sobre la base
+  let base = Math.max(0, deuda - dep);
+  base = base * (1 - qui/100);
+  if (cant > 0 && base > 0) document.getElementById('c-importe-cuota').value = Math.round(base/cant*100)/100;
 }
 
 async function guardarConvenio() {
-  const cuit=document.getElementById('c-cuit').value.trim();
-  const nombre=document.getElementById('c-nombre').value.trim();
-  const tipo=document.getElementById('c-tipo').value;
-  const cant=parseInt(document.getElementById('c-cant-cuotas').value);
-  const imp=parseFloat(document.getElementById('c-importe-cuota').value);
-  if(!cuit||!nombre||!tipo||!cant||!imp){toast('Completá los campos obligatorios','error');return;}
+  const cuit   = document.getElementById('c-cuit').value.trim();
+  const nombre = document.getElementById('c-nombre').value.trim();
+  const tipo   = document.getElementById('c-tipo').value;
+  const cant   = parseInt(document.getElementById('c-cant-cuotas').value);
+  const imp    = parseFloat(document.getElementById('c-importe-cuota').value);
+  if (!cuit||!nombre||!tipo||!cant||!imp) { toast('Completá los campos obligatorios','error'); return; }
 
-  const conv={
+  const depositoTotal   = parseFloat(document.getElementById('c-deposito').value) || 0;
+  const depositoAplicado= parseFloat(document.getElementById('c-deposito-aplicado').value) || 0;
+  const deudaTipo       = getDeudaTipo(tipo);
+
+  // Validación: depósito aplicado no puede dejar deuda neta <= 0
+  if (depositoAplicado > 0 && depositoAplicado >= deudaTipo) {
+    toast('El depósito aplicado no puede igualar o superar la deuda. La deuda neta debe quedar positiva.','error');
+    return;
+  }
+  // Validación: no superar el disponible
+  const disponible = calcDepositoDisponible(cuit, depositoTotal, editId);
+  if (depositoAplicado > disponible) {
+    toast(`El depósito a aplicar supera el disponible (${fmtPeso(disponible)})`, 'error');
+    return;
+  }
+
+  const conv = {
     id: editId||uid(), cuit, nombre,
-    dominio: document.getElementById('c-dominio').value.trim(),
-    telefono: document.getElementById('c-telefono').value.trim(),
+    dominio:   document.getElementById('c-dominio').value.trim(),
+    telefono:  document.getElementById('c-telefono').value.trim(),
     direccion: document.getElementById('c-direccion').value.trim(),
-    mail: document.getElementById('c-mail').value.trim(),
-    deudaAlq: parseFloat(document.getElementById('c-deuda-alq').value)||0,
-    deudaInf: parseFloat(document.getElementById('c-deuda-inf').value)||0,
-    deudaSin: parseFloat(document.getElementById('c-deuda-sin').value)||0,
-    deposito: parseFloat(document.getElementById('c-deposito').value)||0,
+    mail:      document.getElementById('c-mail').value.trim(),
+    deudaAlq:  parseFloat(document.getElementById('c-deuda-alq').value)||0,
+    deudaInf:  parseFloat(document.getElementById('c-deuda-inf').value)||0,
+    deudaSin:  parseFloat(document.getElementById('c-deuda-sin').value)||0,
+    deposito:  depositoTotal,
+    depositoAplicado,
+    usaDeposito: depositoAplicado > 0 ? 'SI' : 'NO',
     tipo, modalidad: document.getElementById('c-modalidad').value,
     cantCuotas: cant,
-    usaDeposito: document.getElementById('c-usa-deposito').value,
-    quita: parseFloat(document.getElementById('c-quita').value)||0,
+    quita:      parseFloat(document.getElementById('c-quita').value)||0,
     importeCuota: imp,
-    fechaInicio: document.getElementById('c-fecha-inicio').value,
-    firmado: document.getElementById('c-firmado').value,
-    enviado: document.getElementById('c-enviado').value,
-    comentario: document.getElementById('c-comentario').value.trim(),
-    creadoEn: new Date().toISOString(),
+    fechaInicio:  document.getElementById('c-fecha-inicio').value,
+    firmado:      document.getElementById('c-firmado').value,
+    enviado:      document.getElementById('c-enviado').value,
+    comentario:   document.getElementById('c-comentario').value.trim(),
+    creadoEn:  new Date().toISOString(),
     creadoPor: currentUser?.name||currentUser?.email||'—'
   };
 
-  const btn=document.getElementById('btn-guardar-conv');
+  const btn = document.getElementById('btn-guardar-conv');
   btn.disabled=true; btn.textContent='Guardando…';
 
-  if(editId) { const i=DB.convenios.findIndex(c=>c.id===editId); if(i>=0) DB.convenios[i]=conv; toast('Convenio actualizado ✓'); updateConvenioEnSheets(conv); }
-  else { DB.convenios.push(conv); toast('Convenio guardado ✓'); writeConvenioToSheets(conv); }
+  if (editId) {
+    const i = DB.convenios.findIndex(c=>c.id===editId);
+    if (i>=0) DB.convenios[i] = conv;
+    toast('Convenio actualizado ✓');
+    updateConvenioEnSheets(conv);
+  } else {
+    DB.convenios.push(conv);
+    toast('Convenio guardado ✓');
+    writeConvenioToSheets(conv);
+  }
 
   scheduleSave();
   closeModal('modal-convenio');
@@ -1136,56 +1182,57 @@ async function guardarConvenio() {
 }
 
 function editarConvenio(id) {
-  const c=DB.convenios.find(x=>x.id===id); if(!c) return;
-  editId=id;
-  document.getElementById('modal-convenio-title').textContent='Editar convenio';
-  // En edición: ocultar buscador, mostrar form directo
-  document.getElementById('cuit-lookup-section').style.display='none';
-  document.getElementById('convenio-form-section').style.display='block';
-  document.getElementById('btn-guardar-conv').style.display='inline-flex';
-  document.getElementById('c-cuit').value=c.cuit;
-  document.getElementById('c-nombre').value=c.nombre;
-  document.getElementById('c-dominio').value=c.dominio||'';
-  document.getElementById('c-telefono').value=c.telefono||'';
-  document.getElementById('c-direccion').value=c.direccion||'';
-  document.getElementById('c-mail').value=c.mail||'';
-  document.getElementById('c-deuda-alq').value=c.deudaAlq||0;
-  document.getElementById('c-deuda-inf').value=c.deudaInf||0;
-  document.getElementById('c-deuda-sin').value=c.deudaSin||0;
-  document.getElementById('c-deposito').value=c.deposito||0;
-  document.getElementById('c-tipo').value=c.tipo;
-  document.getElementById('c-modalidad').value=c.modalidad;
-  document.getElementById('c-cant-cuotas').value=c.cantCuotas;
-  document.getElementById('c-usa-deposito').value=c.usaDeposito||'NO';
-  document.getElementById('c-quita').value=c.quita||0;
-  document.getElementById('c-importe-cuota').value=c.importeCuota;
-  document.getElementById('c-fecha-inicio').value=c.fechaInicio||today();
-  document.getElementById('c-firmado').value=c.firmado||'';
-  document.getElementById('c-enviado').value=c.enviado||'';
-  document.getElementById('c-comentario').value=c.comentario||'';
-  // En edición los campos de deuda son editables
+  const c = DB.convenios.find(x=>x.id===id); if (!c) return;
+  editId = id;
+  document.getElementById('modal-convenio-title').textContent = 'Editar convenio';
+  document.getElementById('cuit-lookup-section').style.display = 'none';
+  document.getElementById('convenio-form-section').style.display = 'block';
+  document.getElementById('btn-guardar-conv').style.display = 'inline-flex';
+  document.getElementById('c-cuit').value      = c.cuit;
+  document.getElementById('c-nombre').value    = c.nombre;
+  document.getElementById('c-dominio').value   = c.dominio||'';
+  document.getElementById('c-telefono').value  = c.telefono||'';
+  document.getElementById('c-direccion').value = c.direccion||'';
+  document.getElementById('c-mail').value      = c.mail||'';
+  document.getElementById('c-deuda-alq').value = c.deudaAlq||0;
+  document.getElementById('c-deuda-inf').value = c.deudaInf||0;
+  document.getElementById('c-deuda-sin').value = c.deudaSin||0;
+  document.getElementById('c-deposito').value  = c.deposito||0;
+  document.getElementById('c-deposito-aplicado').value = c.depositoAplicado||0;
+  document.getElementById('c-tipo').value      = c.tipo;
+  document.getElementById('c-modalidad').value = c.modalidad;
+  document.getElementById('c-cant-cuotas').value= c.cantCuotas;
+  document.getElementById('c-quita').value     = c.quita||0;
+  document.getElementById('c-importe-cuota').value = c.importeCuota;
+  document.getElementById('c-fecha-inicio').value  = c.fechaInicio||today();
+  document.getElementById('c-firmado').value   = c.firmado||'';
+  document.getElementById('c-enviado').value   = c.enviado||'';
+  document.getElementById('c-comentario').value= c.comentario||'';
   ['c-deuda-alq','c-deuda-inf','c-deuda-sin','c-deposito','c-nombre','c-dominio'].forEach(id=>{
     const el=document.getElementById(id); if(el){el.removeAttribute('readonly');el.style.opacity='1';}
   });
+  recalcDepositoAplicadoAutomatico();
+  // En edición, restaurar el valor guardado (no auto-recalcular)
+  document.getElementById('c-deposito-aplicado').value = c.depositoAplicado||0;
+  renderDepositoWidget();
   openModal('modal-convenio');
 }
 
 async function toggleEstado(id, campo) {
-  const c = DB.convenios.find(x => x.id === id); if (!c) return;
-  c[campo] = c[campo] === 'SI' ? '' : 'SI';
-  scheduleSave();
-  updateEstadoEnSheets(c);
+  const c = DB.convenios.find(x=>x.id===id); if (!c) return;
+  c[campo] = c[campo]==='SI' ? '' : 'SI';
+  scheduleSave(); updateEstadoEnSheets(c);
   renderConvenios(); renderDashboard(); renderVencimientos();
-  toast(campo === 'firmado' ? (c.firmado==='SI' ? '✓ Marcado como firmado' : 'Firma removida') : (c.enviado==='SI' ? '✓ Marcado como enviado' : 'Envío removido'));
+  toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
 }
 
 async function borrarConvenio(id) {
-  if(!confirm('¿Eliminar este convenio y sus pagos?')) return;
-  const conv=DB.convenios.find(c=>c.id===id);
-  DB.convenios=DB.convenios.filter(c=>c.id!==id);
-  DB.pagos=DB.pagos.filter(p=>p.convenioId!==id);
+  if (!confirm('¿Eliminar este convenio y sus pagos?')) return;
+  const conv = DB.convenios.find(c=>c.id===id);
+  DB.convenios = DB.convenios.filter(c=>c.id!==id);
+  DB.pagos     = DB.pagos.filter(p=>p.convenioId!==id);
   scheduleSave(); renderConvenios(); renderDashboard(); toast('Convenio eliminado');
-  if(conv) await deleteConvenioEnSheets(conv);
+  if (conv) await deleteConvenioEnSheets(conv);
 }
 
 async function deleteConvenioEnSheets(conv) {
@@ -1194,31 +1241,29 @@ async function deleteConvenioEnSheets(conv) {
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     const data = await r.json();
     const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase() + '-' + String(conv.cuit).replace(/\D/g,'');
-    const rowIdx = rows.findIndex((row, i) => i > 0 && String(row[29]||'').trim() === key);
+    const key = conv.tipo[0].toLowerCase()+'-'+String(conv.cuit).replace(/\D/g,'');
+    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
     if (rowIdx < 0) return;
     const sheetRow = rowIdx + 1;
-    // Clear the row by setting all cells to empty
     const urlClear = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${sheetRow}:AI${sheetRow}:clear`;
-    await fetch(urlClear, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' } });
+    await fetch(urlClear, { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' } });
     toast('Convenio eliminado de Sheets ✓','info');
   } catch(e) { console.warn('deleteConvenioEnSheets error', e); }
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function renderDashboard() {
-  document.getElementById('dash-fecha').textContent=
-    new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const {prox,venc}=calcStatus();
-  const activos=DB.convenios.filter(c=>pagosDeConv(c.id,c.tipo).length<c.cantCuotas);
-  document.getElementById('stat-activos').textContent=activos.length;
-  document.getElementById('stat-vencidos').textContent=venc.length;
-  document.getElementById('stat-semana').textContent=prox.filter(p=>p.dias<=7).length;
-  document.getElementById('stat-firma').textContent=DB.convenios.filter(c=>c.firmado!=='SI').length;
-  const tbody=document.getElementById('tabla-proximas');
-  const todos=[...venc.map(x=>({...x,esV:true})),...prox.slice(0,15)];
-  if(!todos.length){tbody.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="icon">✅</div><p>Sin cuotas próximas ni vencidas</p></div></td></tr>`;return;}
-  tbody.innerHTML=todos.map(({conv,cq,dias,esV})=>`
+  document.getElementById('dash-fecha').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const {prox,venc} = calcStatus();
+  const activos = DB.convenios.filter(c=>pagosDeConv(c.id,c.tipo).length<c.cantCuotas);
+  document.getElementById('stat-activos').textContent = activos.length;
+  document.getElementById('stat-vencidos').textContent = venc.length;
+  document.getElementById('stat-semana').textContent = prox.filter(p=>p.dias<=7).length;
+  document.getElementById('stat-firma').textContent = DB.convenios.filter(c=>c.firmado!=='SI').length;
+  const tbody = document.getElementById('tabla-proximas');
+  const todos = [...venc.map(x=>({...x,esV:true})),...prox.slice(0,15)];
+  if (!todos.length) { tbody.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="icon">✅</div><p>Sin cuotas próximas ni vencidas</p></div></td></tr>`; return; }
+  tbody.innerHTML = todos.map(({conv,cq,dias,esV})=>`
     <tr>
       <td><div style="font-weight:500">${conv.nombre}</div><div class="mono" style="color:var(--muted)">${conv.cuit}</div></td>
       <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
@@ -1228,31 +1273,32 @@ function renderDashboard() {
     </tr>`).join('');
 }
 
-// ─── CONVENIOS ────────────────────────────────────────────────────────────────
+// ─── CONVENIOS TABLE ──────────────────────────────────────────────────────────
 function renderConvenios() {
-  const q=(document.getElementById('search-convenios')?.value||'').toLowerCase();
-  const fT=document.getElementById('filter-tipo')?.value||'';
-  const fE=document.getElementById('filter-estado')?.value||'';
-  const lista=DB.convenios.filter(c=>{
-    const oQ=!q||c.nombre.toLowerCase().includes(q)||c.cuit.includes(q)||(c.dominio||'').toLowerCase().includes(q);
-    const oT=!fT||c.tipo===fT;
-    const p=pagosDeConv(c.id,c.tipo).length;
-    const comp=p>=c.cantCuotas;
-    const oE=!fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
+  const q  = (document.getElementById('search-convenios')?.value||'').toLowerCase();
+  const fT = document.getElementById('filter-tipo')?.value||'';
+  const fE = document.getElementById('filter-estado')?.value||'';
+  const lista = DB.convenios.filter(c=>{
+    const oQ = !q||c.nombre.toLowerCase().includes(q)||c.cuit.includes(q)||(c.dominio||'').toLowerCase().includes(q);
+    const oT = !fT||c.tipo===fT;
+    const p  = pagosDeConv(c.id,c.tipo).length;
+    const comp = p>=c.cantCuotas;
+    const oE = !fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
     return oQ&&oT&&oE;
   });
-  const tbody=document.getElementById('tabla-convenios');
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`;return;}
-  tbody.innerHTML=lista.map(c=>{
-    const pg=pagosDeConv(c.id,c.tipo);
-    const pct=Math.round(pg.length/c.cantCuotas*100);
-    const deuda=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+  const tbody = document.getElementById('tabla-convenios');
+  if (!lista.length) { tbody.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
+  tbody.innerHTML = lista.map(c=>{
+    const pg  = pagosDeConv(c.id,c.tipo);
+    const pct = Math.round(pg.length/c.cantCuotas*100);
+    const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+    const depAp = parseFloat(c.depositoAplicado)||0;
     return `<tr>
       <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
       <td class="mono">${c.cuit}</td>
       <td class="mono">${c.dominio||'—'}</td>
       <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
-      <td class="importe">${fmtPeso(deuda)}</td>
+      <td class="importe">${fmtPeso(deuda)}${depAp>0?`<div style="font-size:10px;color:var(--accent2)">dep: ${fmtPeso(depAp)}</div>`:''}</td>
       <td class="importe">${fmtPeso(c.importeCuota)}</td>
       <td class="mono" style="text-align:center">${pg.length}/${c.cantCuotas}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></td>
       <td class="importe">${fmtPeso(pg.reduce((s,p)=>s+p.monto,0))}</td>
@@ -1268,38 +1314,38 @@ function renderConvenios() {
   }).join('');
 }
 
-// ─── DETALLE ─────────────────────────────────────────────────────────────────
+// ─── DETALLE ──────────────────────────────────────────────────────────────────
 function verDetalle(id) {
-  const c=DB.convenios.find(x=>x.id===id); if(!c) return;
-  const pgos=pagosDeConv(c.id,c.tipo);
-  const pagadas=new Set(pgos.map(p=>p.cuotaNum));
-  const cuotas=generarCuotas(c);
-  const hoy=today();
-  const deuda=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
-  document.getElementById('detalle-title').textContent=c.nombre+' — '+c.tipo;
-  document.getElementById('detalle-body').innerHTML=`
+  const c = DB.convenios.find(x=>x.id===id); if (!c) return;
+  const pgos = pagosDeConv(c.id,c.tipo);
+  const pagadas = new Set(pgos.map(p=>p.cuotaNum));
+  const cuotas  = generarCuotas(c);
+  const hoy     = today();
+  const deuda   = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+  const depAp   = parseFloat(c.depositoAplicado)||0;
+  document.getElementById('detalle-title').textContent = c.nombre+' — '+c.tipo;
+  document.getElementById('detalle-body').innerHTML = `
     <div class="detail-grid">
       <div class="detail-item"><div class="lbl">CUIT</div><div class="val">${c.cuit}</div></div>
       <div class="detail-item"><div class="lbl">Dominio</div><div class="val">${c.dominio||'—'}</div></div>
       <div class="detail-item"><div class="lbl">Teléfono</div><div class="val">${c.telefono||'—'}</div></div>
       <div class="detail-item"><div class="lbl">Deuda original</div><div class="val">${fmtPeso(deuda)}</div></div>
+      <div class="detail-item"><div class="lbl">Depósito aplicado</div><div class="val" style="color:var(--accent2)">${depAp>0?fmtPeso(depAp):'—'}</div></div>
+      <div class="detail-item"><div class="lbl">Deuda neta</div><div class="val" style="color:var(--ok)">${fmtPeso(Math.max(0,deuda-depAp))}</div></div>
       <div class="detail-item"><div class="lbl">Importe cuota</div><div class="val">${fmtPeso(c.importeCuota)}</div></div>
       <div class="detail-item"><div class="lbl">${c.cantCuotas} cuotas ${c.modalidad}</div><div class="val">${pgos.length} pagadas</div></div>
       <div class="detail-item"><div class="lbl">Total cobrado</div><div class="val" style="color:var(--ok)">${fmtPeso(pgos.reduce((s,p)=>s+p.monto,0))}</div></div>
-      <div class="detail-item"><div class="lbl">Creado por</div><div class="val" style="font-size:11px">${c.creadoPor||'—'}</div></div>
-      <div class="detail-item"><div class="lbl">Enviado</div><div class="val">${c.enviado==='SI'?'✓ Sí':'No enviado'}</div></div>
-      <div class="detail-item"><div class="lbl">Firmado</div><div class="val">${c.firmado==='SI'?'✓ Sí':'Pendiente'}</div></div>
     </div>
     ${c.comentario?`<div class="alert alert-info" style="margin-bottom:16px">💬 ${c.comentario}</div>`:''}
     <div style="font-family:var(--fh);font-weight:700;margin-bottom:12px;font-size:14px">CUOTAS</div>
     ${cuotas.map(cq=>{
-      const pag=pgos.find(p=>p.cuotaNum===cq.num);
-      const dias=diffDays(hoy,cq.vencimiento);
-      let badge,lbl;
-      if(pag){badge='badge-ok';lbl='✓ Pagada '+fmtFecha(pag.fecha);}
-      else if(dias<0){badge='badge-vencido';lbl='Vencida '+Math.abs(dias)+'d';}
-      else if(dias<=7){badge='badge-pendiente';lbl='En '+dias+'d';}
-      else{badge='';lbl=fmtFecha(cq.vencimiento);}
+      const pag = pgos.find(p=>p.cuotaNum===cq.num);
+      const dias = diffDays(hoy,cq.vencimiento);
+      let badge, lbl;
+      if (pag) { badge='badge-ok'; lbl='✓ Pagada '+fmtFecha(pag.fecha); }
+      else if (dias<0) { badge='badge-vencido'; lbl='Vencida '+Math.abs(dias)+'d'; }
+      else if (dias<=7) { badge='badge-pendiente'; lbl='En '+dias+'d'; }
+      else { badge=''; lbl=fmtFecha(cq.vencimiento); }
       return `<div class="cuota-row">
         <div style="display:flex;gap:10px;align-items:center">
           <span class="mono" style="color:var(--muted);width:28px">#${cq.num}</span>
@@ -1315,21 +1361,20 @@ function verDetalle(id) {
   openModal('modal-detalle');
 }
 
-// ─── PAGOS ───────────────────────────────────────────────────────────────────
+// ─── PAGOS ────────────────────────────────────────────────────────────────────
 function filtrarConveniosPago(q) {
   const res = document.getElementById('p-conv-resultados');
-  if (!q || q.length < 3) { res.style.display='none'; return; }
+  if (!q||q.length<3) { res.style.display='none'; return; }
   const term = q.replace(/\D/g,'');
   const matches = DB.convenios.filter(c => {
     const cuit = String(c.cuit||'').replace(/\D/g,'');
-    const tel = String(c.telefono||'').replace(/\D/g,'');
-    return (term && (cuit.includes(term) || tel.includes(term))) ||
-           (!term && (c.cuit||'').includes(q) || (c.telefono||'').includes(q));
+    const tel  = String(c.telefono||'').replace(/\D/g,'');
+    return (term&&(cuit.includes(term)||tel.includes(term))) || (!term&&((c.cuit||'').includes(q)||(c.telefono||'').includes(q)));
   });
   if (!matches.length) { res.innerHTML='<div style="padding:10px;color:var(--muted);font-size:12px">Sin resultados</div>'; res.style.display='block'; return; }
   res.style.display='block';
   res.innerHTML = matches.map(c =>
-    `<div onclick="seleccionarConvenioPago('${c.id}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background=''">
+    `<div onclick="seleccionarConvenioPago('${c.id}')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <div style="font-weight:500">${c.nombre}</div>
       <div style="color:var(--muted);font-size:11px">${c.cuit} · ${c.telefono||'sin tel'} · <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></div>
     </div>`).join('');
@@ -1338,16 +1383,15 @@ function filtrarConveniosPago(q) {
 function seleccionarConvenioPago(convId) {
   document.getElementById('p-convenio-select').value = convId;
   document.getElementById('p-conv-resultados').style.display='none';
-  const c = DB.convenios.find(x=>x.id===convId);
-  if (!c) return;
+  const c = DB.convenios.find(x=>x.id===convId); if (!c) return;
   document.getElementById('p-buscar-conv').value = '';
   document.getElementById('p-conv-seleccionado').style.display='block';
   document.getElementById('p-conv-seleccionado').innerHTML =
     `<b>${c.nombre}</b> · ${c.cuit} · <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span> · ${c.cantCuotas} cuotas de ${fmtPeso(c.importeCuota)}`;
   document.getElementById('p-tipo').value = c.tipo;
   document.getElementById('p-monto').value = c.importeCuota;
-  const pags=new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
-  for(let i=1;i<=c.cantCuotas;i++){if(!pags.has(i)){document.getElementById('p-cuota-num').value=i;break;}}
+  const pags = new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
+  for (let i=1;i<=c.cantCuotas;i++) { if (!pags.has(i)) { document.getElementById('p-cuota-num').value=i; break; } }
 }
 
 function openRegistrarPago(convId,tipo,cuotaNum,monto) {
@@ -1359,39 +1403,38 @@ function openRegistrarPago(convId,tipo,cuotaNum,monto) {
   document.getElementById('p-cuota-num').value=cuotaNum||'';
   document.getElementById('p-monto').value=monto||'';
   document.getElementById('p-obs').value='';
-  if(tipo) document.getElementById('p-tipo').value=tipo;
-  if(convId) seleccionarConvenioPago(convId);
+  if (tipo) document.getElementById('p-tipo').value=tipo;
+  if (convId) seleccionarConvenioPago(convId);
   openModal('modal-pago');
 }
 
-// onSeleccionConvenio replaced by seleccionarConvenioPago
-
 async function guardarPago() {
-  const convId=document.getElementById('p-convenio-select').value;
-  const monto=parseFloat(document.getElementById('p-monto').value);
-  const fecha=document.getElementById('p-fecha').value;
-  if(!convId||!monto||!fecha){toast('Completá los campos obligatorios','error');return;}
-  const conv=DB.convenios.find(c=>c.id===convId);
+  const convId = document.getElementById('p-convenio-select').value;
+  const monto  = parseFloat(document.getElementById('p-monto').value);
+  const fecha  = document.getElementById('p-fecha').value;
+  if (!convId||!monto||!fecha) { toast('Completá los campos obligatorios','error'); return; }
+  const conv = DB.convenios.find(c=>c.id===convId);
   DB.pagos.push({
     id:uid(), convenioId:convId, cuit:conv?.cuit, nombre:conv?.nombre,
-    tipo:document.getElementById('p-tipo').value,
-    cuotaNum:parseInt(document.getElementById('p-cuota-num').value)||null,
-    monto, fecha, obs:document.getElementById('p-obs').value.trim(),
-    registradoPor:currentUser?.name||currentUser?.email||'—'
+    tipo: document.getElementById('p-tipo').value,
+    cuotaNum: parseInt(document.getElementById('p-cuota-num').value)||null,
+    monto, fecha, obs: document.getElementById('p-obs').value.trim(),
+    registradoPor: currentUser?.name||currentUser?.email||'—'
   });
   const btn=document.getElementById('btn-guardar-pago');
   btn.disabled=true; btn.textContent='Guardando…';
-  scheduleSave(); writePagoToSheets({...DB.pagos[DB.pagos.length-1], modalidad: conv?.modalidad||''}); toast('Pago registrado ✓'); closeModal('modal-pago');
+  scheduleSave(); writePagoToSheets({...DB.pagos[DB.pagos.length-1], modalidad:conv?.modalidad||''});
+  toast('Pago registrado ✓'); closeModal('modal-pago');
   btn.disabled=false; btn.textContent='Registrar';
   renderPagos(); renderDashboard();
 }
 
 function renderPagos() {
-  const q=(document.getElementById('search-pagos')?.value||'').toLowerCase();
-  const lista=DB.pagos.filter(p=>!q||(p.nombre||'').toLowerCase().includes(q)||(p.cuit||'').includes(q)).slice().reverse();
-  const tbody=document.getElementById('tabla-pagos');
-  if(!lista.length){tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="icon">💳</div><p>No hay pagos registrados</p></div></td></tr>`;return;}
-  tbody.innerHTML=lista.map(p=>`
+  const q = (document.getElementById('search-pagos')?.value||'').toLowerCase();
+  const lista = DB.pagos.filter(p=>!q||(p.nombre||'').toLowerCase().includes(q)||(p.cuit||'').includes(q)).slice().reverse();
+  const tbody = document.getElementById('tabla-pagos');
+  if (!lista.length) { tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="icon">💳</div><p>No hay pagos registrados</p></div></td></tr>`; return; }
+  tbody.innerHTML = lista.map(p=>`
     <tr>
       <td>${p.nombre||'—'}</td>
       <td class="mono" style="font-size:11px">${p.cuit||'—'}</td>
@@ -1404,47 +1447,33 @@ function renderPagos() {
     </tr>`).join('');
 }
 
-// ─── EXPORTAR CONVENIOS ──────────────────────────────────────────────────────
+// ─── EXPORTAR ─────────────────────────────────────────────────────────────────
 let exportMode = false;
 
 function toggleExportMode() {
   exportMode = !exportMode;
   document.getElementById('th-export-check').style.display = exportMode ? '' : 'none';
-  document.getElementById('btn-export-csv').style.display = exportMode ? '' : 'none';
-  document.getElementById('btn-export-mode').textContent = exportMode ? '✕ Cancelar' : '☑ Exportar';
+  document.getElementById('btn-export-csv').style.display  = exportMode ? '' : 'none';
+  document.getElementById('btn-export-mode').textContent   = exportMode ? '✕ Cancelar' : '☑ Exportar';
   renderConvenios();
 }
 
-function toggleCheckAll(cb) {
-  document.querySelectorAll('.conv-check').forEach(c => c.checked = cb.checked);
-}
+function toggleCheckAll(cb) { document.querySelectorAll('.conv-check').forEach(c=>c.checked=cb.checked); }
 
 function exportarSeleccionados() {
-  function fmtCSV(n) {
-    if (!n && n !== 0) return '';
-    return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  const ids = [...document.querySelectorAll('.conv-check:checked')].map(c => c.dataset.id);
+  function fmtCSV(n) { if (!n&&n!==0) return ''; return Number(n).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  const ids   = [...document.querySelectorAll('.conv-check:checked')].map(c=>c.dataset.id);
   if (!ids.length) { toast('Seleccioná al menos un convenio','error'); return; }
-  const convs = ids.map(id => DB.convenios.find(c => c.id === id)).filter(Boolean);
+  const convs = ids.map(id=>DB.convenios.find(c=>c.id===id)).filter(Boolean);
 
-  function firmaPartes(c) {
-    const f = new Date(c.creadoEn||new Date());
-    return { dia: f.getDate(), mes: MESES[f.getMonth()], anyo: f.getFullYear() };
-  }
+  function firmaPartes(c) { const f=new Date(c.creadoEn||new Date()); return {dia:f.getDate(),mes:MESES[f.getMonth()],anyo:f.getFullYear()}; }
   function vencPartes(c) {
-    if (!c.fechaInicio) return { dia1:'', mes1:'', anyo1:'' };
-    const p = c.fechaInicio.split('-');
-    if (p.length !== 3) return { dia1:'', mes1:'', anyo1:'' };
-    return { dia1: parseInt(p[2]), mes1: MESES[parseInt(p[1])-1], anyo1: p[0] };
+    if (!c.fechaInicio) return {dia1:'',mes1:'',anyo1:''};
+    const p=c.fechaInicio.split('-');
+    if (p.length!==3) return {dia1:'',mes1:'',anyo1:''};
+    return {dia1:parseInt(p[2]),mes1:MESES[parseInt(p[1])-1],anyo1:p[0]};
   }
 
-  // Columnas exactas del Excel fuente, en el mismo orden
-  // Dia Mes Año CUIT Apellido y Nom. Dirección y Localidad Telefono Dominio F.Inicio F. Fin
-  // Deuda Alquiler Infracciones Siniestros Deuda Total Depósito Deuda Neta Depósito
-  // Tipo de convenio A - I - S Cuotas semanales Cuotas Mensuales Usa Depósito Quita
-  // Importe Cuota Importe Depósito Usado Dia Mes Año Tipo Tipo Cuotas Cant cuot
-  // Convenio Importe Total actualizado Infracciones actualziado
   const HEADERS = [
     'Dia','Mes','Año','CUIT','Apellido y Nom.','Dirección y Localidad','Telefono','Dominio',
     'F.Inicio','F. Fin',
@@ -1455,53 +1484,45 @@ function exportarSeleccionados() {
     'Importe Total actualizado','Infracciones actualziado'
   ];
 
-  const tipos = ['Alquiler','Infracciones','Siniestros'];
-  tipos.forEach(tipo => {
-    const grupo = convs.filter(c => c.tipo === tipo);
+  ['Alquiler','Infracciones','Siniestros'].forEach(tipo => {
+    const grupo = convs.filter(c=>c.tipo===tipo);
     if (!grupo.length) return;
-
     const rows = grupo.map(c => {
-      const {dia, mes, anyo} = firmaPartes(c);
-      const {dia1, mes1, anyo1} = vencPartes(c);
+      const {dia,mes,anyo}   = firmaPartes(c);
+      const {dia1,mes1,anyo1}= vencPartes(c);
       const tipoLetra = c.tipo[0].toLowerCase();
-      const deudaTotal = (c.deudaAlq||0)+(c.deudaInf||0)+(c.deudaSin||0);
-      const deudaNeta = deudaTotal - (c.usaDeposito==='SI'?(c.deposito||0):0);
-      const importeDepUsado = c.usaDeposito==='SI' ? (c.deposito||0) : 0;
-      const importeTotal = (c.deudaAlq||0) + ((100-(c.quita||0))/100)*(c.deudaInf||0) + (c.deudaSin||0) - importeDepUsado;
+      const depAp     = parseFloat(c.depositoAplicado)||0;
+      const deudaTipo = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+      const deudaTotal= (c.deudaAlq||0)+(c.deudaInf||0)+(c.deudaSin||0);
+      const deudaNeta = deudaTipo - depAp;
+      const importeTotal = (c.deudaAlq||0)+((100-(c.quita||0))/100)*(c.deudaInf||0)+(c.deudaSin||0)-depAp;
       return [
-        dia, mes, anyo,
-        c.cuit, c.nombre, c.direccion||'', c.telefono||'', c.dominio||'',
-        c.fechaInicio||'', '',
-        fmtCSV(c.deudaAlq), fmtCSV(c.deudaInf), fmtCSV(c.deudaSin),
-        fmtCSV(deudaTotal), fmtCSV(c.deposito), fmtCSV(deudaNeta),
-        tipoLetra, '', c.cantCuotas,
-        c.usaDeposito||'NO', c.quita||0,
-        fmtCSV(c.importeCuota), fmtCSV(importeDepUsado),
-        dia1, mes1, anyo1,
-        c.tipo, c.modalidad, c.cantCuotas,
-        tipoLetra+'-'+c.cuit,
-        fmtCSV(importeTotal), fmtCSV(c.deudaInf)
+        dia,mes,anyo, c.cuit,c.nombre,c.direccion||'',c.telefono||'',c.dominio||'',
+        c.fechaInicio||'','',
+        fmtCSV(c.deudaAlq),fmtCSV(c.deudaInf),fmtCSV(c.deudaSin),
+        fmtCSV(deudaTotal),fmtCSV(c.deposito),fmtCSV(deudaNeta),
+        tipoLetra,'',c.cantCuotas,
+        depAp>0?'SI':'NO',c.quita||0,
+        fmtCSV(c.importeCuota),fmtCSV(depAp),
+        dia1,mes1,anyo1, c.tipo,c.modalidad,c.cantCuotas,tipoLetra+'-'+c.cuit,
+        fmtCSV(importeTotal),fmtCSV(c.deudaInf)
       ];
     });
-
-    const csv = [HEADERS.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
-    const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+    const csv = [HEADERS.join(','),...rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `convenios_${tipo.toLowerCase()}_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
+    a.href = URL.createObjectURL(blob); a.download=`convenios_${tipo.toLowerCase()}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   });
-
   toast(`${convs.length} convenio(s) exportado(s) ✓`);
 }
 
 async function borrarPago(id) {
-  if(!confirm('¿Eliminar este pago?')) return;
-  DB.pagos=DB.pagos.filter(p=>p.id!==id);
+  if (!confirm('¿Eliminar este pago?')) return;
+  DB.pagos = DB.pagos.filter(p=>p.id!==id);
   scheduleSave(); renderPagos(); renderDashboard(); toast('Pago eliminado');
 }
 
-// ─── VENCIMIENTOS ────────────────────────────────────────────────────────────
+// ─── VENCIMIENTOS ─────────────────────────────────────────────────────────────
 function setVencTab(t,el) {
   document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active')); el.classList.add('active');
   ['prox','vencidas','firma'].forEach(v=>document.getElementById('venc-'+v).style.display=v===t?'block':'none');
@@ -1509,11 +1530,11 @@ function setVencTab(t,el) {
 }
 
 function renderVencimientos() {
-  const {prox,venc}=calcStatus();
-  const tbP=document.getElementById('tabla-venc-prox');
-  tbP.innerHTML=!prox.length
-    ?`<tr><td colspan="7"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
-    :prox.map(({conv,cq,dias})=>`<tr>
+  const {prox,venc} = calcStatus();
+  const tbP = document.getElementById('tabla-venc-prox');
+  tbP.innerHTML = !prox.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
+    : prox.map(({conv,cq,dias})=>`<tr>
         <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
         <td class="mono" style="font-size:11px">${conv.cuit||'—'}</td>
         <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
@@ -1524,10 +1545,10 @@ function renderVencimientos() {
         <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
       </tr>`).join('');
 
-  const tbV=document.getElementById('tabla-venc-vencidas');
-  tbV.innerHTML=!venc.length
-    ?`<tr><td colspan="7"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
-    :venc.map(({conv,cq,dias})=>`<tr>
+  const tbV = document.getElementById('tabla-venc-vencidas');
+  tbV.innerHTML = !venc.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
+    : venc.map(({conv,cq,dias})=>`<tr>
         <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.telefono||''}</div></td>
         <td class="mono" style="font-size:11px">${conv.cuit||'—'}</td>
         <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
@@ -1538,11 +1559,11 @@ function renderVencimientos() {
         <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
       </tr>`).join('');
 
-  const sinFirma=DB.convenios.filter(c=>!c.firmado);
-  const tbF=document.getElementById('tabla-venc-firma');
-  tbF.innerHTML=!sinFirma.length
-    ?`<tr><td colspan="6"><div class="empty"><div class="icon">✅</div><p>Todos firmados</p></div></td></tr>`
-    :sinFirma.map(c=>`<tr>
+  const sinFirma = DB.convenios.filter(c=>!c.firmado);
+  const tbF = document.getElementById('tabla-venc-firma');
+  tbF.innerHTML = !sinFirma.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Todos firmados</p></div></td></tr>`
+    : sinFirma.map(c=>`<tr>
         <td><div style="font-weight:500">${c.nombre}</div></td>
         <td class="mono">${c.cuit}</td>
         <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
@@ -1550,13 +1571,9 @@ function renderVencimientos() {
         <td class="importe">${fmtPeso(c.importeCuota)}</td>
         <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
         <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
-        <td>
-          <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
-        </td>
+        <td><button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button></td>
       </tr>`).join('');
 }
-
-
 </script>
 </body>
 </html>
