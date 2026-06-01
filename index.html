@@ -2483,27 +2483,39 @@ async function generarInforme() {
   const res = document.getElementById('informe-resultado');
   res.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px"><div class="spinner"></div> Generando informe…</div>`;
 
-  // 1. Leer ORIGINAL para obtener F.Fin (col H = índice 7) por CUIT
-  let ffinMap = {};
+  // Helper fetch con timeout de 10s
+  const fetchSheet = async (range) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`,
+        { headers: { Authorization: 'Bearer ' + accessToken }, signal: controller.signal });
+      clearTimeout(timer);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    } catch(e) {
+      clearTimeout(timer);
+      if (e.name === 'AbortError') throw new Error('Timeout — el token puede haber expirado. Recargá la página.');
+      throw e;
+    }
+  };
+
   try {
-    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:H`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const d = await r.json();
-    (d.values||[]).slice(1).forEach(row => {
+    // 1. Leer ORIGINAL para F.Fin (col H)
+    let ffinMap = {};
+    const d1 = await fetchSheet('ORIGINAL!A:H');
+    (d1.values||[]).slice(1).forEach(row => {
       const c = String(row[0]||'').replace(/\D/g,'');
       if (c) ffinMap[c] = row[7]||'';
     });
-  } catch(e) {}
 
-  // 2. Leer comentarios ACCIÓN (col P) de COMENTARIOS
-  let comentMap = {};
-  try {
-    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const d = await r.json();
-    (d.values||[]).slice(1).forEach(row => {
+    // 2. Leer comentarios ACCIÓN (col P) de COMENTARIOS
+    let comentMap = {};
+    const d2 = await fetchSheet('COMENTARIOS!A:P');
+    (d2.values||[]).slice(1).forEach(row => {
       const c = String(row[0]||'').replace(/\D/g,'');
       if (c) comentMap[c] = row[15]||'';
     });
-  } catch(e) {}
 
   // 3. Enriquecer convenios con ffinOriginal
   const convsEnriquecidos = DB.convenios.map(c => ({
@@ -2594,14 +2606,17 @@ async function generarInforme() {
   </div>
 
   <div style="display:flex;justify-content:flex-end;margin-top:16px">
-    <button class="btn btn-primary" onclick="imprimirInforme('${nombreMes}','${anio}')">⬇ Exportar PDF</button>
+    <button class="btn btn-primary" onclick="imprimirInforme('${nombreMes}')">⬇ Exportar PDF</button>
   </div>`;
 
   res.innerHTML = informeHtml;
-  document.getElementById('btn-cerrar-busqueda').style.display = 'inline-flex';
+
+  } catch(e) {
+    res.innerHTML = `<div class="alert alert-danger">⚠ Error al generar el informe: ${e.message}</div>`;
+  }
 }
 
-function imprimirInforme(mes, anio) {
+function imprimirInforme(periodo) {
   const area = document.getElementById('informe-print-area');
   if (!area) return;
   const estilos = `
@@ -2615,7 +2630,7 @@ function imprimirInforme(mes, anio) {
   const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>Informe de Gestión — Estudio Oyuela — ${mes} ${anio}</title>
+    <title>Informe de Gestión — Estudio Oyuela — ${periodo}</title>
     <style>${estilos}</style>
   </head><body>${area.innerHTML}</body></html>`);
   win.document.close();
