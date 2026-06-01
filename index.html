@@ -1632,12 +1632,16 @@ async function guardarPago() {
 
 function renderPagos() {
   const q = (document.getElementById('search-pagos')?.value||'').toLowerCase();
-  const lista = DB.pagos.filter(p=>!q||(p.nombre||'').toLowerCase().includes(q)||(p.cuit||'').includes(q)).slice().reverse();
+  const lista = DB.pagos.filter(p=>!q||(p.nombre||'').toLowerCase().includes(q)||(p.cuit||'').includes(q)||(p.nombre||DB.convenios.find(c=>String(c.cuit).replace(/\D/g,'')=== String(p.cuit||'').replace(/\D/g,''))?.nombre||'').toLowerCase().includes(q)).slice().reverse();
   const tbody = document.getElementById('tabla-pagos');
   if (!lista.length) { tbody.innerHTML=`<tr><td colspan="8"><div class="empty"><div class="icon">💳</div><p>No hay pagos registrados</p></div></td></tr>`; return; }
-  tbody.innerHTML = lista.map(p=>`
-    <tr>
-      <td>${p.nombre||'—'}</td>
+  tbody.innerHTML = lista.map(p=>{
+    const nombre = p.nombre ||
+      DB.convenios.find(c=>c.id===p.convenioId)?.nombre ||
+      DB.convenios.find(c=>String(c.cuit).replace(/\D/g,'')=== String(p.cuit||'').replace(/\D/g,''))?.nombre ||
+      '—';
+    return `<tr>
+      <td>${nombre}</td>
       <td class="mono" style="font-size:11px">${p.cuit||'—'}</td>
       <td><span class="badge badge-${(p.tipo||'')[0]?.toLowerCase()||''}">${p.tipo||'—'}</span></td>
       <td class="mono">${fmtFecha(p.fecha)}</td>
@@ -1645,7 +1649,8 @@ function renderPagos() {
       <td class="importe">${fmtPeso(p.monto)}</td>
       <td style="color:var(--muted);font-size:11px">${p.registradoPor||'—'}</td>
       <td><button class="btn btn-danger btn-sm" onclick="borrarPago('${p.id}')">🗑</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ─── EXPORTAR ─────────────────────────────────────────────────────────────────
