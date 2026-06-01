@@ -2549,71 +2549,197 @@ async function generarInforme() {
   const nombreMes = periodoLabel;
 
   const informeHtml = `
+  <!-- ÁREA DE IMPRESIÓN PDF: solo resumen ejecutivo -->
   <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:36px;font-family:'DM Sans',sans-serif;color:#111827">
 
     <!-- ENCABEZADO -->
-    <div style="text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #4f46e5">
-      <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#4f46e5;letter-spacing:-0.5px">Informe de Gestión</div>
-      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-top:6px">Estudio Oyuela</div>
-      <div style="font-size:15px;color:#6b7280;margin-top:4px;font-weight:500">${nombreMes}</div>
+    <div style="text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:3px solid #4f46e5">
+      <div style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:#4f46e5;letter-spacing:-0.5px">Informe de Gestión</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-top:6px;color:#111827">Estudio Oyuela</div>
+      <div style="font-size:16px;color:#6b7280;margin-top:6px;font-weight:500">${nombreMes}</div>
     </div>
 
-    <!-- RESUMEN EJECUTIVO -->
+    <!-- KPIs PRINCIPALES -->
     ${seccionTitulo('Resumen ejecutivo')}
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px">
-      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #4f46e5">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Convenios generados</div>
-        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800">${convsDelMes.length}</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:4px">${convsFirmados.length} firmados · ${convsPendientes.length} pendientes</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #4f46e5">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Convenios generados</div>
+        <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#111827">${convsDelMes.length}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">${convsFirmados.length} firmados · ${convsPendientes.length} pendientes de firma</div>
       </div>
-      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #4f46e5">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Deuda convenida en el mes</div>
-        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#4f46e5">${fmtPeso(deudaConvenidaMes)}</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:4px">deuda neta total a recuperar</div>
+      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #4f46e5">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Deuda convenida en el período</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#4f46e5">${fmtPeso(deudaConvenidaMes)}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">deuda neta total comprometida a recuperar</div>
       </div>
-      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #059669">
-        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Recupero del mes</div>
-        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
-        <div style="font-size:11px;color:#6b7280;margin-top:4px">Antigua: ${fmtPeso(totalAntiguo)} · Nueva: ${fmtPeso(totalNuevo)}</div>
+      <div style="background:#f4f5f7;border-radius:12px;padding:20px;border-left:4px solid #059669">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Recupero del período</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:6px">Deuda antigua: ${fmtPeso(totalAntiguo)}<br>Deuda nueva: ${fmtPeso(totalNuevo)}</div>
       </div>
     </div>
 
-    <!-- CONVENIOS FIRMADOS -->
-    ${seccionTitulo(`Convenios firmados (${convsFirmados.length})`, '#059669')}
-    ${tablaConvenios(convsFirmados, comentMap)}
-
-    <!-- CONVENIOS PENDIENTES DE FIRMA -->
-    ${seccionTitulo(`Convenios pendientes de firma (${convsPendientes.length})`, '#d97706')}
-    ${tablaConvenios(convsPendientes, comentMap)}
-
-    <!-- RECUPEROS: DEUDA ANTIGUA -->
-    ${seccionTitulo(`Recupero del mes — Deuda antigua (anterior al 1/1/2026)`, '#dc2626')}
-    ${tablaPagos(pagosAntiguos, 'deuda antigua', '#dc2626')}
-
-    <!-- RECUPEROS: DEUDA NUEVA -->
-    ${seccionTitulo(`Recupero del mes — Deuda nueva (desde el 1/1/2026)`, '#059669')}
-    ${tablaPagos(pagosNuevos, 'deuda nueva', '#059669')}
-
-    <!-- TOTAL RECUPERO -->
-    <div style="background:#f4f5f7;border-radius:10px;padding:16px 20px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Total recuperado en ${nombreMes}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
+    <!-- DESGLOSE CONVENIOS -->
+    ${seccionTitulo('Desglose de convenios')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px">
+        <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">✓ Firmados (${convsFirmados.length})</div>
+        ${convsFirmados.length===0?'<p style="color:#6b7280;font-size:12px">Ninguno</p>':
+          convsFirmados.map(c=>{
+            const d=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+            const dep=parseFloat(c.depositoAplicado)||0;
+            return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #d1fae5;font-size:11px">
+              <div><div style="font-weight:600">${c.nombre}</div><div style="color:#6b7280">${c.tipo} · ${c.cantCuotas} cuotas ${c.modalidad}</div></div>
+              <div style="text-align:right;font-family:'DM Mono',monospace"><div style="font-weight:600">${fmtPeso(d-dep)}</div><div style="color:#6b7280">${fmtPeso(c.importeCuota)}/cuota</div></div>
+            </div>`;
+          }).join('')}
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px">
+        <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">⏳ Pendientes de firma (${convsPendientes.length})</div>
+        ${convsPendientes.length===0?'<p style="color:#6b7280;font-size:12px">Ninguno</p>':
+          convsPendientes.map(c=>{
+            const d=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+            const dep=parseFloat(c.depositoAplicado)||0;
+            return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fde68a;font-size:11px">
+              <div><div style="font-weight:600">${c.nombre}</div><div style="color:#6b7280">${c.tipo} · ${c.cantCuotas} cuotas ${c.modalidad}</div></div>
+              <div style="text-align:right;font-family:'DM Mono',monospace"><div style="font-weight:600">${fmtPeso(d-dep)}</div><div style="color:#6b7280">${fmtPeso(c.importeCuota)}/cuota</div></div>
+            </div>`;
+          }).join('')}
+      </div>
     </div>
 
-    <div style="margin-top:24px;padding-top:14px;border-top:1px solid #e2e4ea;font-size:10px;color:#6b7280;text-align:right">
+    <!-- DESGLOSE RECUPERO -->
+    ${seccionTitulo('Desglose de recupero')}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px">
+        <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Deuda antigua — ${fmtPeso(totalAntiguo)}</div>
+        ${pagosAntiguos.length===0?'<p style="color:#6b7280;font-size:12px">Sin pagos</p>':
+          pagosAntiguos.map(p=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #fecaca;font-size:11px">
+            <div><div style="font-weight:600">${p.nombre||'—'}</div><div style="color:#6b7280">${p.tipo} · cuota #${p.cuotaNum||'?'} · ${isoADMY(p.fecha)}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(p.monto)}</div>
+          </div>`).join('')}
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px">
+        <div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Deuda nueva — ${fmtPeso(totalNuevo)}</div>
+        ${pagosNuevos.length===0?'<p style="color:#6b7280;font-size:12px">Sin pagos</p>':
+          pagosNuevos.map(p=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #d1fae5;font-size:11px">
+            <div><div style="font-weight:600">${p.nombre||'—'}</div><div style="color:#6b7280">${p.tipo} · cuota #${p.cuotaNum||'?'} · ${isoADMY(p.fecha)}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(p.monto)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- TOTAL -->
+    <div style="background:#111827;border-radius:10px;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#fff">Total recuperado en el período</div>
+      <div style="font-family:'DM Mono',monospace;font-size:24px;font-weight:800;color:#34d399">${fmtPeso(totalRecupero)}</div>
+    </div>
+
+    <div style="padding-top:14px;border-top:1px solid #e2e4ea;font-size:10px;color:#9ca3af;text-align:right">
       Generado el ${new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
     </div>
   </div>
 
-  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+  <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+    <button class="btn btn-ghost" onclick="exportarExcelInforme()">⬇ Exportar Excel</button>
     <button class="btn btn-primary" onclick="imprimirInforme('${nombreMes}')">⬇ Exportar PDF</button>
   </div>`;
 
   res.innerHTML = informeHtml;
+  // Guardar datos para exportar Excel
+  _informeData = { convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, nombreMes };
 
   } catch(e) {
     res.innerHTML = `<div class="alert alert-danger">⚠ Error al generar el informe: ${e.message}</div>`;
   }
+}
+
+let _informeData = null;
+
+function exportarExcelInforme() {
+  if (!_informeData) { toast('Primero generá el informe', 'error'); return; }
+  const { convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, nombreMes } = _informeData;
+
+  // Cargar SheetJS dinámicamente si no está cargado
+  if (!window.XLSX) {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => _generarExcel(convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, nombreMes);
+    script.onerror = () => toast('Error al cargar librería Excel', 'error');
+    document.head.appendChild(script);
+  } else {
+    _generarExcel(convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, nombreMes);
+  }
+}
+
+function _generarExcel(convsFirmados, convsPendientes, pagosAntiguos, pagosNuevos, periodo) {
+  const wb = XLSX.utils.book_new();
+
+  // Helper: número a texto con formato peso
+  const n = v => (v||0);
+
+  // Columnas de convenios
+  const headConv = ['CUIT','Apellido y Nombre','Tipo','Deuda antigua/nueva','Deuda original','Depósito aplicado','Deuda neta','Cant. cuotas','Modalidad','Importe cuota','Total convenio','1ra cuota pagada','Comentario'];
+
+  const rowsConv = (lista) => lista.map(c => {
+    const deudaTipo = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+    const depAp     = parseFloat(c.depositoAplicado)||0;
+    const tienePrim = DB.pagos.some(p=>p.convenioId===c.id&&p.cuotaNum===1);
+    return [
+      c.cuit, c.nombre, c.tipo,
+      esDeudaAntigua(c.ffinOriginal||'') ? 'Antigua' : 'Nueva',
+      n(deudaTipo), n(depAp), n(deudaTipo-depAp),
+      c.cantCuotas, c.modalidad, n(c.importeCuota),
+      n(c.importeCuota)*c.cantCuotas,
+      tienePrim ? 'Sí' : 'No',
+      c.comentario||''
+    ];
+  });
+
+  // Columnas de pagos
+  const headPagos = ['CUIT','Apellido y Nombre','Tipo','N° cuota','Fecha','Monto'];
+  const rowsPagos = (lista) => lista.map(p => [
+    p.cuit||'', p.nombre||'', p.tipo||'',
+    p.cuotaNum||'',
+    p.fecha ? isoADMY(p.fecha) : '',
+    n(p.monto)
+  ]);
+
+  // Helper para crear hoja con título de período en fila 1
+  const crearHoja = (titulo, headers, rows) => {
+    const data = [
+      [`${titulo} — ${periodo}`],
+      [],
+      headers,
+      ...rows
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    // Ancho de columnas
+    ws['!cols'] = headers.map((_,i) => ({ wch: [15,35,14,16,16,16,14,14,12,14,14,14,40][i] || 14 }));
+    // Merge título
+    ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:headers.length-1} }];
+    return ws;
+  };
+
+  XLSX.utils.book_append_sheet(wb,
+    crearHoja('Convenios firmados', headConv, rowsConv(convsFirmados)),
+    'Convenios firmados');
+
+  XLSX.utils.book_append_sheet(wb,
+    crearHoja('Convenios pendientes de firma', headConv, rowsConv(convsPendientes)),
+    'Convenios pendientes');
+
+  XLSX.utils.book_append_sheet(wb,
+    crearHoja('Pagos — Deuda antigua', headPagos, rowsPagos(pagosAntiguos)),
+    'Pagos deuda antigua');
+
+  XLSX.utils.book_append_sheet(wb,
+    crearHoja('Pagos — Deuda nueva', headPagos, rowsPagos(pagosNuevos)),
+    'Pagos deuda nueva');
+
+  const nombreArchivo = `Informe_Gestion_${periodo.replace(/ /g,'_').replace(/—/g,'-')}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo);
+  toast('Excel generado ✓');
 }
 
 function imprimirInforme(periodo) {
