@@ -317,6 +317,7 @@
     <div id="view-busqueda" class="view">
       <div class="page-header">
         <div><div class="page-title">Búsqueda</div><div class="page-sub">Consultá la situación de un titular por CUIT o nombre</div></div>
+        <button class="btn btn-ghost" id="btn-cerrar-busqueda" onclick="cerrarBusqueda()" style="display:none">✕ Cerrar búsqueda</button>
       </div>
       <div style="max-width:560px;margin-bottom:24px">
         <div style="display:flex;gap:8px">
@@ -382,22 +383,36 @@
       <div class="page-header">
         <div><div class="page-title">Informes de Gestión</div><div class="page-sub">Generá el informe mensual para exportar en PDF</div></div>
       </div>
-      <div style="max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px">
-        <div class="form-grid">
-          <div class="field">
-            <label>Mes</label>
-            <select id="informe-mes" class="filter-select" style="width:100%">
-              <option value="1">Enero</option><option value="2">Febrero</option>
-              <option value="3">Marzo</option><option value="4">Abril</option>
-              <option value="5">Mayo</option><option value="6">Junio</option>
-              <option value="7">Julio</option><option value="8">Agosto</option>
-              <option value="9">Septiembre</option><option value="10">Octubre</option>
-              <option value="11">Noviembre</option><option value="12">Diciembre</option>
-            </select>
+      <div style="max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:end">
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Desde</div>
+            <div style="display:flex;gap:6px">
+              <select id="informe-mes-desde" class="filter-select" style="flex:1">
+                <option value="1">Enero</option><option value="2">Febrero</option>
+                <option value="3">Marzo</option><option value="4">Abril</option>
+                <option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <input id="informe-anio-desde" type="number" min="2020" max="2099" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 10px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;width:80px">
+            </div>
           </div>
-          <div class="field">
-            <label>Año</label>
-            <input id="informe-anio" type="number" min="2020" max="2099" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;width:100%">
+          <div style="font-size:18px;color:var(--muted);padding-bottom:10px;text-align:center">→</div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Hasta</div>
+            <div style="display:flex;gap:6px">
+              <select id="informe-mes-hasta" class="filter-select" style="flex:1">
+                <option value="1">Enero</option><option value="2">Febrero</option>
+                <option value="3">Marzo</option><option value="4">Abril</option>
+                <option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+              <input id="informe-anio-hasta" type="number" min="2020" max="2099" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 10px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;width:80px">
+            </div>
           </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:16px">
@@ -1758,7 +1773,16 @@ function renderVencimientos() {
         <td><button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button></td>
       </tr>`).join('');
 }
-let _busquedaTitular = null;
+function cerrarBusqueda() {
+  document.getElementById('busqueda-input').value = '';
+  document.getElementById('busqueda-sugerencias').style.display = 'none';
+  document.getElementById('busqueda-resultado').innerHTML = '';
+  document.getElementById('btn-cerrar-busqueda').style.display = 'none';
+  _busquedaTitular = null;
+  document.getElementById('busqueda-input').focus();
+}
+
+
 
 function generarConvenioDesdeResultado() {
   if (!_busquedaTitular) return;
@@ -2006,8 +2030,8 @@ async function ejecutarBusqueda() {
         </div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(1)">📋 Texto estándar 1</button>
-        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(2)">📋 Texto estándar 2</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(1)">📋 Contacto 3 veces</button>
+        <button class="btn btn-ghost btn-sm" onclick="cargarComentarioEstandar(2)">📋 No hay datos telefónicos</button>
       </div>
       <textarea id="busqueda-comentario" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;resize:vertical;min-height:80px;transition:border-color .15s" placeholder="Registrá el resultado del contacto telefónico…" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${accionExistente}</textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
@@ -2021,6 +2045,7 @@ async function ejecutarBusqueda() {
     telefono: datos.telefono||'', mail: datos.mail||'', direccion: datos.direccion||'',
     deudaAlq, deudaInf, deudaSin, deposito
   };
+  document.getElementById('btn-cerrar-busqueda').style.display = 'inline-flex';
 }
 
 function cargarComentarioEstandar(n) {
@@ -2296,8 +2321,12 @@ function buscarDesdeContactados(cuit) {
 // ─── INFORMES ─────────────────────────────────────────────────────────────────
 function initInformes() {
   const now = new Date();
-  document.getElementById('informe-mes').value  = now.getMonth() + 1;
-  document.getElementById('informe-anio').value = now.getFullYear();
+  const mes  = now.getMonth() + 1;
+  const anio = now.getFullYear();
+  document.getElementById('informe-mes-desde').value  = mes;
+  document.getElementById('informe-anio-desde').value = anio;
+  document.getElementById('informe-mes-hasta').value  = mes;
+  document.getElementById('informe-anio-hasta').value = anio;
 }
 
 // F.Fin anterior al 1/1/2026 → deuda antigua
@@ -2427,9 +2456,29 @@ function seccionTitulo(texto, color='#4f46e5') {
 }
 
 async function generarInforme() {
-  const mes  = parseInt(document.getElementById('informe-mes').value);
-  const anio = parseInt(document.getElementById('informe-anio').value);
-  if (!mes || !anio) { toast('Seleccioná mes y año','error'); return; }
+  const mesDesde  = parseInt(document.getElementById('informe-mes-desde').value);
+  const anioDesde = parseInt(document.getElementById('informe-anio-desde').value);
+  const mesHasta  = parseInt(document.getElementById('informe-mes-hasta').value);
+  const anioHasta = parseInt(document.getElementById('informe-anio-hasta').value);
+  if (!mesDesde||!anioDesde||!mesHasta||!anioHasta) { toast('Completá el rango de fechas','error'); return; }
+
+  // Validar que desde <= hasta
+  const numDesde = anioDesde*100 + mesDesde;
+  const numHasta = anioHasta*100 + mesHasta;
+  if (numDesde > numHasta) { toast('El mes inicial no puede ser posterior al final','error'); return; }
+
+  // Función para saber si una fecha cae en el rango
+  const enRango = (fecha) => {
+    const f = new Date(fecha);
+    const n = f.getFullYear()*100 + (f.getMonth()+1);
+    return n >= numDesde && n <= numHasta;
+  };
+
+  // Etiqueta del período
+  const esMismoMes = numDesde === numHasta;
+  const periodoLabel = esMismoMes
+    ? `${MESES[mesDesde-1]} ${anioDesde}`
+    : `${MESES[mesDesde-1]} ${anioDesde} — ${MESES[mesHasta-1]} ${anioHasta}`;
 
   const res = document.getElementById('informe-resultado');
   res.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px"><div class="spinner"></div> Generando informe…</div>`;
@@ -2462,20 +2511,13 @@ async function generarInforme() {
     ffinOriginal: ffinMap[String(c.cuit).replace(/\D/g,'')] || ''
   }));
 
-  // 4. Convenios del mes
-  const convsDelMes = convsEnriquecidos.filter(c => {
-    const f = new Date(c.creadoEn);
-    return f.getMonth()+1 === mes && f.getFullYear() === anio;
-  });
+  // 4. Convenios del período
+  const convsDelMes = convsEnriquecidos.filter(c => enRango(c.creadoEn));
   const convsFirmados   = convsDelMes.filter(c => c.firmado === 'SI');
   const convsPendientes = convsDelMes.filter(c => c.firmado !== 'SI');
 
-  // 5. Pagos del mes, clasificados por deuda antigua/nueva
-  const pagosDelMes = DB.pagos.filter(p => {
-    if (!p.fecha) return false;
-    const f = new Date(p.fecha);
-    return f.getMonth()+1 === mes && f.getFullYear() === anio;
-  }).map(p => {
+  // 5. Pagos del período, clasificados por deuda antigua/nueva
+  const pagosDelMes = DB.pagos.filter(p => p.fecha && enRango(p.fecha)).map(p => {
     const conv = convsEnriquecidos.find(c => c.id === p.convenioId);
     return { ...p, ffinOriginal: conv?.ffinOriginal || '' };
   });
@@ -2492,7 +2534,7 @@ async function generarInforme() {
     return s + (d||0) - (parseFloat(c.depositoAplicado)||0);
   }, 0);
 
-  const nombreMes = MESES[mes-1];
+  const nombreMes = periodoLabel;
 
   const informeHtml = `
   <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:36px;font-family:'DM Sans',sans-serif;color:#111827">
@@ -2556,6 +2598,7 @@ async function generarInforme() {
   </div>`;
 
   res.innerHTML = informeHtml;
+  document.getElementById('btn-cerrar-busqueda').style.display = 'inline-flex';
 }
 
 function imprimirInforme(mes, anio) {
