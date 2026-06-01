@@ -225,6 +225,7 @@
       <div class="nav-item" onclick="setView('convenios')"><span class="icon">📄</span> Convenios</div>
       <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span> Pagos</div>
       <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span> Vencimientos</div>
+      <div class="nav-item" onclick="setView('informes')"><span class="icon">📊</span> Informes</div>
     </nav>
     <div class="user-chip">
       <div class="user-avatar" id="user-avatar">?</div>
@@ -372,6 +373,36 @@
           <tbody id="tabla-contactados"></tbody>
         </table>
       </div>
+    </div>
+
+    <!-- INFORMES -->
+    <div id="view-informes" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Informes de Gestión</div><div class="page-sub">Generá el informe mensual para exportar en PDF</div></div>
+      </div>
+      <div style="max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px">
+        <div class="form-grid">
+          <div class="field">
+            <label>Mes</label>
+            <select id="informe-mes" class="filter-select" style="width:100%">
+              <option value="1">Enero</option><option value="2">Febrero</option>
+              <option value="3">Marzo</option><option value="4">Abril</option>
+              <option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option>
+              <option value="9">Septiembre</option><option value="10">Octubre</option>
+              <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Año</label>
+            <input id="informe-anio" type="number" min="2020" max="2099" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;width:100%">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <button class="btn btn-primary" style="flex:1" onclick="generarInforme()">📊 Generar informe</button>
+        </div>
+      </div>
+      <div id="informe-resultado"></div>
     </div>
 
   </main>
@@ -856,12 +887,13 @@ function setView(v) {
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  document.querySelectorAll('.nav-item')[['dashboard','busqueda','contactados','convenios','pagos','vencimientos'].indexOf(v)].classList.add('active');
+  document.querySelectorAll('.nav-item')[['dashboard','busqueda','contactados','convenios','pagos','vencimientos','informes'].indexOf(v)].classList.add('active');
   if(v==='dashboard') renderDashboard();
   if(v==='convenios') renderConvenios();
   if(v==='pagos') renderPagos();
   if(v==='vencimientos') renderVencimientos();
   if(v==='contactados') cargarContactados();
+  if(v==='informes') initInformes();
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
@@ -2124,6 +2156,294 @@ function buscarDesdeContactados(cuit) {
 }
 
 
+// ─── INFORMES ─────────────────────────────────────────────────────────────────
+function initInformes() {
+  const now = new Date();
+  document.getElementById('informe-mes').value  = now.getMonth() + 1;
+  document.getElementById('informe-anio').value = now.getFullYear();
+}
+
+// F.Fin anterior al 1/1/2026 → deuda antigua
+const CORTE_DEUDA = new Date('2026-01-01');
+
+function parseFechaFin(s) {
+  // dd/mm/yyyy o yyyy-mm-dd
+  if (!s) return null;
+  s = String(s).trim();
+  if (s.includes('/')) {
+    const p = s.split('/');
+    if (p.length === 3) return new Date(`${p[2].padStart(4,'0')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);
+  }
+  return new Date(s);
+}
+
+function esDeudaAntigua(ffinStr) {
+  const f = parseFechaFin(ffinStr);
+  if (!f || isNaN(f)) return false;
+  return f < CORTE_DEUDA;
+}
+
+function thStyle(align='left') {
+  return `text-align:${align};padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6b7280;border-bottom:1px solid #e2e4ea`;
+}
+function tdStyle(align='left', extra='') {
+  return `text-align:${align};padding:8px 12px;border-bottom:1px solid #e2e4ea;${extra}`;
+}
+function badgeTipo(tipo) {
+  const bg = tipo==='Alquiler'?'rgba(79,70,229,.1)':tipo==='Infracciones'?'rgba(124,58,237,.1)':'rgba(217,119,6,.1)';
+  const cl = tipo==='Alquiler'?'#4f46e5':tipo==='Infracciones'?'#7c3aed':'#d97706';
+  return `<span style="font-size:10px;font-weight:700;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:4px;background:${bg};color:${cl}">${tipo.toUpperCase()}</span>`;
+}
+
+function tablaConvenios(lista, comentMap) {
+  if (!lista.length) return `<p style="color:#6b7280;font-size:12px;padding:12px 0">No hay convenios en este grupo.</p>`;
+  const totalDeuda = lista.reduce((s,c)=>{
+    const d=c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+    return s+(d||0);
+  },0);
+  const totalDep   = lista.reduce((s,c)=>s+(parseFloat(c.depositoAplicado)||0),0);
+  const totalConv  = lista.reduce((s,c)=>s+(c.importeCuota||0)*c.cantCuotas,0);
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="background:#f4f5f7">
+      <th style="${thStyle()}">Titular / CUIT</th>
+      <th style="${thStyle()}">Tipo</th>
+      <th style="${thStyle()}">Deuda antigua/nueva</th>
+      <th style="${thStyle('right')}">Deuda</th>
+      <th style="${thStyle('right')}">Dep.</th>
+      <th style="${thStyle('right')}">Deuda neta</th>
+      <th style="${thStyle('right')}">Cuotas</th>
+      <th style="${thStyle('right')}">Importe cuota</th>
+      <th style="${thStyle('right')}">Total convenio</th>
+      <th style="${thStyle('center')}">1ra cuota</th>
+      <th style="${thStyle()}">Comentario</th>
+    </tr></thead>
+    <tbody>
+      ${lista.map((c,i)=>{
+        const deudaTipo = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        const depAp     = parseFloat(c.depositoAplicado)||0;
+        const deudaNeta = Math.max(0,(deudaTipo||0)-depAp);
+        const totalC    = (c.importeCuota||0)*c.cantCuotas;
+        const cuit      = String(c.cuit).replace(/\D/g,'');
+        const comentario= comentMap[cuit]||'—';
+        const antigua   = esDeudaAntigua(c.ffinOriginal);
+        const tienePrim = DB.pagos.some(p=>p.convenioId===c.id&&p.cuotaNum===1);
+        return `<tr style="background:${i%2===0?'transparent':'#fafafa'}">
+          <td style="${tdStyle()}"><div style="font-weight:600;font-size:11px">${c.nombre}</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:#6b7280">${c.cuit}</div></td>
+          <td style="${tdStyle()}">${badgeTipo(c.tipo)}</td>
+          <td style="${tdStyle()}"><span style="font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;background:${antigua?'rgba(220,38,38,.08)':'rgba(5,150,105,.08)'};color:${antigua?'#dc2626':'#059669'}">${antigua?'Antigua':'Nueva'}</span></td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace">${fmtPeso(deudaTipo)}</td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace;color:#7c3aed">${depAp>0?fmtPeso(depAp):'—'}</td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(deudaNeta)}</td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace">${c.cantCuotas} ${c.modalidad}</td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace">${fmtPeso(c.importeCuota)}</td>
+          <td style="${tdStyle('right')};font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(totalC)}</td>
+          <td style="${tdStyle('center')}">${tienePrim?'<span style="color:#059669;font-weight:700">✓</span>':'<span style="color:#d97706">—</span>'}</td>
+          <td style="${tdStyle()};font-size:10px;color:#6b7280;max-width:140px">${comentario}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f4f5f7;font-weight:700;font-size:11px">
+        <td colspan="3" style="padding:9px 12px;text-align:right">SUBTOTALES</td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace">${fmtPeso(totalDeuda)}</td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace;color:#7c3aed">${totalDep>0?fmtPeso(totalDep):'—'}</td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace">${fmtPeso(totalDeuda-totalDep)}</td>
+        <td colspan="2" style="padding:9px 12px"></td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace;color:#4f46e5">${fmtPeso(totalConv)}</td>
+        <td colspan="2" style="padding:9px 12px"></td>
+      </tr>
+    </tfoot>
+  </table>`;
+}
+
+function tablaPagos(lista, titulo, color) {
+  if (!lista.length) return `<p style="color:#6b7280;font-size:12px;padding:8px 0">No hay pagos en este grupo.</p>`;
+  const total = lista.reduce((s,p)=>s+p.monto,0);
+  return `<table style="width:100%;border-collapse:collapse;font-size:11px">
+    <thead><tr style="background:#f4f5f7">
+      <th style="${thStyle()}">Titular</th>
+      <th style="${thStyle()}">Tipo</th>
+      <th style="${thStyle('center')}">Cuota</th>
+      <th style="${thStyle()}">Fecha pago</th>
+      <th style="${thStyle('right')}">Monto</th>
+    </tr></thead>
+    <tbody>
+      ${lista.map((p,i)=>`<tr style="background:${i%2===0?'transparent':'#fafafa'}">
+        <td style="${tdStyle()};font-weight:500">${p.nombre||'—'}<div style="font-family:'DM Mono',monospace;font-size:10px;color:#6b7280">${p.cuit||''}</div></td>
+        <td style="${tdStyle()}">${badgeTipo(p.tipo||'Alquiler')}</td>
+        <td style="${tdStyle('center')};font-family:'DM Mono',monospace">#${p.cuotaNum||'—'}</td>
+        <td style="${tdStyle()};font-family:'DM Mono',monospace">${fmtFecha(p.fecha)}</td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace;font-weight:600">${fmtPeso(p.monto)}</td>
+      </tr>`).join('')}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f4f5f7;font-weight:700">
+        <td colspan="4" style="padding:9px 12px;text-align:right;font-size:11px">TOTAL ${titulo.toUpperCase()}</td>
+        <td style="${tdStyle('right')};font-family:'DM Mono',monospace;font-size:13px;color:${color};font-weight:800">${fmtPeso(total)}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+}
+
+function seccionTitulo(texto, color='#4f46e5') {
+  return `<div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:${color};margin:24px 0 10px;padding-bottom:8px;border-bottom:2px solid ${color}20">${texto}</div>`;
+}
+
+async function generarInforme() {
+  const mes  = parseInt(document.getElementById('informe-mes').value);
+  const anio = parseInt(document.getElementById('informe-anio').value);
+  if (!mes || !anio) { toast('Seleccioná mes y año','error'); return; }
+
+  const res = document.getElementById('informe-resultado');
+  res.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px"><div class="spinner"></div> Generando informe…</div>`;
+
+  // 1. Leer ORIGINAL para obtener F.Fin (col H = índice 7) por CUIT
+  let ffinMap = {};
+  try {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:H`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d = await r.json();
+    (d.values||[]).slice(1).forEach(row => {
+      const c = String(row[0]||'').replace(/\D/g,'');
+      if (c) ffinMap[c] = row[7]||'';
+    });
+  } catch(e) {}
+
+  // 2. Leer comentarios ACCIÓN (col P) de COMENTARIOS
+  let comentMap = {};
+  try {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d = await r.json();
+    (d.values||[]).slice(1).forEach(row => {
+      const c = String(row[0]||'').replace(/\D/g,'');
+      if (c) comentMap[c] = row[15]||'';
+    });
+  } catch(e) {}
+
+  // 3. Enriquecer convenios con ffinOriginal
+  const convsEnriquecidos = DB.convenios.map(c => ({
+    ...c,
+    ffinOriginal: ffinMap[String(c.cuit).replace(/\D/g,'')] || ''
+  }));
+
+  // 4. Convenios del mes
+  const convsDelMes = convsEnriquecidos.filter(c => {
+    const f = new Date(c.creadoEn);
+    return f.getMonth()+1 === mes && f.getFullYear() === anio;
+  });
+  const convsFirmados   = convsDelMes.filter(c => c.firmado === 'SI');
+  const convsPendientes = convsDelMes.filter(c => c.firmado !== 'SI');
+
+  // 5. Pagos del mes, clasificados por deuda antigua/nueva
+  const pagosDelMes = DB.pagos.filter(p => {
+    if (!p.fecha) return false;
+    const f = new Date(p.fecha);
+    return f.getMonth()+1 === mes && f.getFullYear() === anio;
+  }).map(p => {
+    const conv = convsEnriquecidos.find(c => c.id === p.convenioId);
+    return { ...p, ffinOriginal: conv?.ffinOriginal || '' };
+  });
+
+  const pagosAntiguos = pagosDelMes.filter(p => esDeudaAntigua(p.ffinOriginal));
+  const pagosNuevos   = pagosDelMes.filter(p => !esDeudaAntigua(p.ffinOriginal));
+  const totalAntiguo  = pagosAntiguos.reduce((s,p)=>s+p.monto,0);
+  const totalNuevo    = pagosNuevos.reduce((s,p)=>s+p.monto,0);
+  const totalRecupero = totalAntiguo + totalNuevo;
+
+  // Deuda convenida en el mes (total convenios del mes)
+  const deudaConvenidaMes = convsDelMes.reduce((s,c) => {
+    const d = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+    return s + (d||0) - (parseFloat(c.depositoAplicado)||0);
+  }, 0);
+
+  const nombreMes = MESES[mes-1];
+
+  const informeHtml = `
+  <div id="informe-print-area" style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:36px;font-family:'DM Sans',sans-serif;color:#111827">
+
+    <!-- ENCABEZADO -->
+    <div style="text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:3px solid #4f46e5">
+      <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:#4f46e5;letter-spacing:-0.5px">Informe de Gestión</div>
+      <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-top:6px">Estudio Oyuela</div>
+      <div style="font-size:15px;color:#6b7280;margin-top:4px;font-weight:500">${nombreMes} ${anio}</div>
+    </div>
+
+    <!-- RESUMEN EJECUTIVO -->
+    ${seccionTitulo('Resumen ejecutivo')}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px">
+      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #4f46e5">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Convenios generados</div>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800">${convsDelMes.length}</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">${convsFirmados.length} firmados · ${convsPendientes.length} pendientes</div>
+      </div>
+      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #4f46e5">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Deuda convenida en el mes</div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#4f46e5">${fmtPeso(deudaConvenidaMes)}</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">deuda neta total a recuperar</div>
+      </div>
+      <div style="background:#f4f5f7;border-radius:10px;padding:16px;border-left:3px solid #059669">
+        <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Recupero del mes</div>
+        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">Antigua: ${fmtPeso(totalAntiguo)} · Nueva: ${fmtPeso(totalNuevo)}</div>
+      </div>
+    </div>
+
+    <!-- CONVENIOS FIRMADOS -->
+    ${seccionTitulo(`Convenios firmados (${convsFirmados.length})`, '#059669')}
+    ${tablaConvenios(convsFirmados, comentMap)}
+
+    <!-- CONVENIOS PENDIENTES DE FIRMA -->
+    ${seccionTitulo(`Convenios pendientes de firma (${convsPendientes.length})`, '#d97706')}
+    ${tablaConvenios(convsPendientes, comentMap)}
+
+    <!-- RECUPEROS: DEUDA ANTIGUA -->
+    ${seccionTitulo(`Recupero del mes — Deuda antigua (anterior al 1/1/2026)`, '#dc2626')}
+    ${tablaPagos(pagosAntiguos, 'deuda antigua', '#dc2626')}
+
+    <!-- RECUPEROS: DEUDA NUEVA -->
+    ${seccionTitulo(`Recupero del mes — Deuda nueva (desde el 1/1/2026)`, '#059669')}
+    ${tablaPagos(pagosNuevos, 'deuda nueva', '#059669')}
+
+    <!-- TOTAL RECUPERO -->
+    <div style="background:#f4f5f7;border-radius:10px;padding:16px 20px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Total recuperado en ${nombreMes} ${anio}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:#059669">${fmtPeso(totalRecupero)}</div>
+    </div>
+
+    <div style="margin-top:24px;padding-top:14px;border-top:1px solid #e2e4ea;font-size:10px;color:#6b7280;text-align:right">
+      Generado el ${new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+    <button class="btn btn-primary" onclick="imprimirInforme('${nombreMes}','${anio}')">⬇ Exportar PDF</button>
+  </div>`;
+
+  res.innerHTML = informeHtml;
+}
+
+function imprimirInforme(mes, anio) {
+  const area = document.getElementById('informe-print-area');
+  if (!area) return;
+  const estilos = `
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'DM Sans',sans-serif; font-size:11px; color:#111827; background:white; padding:20px; }
+    table { width:100%; border-collapse:collapse; }
+    @page { margin:15mm; size:A4 landscape; }
+    @media print { body { padding:0; } }
+  `;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Informe de Gestión — Estudio Oyuela — ${mes} ${anio}</title>
+    <style>${estilos}</style>
+  </head><body>${area.innerHTML}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 800);
+}
+
 </script>
+
 </body>
 </html>
