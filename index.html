@@ -712,12 +712,13 @@ function setSyncState(s) {
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const fmtPeso  = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
 const parsePeso = s => { const clean=String(s||'0').replace(/[^0-9,]/g,'').replace(',','.'); return parseFloat(clean)||0; };
-const fmtFecha = d => d ? new Date(d).toLocaleDateString('es-AR') : '—';
-const today    = () => new Date().toISOString().split('T')[0];
-const addDays  = (ds,n) => { const d=new Date(ds); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
-const addMonths= (ds,n) => { const d=new Date(ds); d.setMonth(d.getMonth()+n); return d.toISOString().split('T')[0]; };
+// Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
+const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
+const fmtFecha = d => { if (!d) return '—'; const f = parseLocalDate(d); return f.toLocaleDateString('es-AR'); };
+const addDays  = (ds,n) => { const d=parseLocalDate(ds); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
+const addMonths= (ds,n) => { const d=parseLocalDate(ds); d.setMonth(d.getMonth()+n); return d.toISOString().split('T')[0]; };
 const addWeeks = (ds,n) => addDays(ds,n*7);
-const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/86400000);
+const diffDays = (a,b) => { const da=parseLocalDate(a), db=parseLocalDate(b); return Math.round((db-da)/86400000); };
 const uid      = () => Date.now().toString(36)+Math.random().toString(36).slice(2);
 
 function toast(msg,type='success') {
@@ -1748,8 +1749,46 @@ function exportarSeleccionados() {
 
 async function borrarPago(id) {
   if (!confirm('¿Eliminar este pago?')) return;
-  DB.pagos = DB.pagos.filter(p=>p.id!==id);
+  const pago = DB.pagos.find(p => p.id === id);
+  DB.pagos = DB.pagos.filter(p => p.id !== id);
   scheduleSave(); renderPagos(); renderDashboard(); toast('Pago eliminado');
+  // Eliminar de la hoja PAGOS del Sheets
+  if (pago) await deletePagoEnSheets(pago);
+}
+
+async function deletePagoEnSheets(pago) {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/PAGOS!A:F`;
+    const r   = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d   = await r.json();
+    const rows = d.values || [];
+    const cuit = String(pago.cuit||'').replace(/\D/g,'');
+    // Convertir fecha interna yyyy-mm-dd → dd/mm/yy para comparar con el sheet
+    let fechaSheet = '';
+    if (pago.fecha) {
+      const fp = pago.fecha.split('-');
+      if (fp.length === 3) fechaSheet = `${parseInt(fp[2])}/${parseInt(fp[1])}/${fp[0].slice(2)}`;
+    }
+    const tipoUpper = (pago.tipo||'').toUpperCase();
+    const rowIdx = rows.findIndex((row, i) => {
+      if (i === 0) return false;
+      const rowCuit  = String(row[0]||'').replace(/\D/g,'');
+      const rowTipo  = String(row[1]||'').toUpperCase();
+      const rowFecha = String(row[2]||'').trim();
+      const rowCuota = parseInt(row[3]||'0');
+      return rowCuit === cuit &&
+             rowTipo.includes(tipoUpper.slice(0,3)) &&
+             rowFecha === fechaSheet &&
+             rowCuota === (pago.cuotaNum||0);
+    });
+    if (rowIdx < 0) { toast('Pago eliminado de la app (no encontrado en Sheets)', 'info'); return; }
+    const sheetRow = rowIdx + 1;
+    const urlClear = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/PAGOS!A${sheetRow}:F${sheetRow}:clear`;
+    await fetch(urlClear, { method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' } });
+    toast('Pago eliminado de Sheets ✓', 'info');
+  } catch(e) {
+    toast('Pago eliminado de la app pero error en Sheets: ' + e.message, 'error');
+  }
 }
 
 // ─── VENCIMIENTOS ─────────────────────────────────────────────────────────────
@@ -2771,7 +2810,8 @@ async function generarInforme() {
 
   // Función para saber si una fecha cae en el rango
   const enRango = (fecha) => {
-    const f = new Date(fecha);
+    // creadoEn es ISO completo, p.fecha es yyyy-mm-dd — usar parseLocalDate para evitar offset UTC
+    const f = String(fecha).length === 10 ? parseLocalDate(fecha) : new Date(fecha);
     const n = f.getFullYear()*100 + (f.getMonth()+1);
     return n >= numDesde && n <= numHasta;
   };
