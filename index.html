@@ -1762,7 +1762,10 @@ function renderVencimientos() {
         <td class="mono">${fmtFecha(cq.vencimiento)}</td>
         <td><span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
-        <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
+        <td><div class="actions">
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}')">💬</button>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
+        </div></td>
       </tr>`).join('');
 
   const tbV = document.getElementById('tabla-venc-vencidas');
@@ -1775,7 +1778,10 @@ function renderVencimientos() {
         <td class="mono">${fmtFecha(cq.vencimiento)}</td>
         <td><span class="dias-badge dias-bad">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
-        <td><button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button></td>
+        <td><div class="actions">
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}')">💬</button>` : ''}
+          <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
+        </div></td>
       </tr>`).join('');
 
   const sinFirma = DB.convenios.filter(c=>!c.firmado);
@@ -1836,7 +1842,52 @@ function generarConvenioDesdeResultado() {
   precargarForm(_busquedaTitular);
 }
 
-// ─── BÚSQUEDA ─────────────────────────────────────────────────────────────────
+async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit) {
+  // Limpiar número
+  let num = String(telefono).replace(/[\s\-\(\)]/g, '');
+  if (num.startsWith('0')) num = '54' + num.slice(1);
+  if (!num.startsWith('54') && !num.startsWith('+')) num = '54' + num;
+  num = num.replace(/^\+/, '');
+  const nombreCorto = nombre.split(',')[0].trim();
+  const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene una cuota con vencimiento el ${fecha} por un importe de ${importe}, correspondiente a su contrato con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+
+  // Registrar fecha de envío en col T de COMENTARIOS
+  if (!cuit) return;
+  const fechaHoy = isoADMY(today());
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === String(cuit).replace(/\D/g,''));
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!T${sheetRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
+    } else {
+      const nextRow = rows.length + 1;
+      const valores = Array(20).fill('');
+      valores[0] = cuit; valores[19] = fechaHoy;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:T${nextRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+    // Marcar visualmente el botón en la fila
+    const btns = document.querySelectorAll(`button[data-ws-cuit="${cuit}"]`);
+    btns.forEach(b => { b.textContent = '✓ WS'; b.style.color = 'var(--ok)'; b.style.borderColor = 'var(--ok)'; });
+    toast(`WS enviado a ${nombreCorto} · registrado ✓`);
+  } catch(e) {
+    toast('WS abierto pero error al registrar: ' + e.message, 'error');
+  }
+}
+
+
 let busquedaTimer = null;
 
 function onBusquedaInput(val) {
