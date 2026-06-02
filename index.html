@@ -2617,7 +2617,7 @@ function renderTablaContactados() {
         <div style="font-weight:500">${d.nombre}</div>
         <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
       </td>
-      <td style="font-size:13px;white-space:nowrap">${d.telefono||'—'}</td>
+      <td style="font-size:13px;white-space:nowrap"><strong>${d.telefono||'—'}</strong></td>
       <td class="mono" style="white-space:nowrap">${d.fecha||'—'}</td>
       <td class="mono" style="text-align:center;color:${moraColor};font-weight:600">${mora > 0 ? mora : '—'}</td>
       <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
