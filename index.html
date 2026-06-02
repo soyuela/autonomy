@@ -313,7 +313,7 @@
       <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
       <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
       <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
-      <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
+      <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Nombre PDF</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
     <!-- BÚSQUEDA -->
     <div id="view-busqueda" class="view">
@@ -1823,14 +1823,17 @@ function renderVencimientos() {
   const badge = document.getElementById('badge-sinfirma');
   if (badge) badge.textContent = aEnviar.length || '';
   tbSF.innerHTML = !aEnviar.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>No hay convenios pendientes de envío</p></div></td></tr>`
+    ? `<tr><td colspan="9"><div class="empty"><div class="icon">✅</div><p>No hay convenios pendientes de envío</p></div></td></tr>`
     : aEnviar.map(c => {
-        const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        const deuda   = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        const prefijo = c.tipo==='Alquiler'?'a':c.tipo==='Siniestros'?'s':'i';
+        const pdfNombre = `${prefijo}-${String(c.cuit).replace(/\D/g,'')}.pdf`;
         return `<tr>
           <td><div style="font-weight:500">${c.nombre}</div></td>
           <td class="mono">${c.cuit}</td>
           <td style="font-size:13px">${c.telefono||'—'}</td>
           <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
+          <td><span style="font-family:var(--fm);font-size:11px;background:var(--surface2);padding:3px 8px;border-radius:4px;cursor:pointer;user-select:all;border:1px solid var(--border)" title="Seleccioná y copiá antes de guardar el PDF" onclick="this.select&&this.select();document.execCommand('copy');navigator.clipboard&&navigator.clipboard.writeText('${pdfNombre}').then(()=>toast('Nombre copiado ✓'))">${pdfNombre}</span></td>
           <td class="importe">${fmtPeso(deuda)}</td>
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
@@ -1880,18 +1883,20 @@ function generarConvenioPDF(convId) {
   const c = DB.convenios.find(x => x.id === convId);
   if (!c) return;
 
-  // Solo alquiler por ahora
-  if (c.tipo !== 'Alquiler') {
-    toast('Por ahora solo disponible para convenios de Alquiler', 'error');
-    return;
-  }
+  const hoy  = new Date();
+  const dia  = hoy.getDate();
+  const mes  = MESES[hoy.getMonth()];
+  const anio = hoy.getFullYear();
+  const depAp = parseFloat(c.depositoAplicado) || 0;
 
-  const hoy     = new Date();
-  const dia     = hoy.getDate();
-  const mes     = MESES[hoy.getMonth()];
-  const anio    = hoy.getFullYear();
-  const depAp   = parseFloat(c.depositoAplicado) || 0;
-  const deudaAlq= c.deudaAlq || 0;
+  const deudaMap = {
+    'Alquiler':     { val: c.deudaAlq||0, texto: 'deuda de alquiler',     prefijo: 'a' },
+    'Siniestros':   { val: c.deudaSin||0, texto: 'deuda de siniestros',   prefijo: 's' },
+    'Infracciones': { val: c.deudaInf||0, texto: 'deuda de infracciones', prefijo: 'i' },
+  };
+  const { val: deudaVal, texto: deudaTexto, prefijo } = deudaMap[c.tipo] || deudaMap['Alquiler'];
+
+  const deudaAlq = deudaVal; // alias for clause 1
 
   // Fecha primer vencimiento
   let dia1 = '', mes1 = '', anio1 = '';
@@ -1902,7 +1907,7 @@ function generarConvenioPDF(convId) {
 
   const partes = [
     `En la Ciudad de Buenos Aires, a ${dia} días del mes de ${mes} de ${anio}, entre AFS GROUP SA, representada en este acto por Calixto Oyuela, abogado, T72 F892 CPACF, con domicilio en Cerrito 1130, 6º Piso, en adelante la "EMPRESA", y ${c.nombre}, CUIT ${c.cuit}, con domicilio en ${c.direccion||'_________________'}, en adelante el "DEUDOR", convienen celebrar el presente convenio de pago sujeto a las siguientes cláusulas:`,
-    `1.- El "DEUDOR" reconoce adeudar a la "EMPRESA" la suma total de ${fmtPeso(deudaAlq)}, correspondiente a deuda de alquiler, por el uso de un vehículo Autonomy Dominio ${c.dominio||'_______'}. Se aplicó el descuento de ${fmtPeso(depAp)} correspondientes al depósito en garantía pagado oportunamente, monto que las partes aceptan de plena conformidad.`,
+    `1.- El "DEUDOR" reconoce adeudar a la "EMPRESA" la suma total de ${fmtPeso(deudaVal)}, correspondiente a ${deudaTexto}, por el uso de un vehículo Autonomy Dominio ${c.dominio||'_______'}. Se aplicó el descuento de ${fmtPeso(depAp)} correspondientes al depósito en garantía pagado oportunamente, monto que las partes aceptan de plena conformidad.`,
     `2.- La suma indicada será abonada en ${c.cantCuotas} cuota/s ${c.modalidad}, iguales y consecutivas de ${fmtPeso(c.importeCuota)}, venciendo la primera el ${dia1} de ${mes1} de ${anio1}, mediante transferencia bancaria a AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO. El comprobante de cada pago deberá enviarse vía WhatsApp al 1135005392 para su correcta imputación.`,
     `3.- La falta de pago de cualquiera de las cuotas facultará a la "EMPRESA" a iniciar las acciones judiciales correspondientes, produciéndose la mora automática y decayendo los plazos acordados, pudiendo ejecutarse el presente sin interpelación previa. Sobre los montos impagos se devengarán intereses desde su vencimiento hasta el efectivo pago a una tasa máxima equivalente a una vez y media la Tasa Activa Nominal Anual del BNA.`,
     `4.- Los pagos parciales o entregas a cuenta no implicarán novación, quita ni espera de la obligación ni de las acciones judiciales, aun cuando se realicen con posterioridad al inicio de una demanda, aplicándose primero a intereses y gastos y luego a capital.`,
@@ -1910,8 +1915,8 @@ function generarConvenioPDF(convId) {
     `6.- El "DEUDOR" se somete a la jurisdicción de los tribunales ordinarios competentes de la Capital Federal, con exclusión de cualquier otro fuero o jurisdicción, considerándose válidas las notificaciones en el domicilio indicado en el presente.`
   ];
 
-  const cuitLimpio = String(c.cuit).replace(/\D/g,'');
-  const nombreArchivo = `a-${cuitLimpio}`;
+  const cuitLimpio    = String(c.cuit).replace(/\D/g,'');
+  const nombreArchivo = `${prefijo}-${cuitLimpio}`;
 
   const estilos = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
