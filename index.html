@@ -965,16 +965,19 @@ async function buscarEnSheets(cuit) {
   const row = rows.slice(1).find(r => String(r[0]||'').replace(/\D/g,'') === cuitStr);
   if (!row) return null;
   return {
-    cuit:     String(row[0]||'').replace(/\D/g,''),
-    nombre:   row[1]||'',
-    direccion:row[2]||'',
-    mail:     row[3]||'',
-    telefono: row[4]||'',
-    dominio:  row[5]||'',
-    deudaAlq: parsePeso(row[8]),
-    deudaInf: parsePeso(row[9]),
-    deudaSin: parsePeso(row[10]),
-    deposito: parsePeso(row[12]),
+    cuit:       String(row[0]||'').replace(/\D/g,''),
+    nombre:     row[1]||'',
+    direccion:  row[2]||'',
+    mail:       row[3]||'',
+    telefono:   row[4]||'',
+    dominio:    row[5]||'',
+    fechaInicio:row[6]||'',
+    fechaFin:   row[7]||'',
+    deudaAlq:   parsePeso(row[8]),
+    deudaInf:   parsePeso(row[9]),
+    deudaSin:   parsePeso(row[10]),
+    deposito:   parsePeso(row[12]),
+    diasMora:   row[14]||'',
   };
 }
 
@@ -2270,6 +2273,11 @@ async function ejecutarBusqueda() {
             ${datos.dominio?`<span style="font-family:var(--fm);font-size:12px;color:var(--muted)">Dominio: <strong style="color:var(--text)">${datos.dominio}</strong></span>`:''}
             ${datos.telefono?`<span style="font-size:12px;color:var(--muted)">Tel: <strong style="color:var(--text)">${datos.telefono}</strong></span>`:''}
             ${datos.direccion?`<span style="font-size:12px;color:var(--muted)">${datos.direccion}</span>`:''}
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+            ${datos.fechaInicio?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px"><span style="color:var(--muted)">Inicio contrato: </span><strong>${datos.fechaInicio}</strong></div>`:''}
+            ${datos.fechaFin?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px"><span style="color:var(--muted)">Fin contrato: </span><strong>${datos.fechaFin}</strong></div>`:''}
+            ${datos.diasMora?`<div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:6px;padding:5px 12px;font-size:12px"><span style="color:var(--muted)">Días de mora: </span><strong style="color:var(--danger)">${datos.diasMora}</strong></div>`:''}
           </div>
           ${deposito>0?`<div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--accent2)">💰 Depósito disponible: <strong>${fmtPeso(deposito)}</strong></div>`:''}
           <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap">
