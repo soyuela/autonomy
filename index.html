@@ -307,12 +307,12 @@
       <div class="tabs">
         <div class="tab active" onclick="setVencTab('prox',this)">Próximas (7 días)</div>
         <div class="tab" onclick="setVencTab('vencidas',this)">Vencidas sin pago</div>
-        <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente</div>
-        <div class="tab" onclick="setVencTab('sinfirma',this)">Sin firma <span id="badge-sinfirma" style="background:var(--warning);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
+        <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente <span id="badge-firma" style="background:var(--warning);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
+        <div class="tab" onclick="setVencTab('sinfirma',this)">Convenios a enviar <span id="badge-sinfirma" style="background:var(--accent2);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
       </div>
       <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
       <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
-      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Tipo</th><th>Creado</th><th>Cuota</th><th>Enviado</th><th>Firmado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
+      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
       <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
     <!-- BÚSQUEDA -->
@@ -1784,29 +1784,14 @@ function renderVencimientos() {
         </div></td>
       </tr>`).join('');
 
-  const sinFirma = DB.convenios.filter(c=>!c.firmado);
+  // FIRMA PENDIENTE: enviados pero sin firma
+  const firmaEnviados = DB.convenios.filter(c => c.enviado==='SI' && c.firmado!=='SI');
   const tbF = document.getElementById('tabla-venc-firma');
-  tbF.innerHTML = !sinFirma.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Todos firmados</p></div></td></tr>`
-    : sinFirma.map(c=>`<tr>
-        <td><div style="font-weight:500">${c.nombre}</div></td>
-        <td class="mono">${c.cuit}</td>
-        <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
-        <td class="mono">${fmtFecha(c.creadoEn)}</td>
-        <td class="importe">${fmtPeso(c.importeCuota)}</td>
-        <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
-        <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">No</span>'}</td>
-        <td><button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button></td>
-      </tr>`).join('');
-
-  // Sin firma: convenios activos pendientes de firma con próxima cuota en 7 días
-  const tbSF = document.getElementById('tabla-venc-sinfirma');
-  const badge = document.getElementById('badge-sinfirma');
-  const pendFirma = DB.convenios.filter(c => c.firmado !== 'SI');
-  if (badge) badge.textContent = pendFirma.length || '';
-  tbSF.innerHTML = !pendFirma.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Todos los convenios están firmados</p></div></td></tr>`
-    : pendFirma.map(c => {
+  const badgeFirma = document.getElementById('badge-firma');
+  if (badgeFirma) badgeFirma.textContent = firmaEnviados.length || '';
+  tbF.innerHTML = !firmaEnviados.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Sin convenios pendientes de firma</p></div></td></tr>`
+    : firmaEnviados.map(c => {
         const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
         return `<tr>
           <td><div style="font-weight:500">${c.nombre}</div></td>
@@ -1817,12 +1802,71 @@ function renderVencimientos() {
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
           <td><div class="actions">
-            <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏ Editar</button>
-            <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Marcar firmado</button>
+            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">💬 Recordar firma</button>` : ''}
+            <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Firmado</button>
+          </div></td>
+        </tr>`;
+      }).join('');
+
+  // CONVENIOS A ENVIAR: sin enviar y sin firma
+  const aEnviar = DB.convenios.filter(c => c.enviado!=='SI' && c.firmado!=='SI');
+  const tbSF = document.getElementById('tabla-venc-sinfirma');
+  const badge = document.getElementById('badge-sinfirma');
+  if (badge) badge.textContent = aEnviar.length || '';
+  tbSF.innerHTML = !aEnviar.length
+    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>No hay convenios pendientes de envío</p></div></td></tr>`
+    : aEnviar.map(c => {
+        const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        return `<tr>
+          <td><div style="font-weight:500">${c.nombre}</div></td>
+          <td class="mono">${c.cuit}</td>
+          <td style="font-size:13px">${c.telefono||'—'}</td>
+          <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
+          <td class="importe">${fmtPeso(deuda)}</td>
+          <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
+          <td class="mono">${fmtFecha(c.creadoEn)}</td>
+          <td><div class="actions">
+            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">💬 Enviar</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="toggleEstado('${c.id}','enviado')">📤 Marcar enviado</button>
+            <button class="btn btn-primary btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
           </div></td>
         </tr>`;
       }).join('');
 }
+async function abrirWhatsAppFirma(telefono, nombre, cuit) {
+  let num = String(telefono).replace(/[\s\-\(\)]/g, '');
+  if (num.startsWith('0')) num = '54' + num.slice(1);
+  if (!num.startsWith('54') && !num.startsWith('+')) num = '54' + num;
+  num = num.replace(/^\+/, '');
+  const nombreCorto = nombre.split(',')[0].trim();
+  const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene pendiente la firma del reconocimiento de deuda con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  if (!cuit) return;
+  const fechaHoy = isoADMY(today());
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === String(cuit).replace(/\D/g,''));
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!T${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
+    } else {
+      const valores = Array(20).fill(''); valores[0]=cuit; valores[19]=fechaHoy;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows.length+1}:T${rows.length+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+    const btns = document.querySelectorAll(`button[data-ws-cuit="${cuit}"]`);
+    btns.forEach(b => { b.textContent='✓ WS'; b.style.color='var(--ok)'; b.style.borderColor='var(--ok)'; });
+    toast(`Recordatorio de firma enviado a ${nombreCorto} ✓`);
+  } catch(e) { toast('WS abierto pero error al registrar: '+e.message,'error'); }
+}
+
 function cerrarBusqueda() {
   document.getElementById('busqueda-input').value = '';
   document.getElementById('busqueda-sugerencias').style.display = 'none';
