@@ -973,6 +973,9 @@ function setView(v) {
   if(v==='informes') initInformes();
 }
 
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const main    = document.querySelector('.main');
