@@ -1906,9 +1906,9 @@ function generarConvenioPDF(convId) {
   }
 
   const partes = [
-    `En la Ciudad de Buenos Aires, a ${dia} días del mes de ${mes} de ${anio}, entre AFS GROUP SA, representada en este acto por Calixto Oyuela, abogado, T72 F892 CPACF, con domicilio en Cerrito 1130, 6º Piso, en adelante la "EMPRESA", y ${c.nombre}, CUIT ${c.cuit}, con domicilio en ${c.direccion||'_________________'}, en adelante el "DEUDOR", convienen celebrar el presente convenio de pago sujeto a las siguientes cláusulas:`,
-    `1.- El "DEUDOR" reconoce adeudar a la "EMPRESA" la suma total de ${fmtPeso(deudaVal)}, correspondiente a ${deudaTexto}, por el uso de un vehículo Autonomy Dominio ${c.dominio||'_______'}. Se aplicó el descuento de ${fmtPeso(depAp)} correspondientes al depósito en garantía pagado oportunamente, monto que las partes aceptan de plena conformidad.`,
-    `2.- La suma indicada será abonada en ${c.cantCuotas} cuota/s ${c.modalidad}, iguales y consecutivas de ${fmtPeso(c.importeCuota)}, venciendo la primera el ${dia1} de ${mes1} de ${anio1}, mediante transferencia bancaria a AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO. El comprobante de cada pago deberá enviarse vía WhatsApp al 1135005392 para su correcta imputación.`,
+    `En la Ciudad de Buenos Aires, a ${dia} días del mes de ${mes} de ${anio}, entre <strong>AFS GROUP SA</strong>, representada en este acto por Calixto Oyuela, abogado, T72 F892 CPACF, con domicilio en Cerrito 1130, 6º Piso, en adelante la "EMPRESA", y <strong>${c.nombre}</strong>, CUIT ${c.cuit}, con domicilio en ${c.direccion||'_________________'}, en adelante el "DEUDOR", convienen celebrar el presente convenio de pago sujeto a las siguientes cláusulas:`,
+    `1.- El "DEUDOR" reconoce adeudar a la "EMPRESA" la suma total de <strong>${fmtPeso(deudaVal)}</strong>, correspondiente a ${deudaTexto}, por el uso de un vehículo Autonomy Dominio ${c.dominio||'_______'}. Se aplicó el descuento de ${fmtPeso(depAp)} correspondientes al depósito en garantía pagado oportunamente, monto que las partes aceptan de plena conformidad.`,
+    `2.- La suma indicada será abonada en ${c.cantCuotas} cuota/s ${c.modalidad}, iguales y consecutivas de <strong>${fmtPeso(c.importeCuota)}</strong>, venciendo la primera el <strong>${dia1} de ${mes1} de ${anio1}</strong>, mediante transferencia bancaria a <strong>AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO</strong>. El comprobante de cada pago deberá enviarse vía WhatsApp al 1135005392 para su correcta imputación.`,
     `3.- La falta de pago de cualquiera de las cuotas facultará a la "EMPRESA" a iniciar las acciones judiciales correspondientes, produciéndose la mora automática y decayendo los plazos acordados, pudiendo ejecutarse el presente sin interpelación previa. Sobre los montos impagos se devengarán intereses desde su vencimiento hasta el efectivo pago a una tasa máxima equivalente a una vez y media la Tasa Activa Nominal Anual del BNA.`,
     `4.- Los pagos parciales o entregas a cuenta no implicarán novación, quita ni espera de la obligación ni de las acciones judiciales, aun cuando se realicen con posterioridad al inicio de una demanda, aplicándose primero a intereses y gastos y luego a capital.`,
     `5.- La mora del "DEUDOR" lo hará responsable de los gastos y costos derivados de la cobranza judicial o extrajudicial.`,
@@ -2053,7 +2053,8 @@ function onBusquedaInput(val) {
   DB.convenios.forEach(c => {
     const key = String(c.cuit).replace(/\D/g,'');
     if (seen.has(key)) return;
-    if (c.nombre.toLowerCase().includes(term) || key.includes(term.replace(/\D/g,''))) {
+    const telClean = String(c.telefono||'').replace(/\D/g,'');
+    if (c.nombre.toLowerCase().includes(term) || key.includes(term.replace(/\D/g,'')) || (telClean && telClean.includes(term.replace(/\D/g,'')))) {
       seen.add(key);
       matches.push(c);
     }
@@ -2065,7 +2066,7 @@ function onBusquedaInput(val) {
       style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px"
       onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
       <div style="font-weight:600">${c.nombre}</div>
-      <div style="color:var(--muted);font-size:11px;font-family:var(--fm)">${c.cuit} · ${c.dominio||'—'}</div>
+      <div style="color:var(--muted);font-size:11px;font-family:var(--fm)">${c.cuit} · ${c.telefono||'—'} · ${c.dominio||'—'}</div>
     </div>`).join('');
   // Si no hay resultados en DB, igual permitir buscar en Sheets
   busquedaTimer = setTimeout(() => {}, 0);
@@ -2090,8 +2091,9 @@ async function ejecutarBusqueda() {
   // 1. Buscar en DB local por CUIT o nombre
   let titular = null;
   const convsTitular = DB.convenios.filter(c => {
-    const cuit = String(c.cuit).replace(/\D/g,'');
-    return (term && cuit.includes(term)) || c.nombre.toLowerCase().includes(termMin);
+    const cuit     = String(c.cuit).replace(/\D/g,'');
+    const telClean = String(c.telefono||'').replace(/\D/g,'');
+    return (term && (cuit.includes(term) || (telClean && telClean.includes(term)))) || c.nombre.toLowerCase().includes(termMin);
   });
 
   if (convsTitular.length) {
