@@ -1616,7 +1616,7 @@ function seleccionarConvenioPago(convId) {
   document.getElementById('p-conv-seleccionado').innerHTML =
     `<b>${c.nombre}</b> · ${c.cuit} · <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span> · ${c.cantCuotas} cuotas de ${fmtPeso(c.importeCuota)}`;
   document.getElementById('p-tipo').value = c.tipo;
-  document.getElementById('p-monto').value = c.importeCuota;
+  document.getElementById('p-monto').value = parsePeso(c.importeCuota) || c.importeCuota;
   const pags = new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
   for (let i=1;i<=c.cantCuotas;i++) { if (!pags.has(i)) { document.getElementById('p-cuota-num').value=i; break; } }
 }
@@ -1637,7 +1637,7 @@ function openRegistrarPago(convId,tipo,cuotaNum,monto) {
 
 async function guardarPago() {
   const convId = document.getElementById('p-convenio-select').value;
-  const monto  = parseFloat(document.getElementById('p-monto').value);
+  const monto  = parsePeso(document.getElementById('p-monto').value) || parseFloat(document.getElementById('p-monto').value);
   const fecha  = document.getElementById('p-fecha').value;
   if (!convId||!monto||!fecha) { toast('Completá los campos obligatorios','error'); return; }
   const conv = DB.convenios.find(c=>c.id===convId);
