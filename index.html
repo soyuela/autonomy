@@ -1905,20 +1905,19 @@ function generarConvenioPDF(convId) {
   const nombreArchivo = `a-${cuitLimpio}`;
 
   const estilos = `
-    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman:ital,wght@0,400;0,700;1,400&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; background: white; padding: 0; }
-    .titulo { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 24pt; text-decoration: underline; }
-    .clausula { text-align: justify; margin-bottom: 12pt; line-height: 1.5; }
-    .firma-section { margin-top: 48pt; }
-    .firma-row { display: flex; justify-content: space-between; margin-top: 36pt; }
+    body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000; background: white; padding: 0; }
+    .titulo { font-size: 13pt; font-weight: bold; text-align: center; margin-bottom: 14pt; text-decoration: underline; }
+    .clausula { text-align: justify; margin-bottom: 8pt; line-height: 1.4; }
+    .firma-section { margin-top: 20pt; }
+    .firma-row { display: flex; justify-content: space-between; margin-top: 24pt; }
     .firma-box { text-align: center; width: 45%; }
     .firma-linea { border-top: 1px solid #000; margin-bottom: 4pt; }
-    .firma-label { font-size: 10pt; }
-    .datos-extra { margin-top: 24pt; font-size: 11pt; }
-    .datos-extra p { margin-bottom: 6pt; }
-    @page { margin: 25mm 20mm; size: A4 portrait; }
-    @media print { body { padding: 0; } }
+    .firma-label { font-size: 9pt; }
+    .datos-extra { margin-top: 14pt; font-size: 10pt; }
+    .datos-extra p { margin-bottom: 4pt; }
+    @page { margin: 18mm 18mm; size: A4 portrait; }
+    @media print { body { padding: 0; } html { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   `;
 
   const html = `
