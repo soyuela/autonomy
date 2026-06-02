@@ -726,7 +726,16 @@ function toast(msg,type='success') {
   clearTimeout(el._t); el._t=setTimeout(()=>el.className='',3000);
 }
 
-const pagosDeConv = (cid,tipo) => DB.pagos.filter(p=>p.convenioId===cid&&p.tipo===tipo);
+const pagosDeConv = (cid, tipo) => DB.pagos.filter(p => {
+  if (p.convenioId === cid) return true;
+  // Pagos importados desde Sheets no tienen convenioId — matchear por CUIT + tipo
+  if (!p.convenioId) {
+    const conv = DB.convenios.find(c => c.id === cid);
+    if (!conv) return false;
+    return String(p.cuit||'').replace(/\D/g,'') === String(conv.cuit||'').replace(/\D/g,'') && p.tipo === tipo;
+  }
+  return false;
+});
 
 function generarCuotas(c) {
   if(!c.fechaInicio||!c.cantCuotas) return [];
@@ -1763,7 +1772,7 @@ function renderVencimientos() {
         <td><span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
         <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}')">💬</button>` : ''}
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},false)">💬</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
         </div></td>
       </tr>`).join('');
@@ -1779,7 +1788,7 @@ function renderVencimientos() {
         <td><span class="dias-badge dias-bad">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
         <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}')">💬</button>` : ''}
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},true)">💬</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
         </div></td>
       </tr>`).join('');
@@ -1944,11 +1953,18 @@ function generarConvenioPDF(convId) {
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
     <title>${nombreArchivo}</title>
-    <style>${estilos}</style>
-  </head><body>${html}</body></html>`);
+    <style>${estilos}
+    .nombre-archivo { font-family: monospace; font-size: 11pt; color: #555; margin-bottom: 12pt; }
+    @media print { .nombre-archivo { display: none; } }
+    </style>
+  </head><body>
+    <div class="nombre-archivo">Guardar como: <strong>${nombreArchivo}.pdf</strong></div>
+    ${html}
+  </body></html>`);
   win.document.close();
+  win.document.title = nombreArchivo;
   win.focus();
-  setTimeout(() => win.print(), 600);
+  setTimeout(() => { win.document.title = nombreArchivo; win.print(); }, 600);
 }
 
 function cerrarBusqueda() {
@@ -1970,14 +1986,17 @@ function generarConvenioDesdeResultado() {
   precargarForm(_busquedaTitular);
 }
 
-async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit) {
+async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, vencida) {
   // Limpiar número
   let num = String(telefono).replace(/[\s\-\(\)]/g, '');
   if (num.startsWith('0')) num = '54' + num.slice(1);
   if (!num.startsWith('54') && !num.startsWith('+')) num = '54' + num;
   num = num.replace(/^\+/, '');
   const nombreCorto = nombre.split(',')[0].trim();
-  const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene una cuota con vencimiento el ${fecha} por un importe de ${importe}, correspondiente a su contrato con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+  const infoCuenta = `\n\nLe recordamos el vencimiento de su cuota pactada con Autonomy, y le agradeceremos nos envíe el comprobante una vez realizado el pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+  const msg = vencida
+    ? `Estimado/a ${nombreCorto}, le informamos que la cuota N° ${cuotaNum} de su convenio con Autonomy, con vencimiento el ${fecha} por un importe de ${importe}, se encuentra impaga.${infoCuenta}`
+    : `Estimado/a ${nombreCorto}, le recordamos que tiene la cuota N° ${cuotaNum} con vencimiento el ${fecha} por un importe de ${importe}, correspondiente a su contrato con Autonomy.${infoCuenta}`;
   window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
 
   // Registrar fecha de envío en col T de COMENTARIOS
@@ -2591,13 +2610,31 @@ function initInformes() {
 const CORTE_DEUDA = new Date('2026-01-01');
 
 function parseFechaFin(s) {
-  // dd/mm/yyyy o yyyy-mm-dd
   if (!s) return null;
   s = String(s).trim();
+  if (!s || s === '0') return null;
+
+  // Número serial de Google Sheets (días desde 30/12/1899)
+  if (/^\d+$/.test(s)) {
+    const serial = parseInt(s);
+    if (serial > 1000) { // es un serial válido, no un número de cuota
+      const d = new Date(Date.UTC(1899, 11, 30));
+      d.setUTCDate(d.getUTCDate() + serial);
+      return d;
+    }
+  }
+
+  // dd/mm/yy o dd/mm/yyyy
   if (s.includes('/')) {
     const p = s.split('/');
-    if (p.length === 3) return new Date(`${p[2].padStart(4,'0')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);
+    if (p.length === 3) {
+      let anio = p[2].trim();
+      if (anio.length === 2) anio = '20' + anio;
+      return new Date(`${anio.padStart(4,'0')}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`);
+    }
   }
+
+  // yyyy-mm-dd u otro formato ISO
   return new Date(s);
 }
 
@@ -2764,7 +2801,11 @@ async function generarInforme() {
     const d1 = await fetchSheet('ORIGINAL!A:H');
     (d1.values||[]).slice(1).forEach(row => {
       const c = String(row[0]||'').replace(/\D/g,'');
-      if (c) ffinMap[c] = row[7]||'';
+      if (c) {
+        ffinMap[c] = row[7]||'';
+        // Debug: loguear el CUIT problemático
+        if (c === '20257442811') console.log('FFin raw para 20257442811:', JSON.stringify(row[7]));
+      }
     });
 
     // 2. Leer comentarios ACCIÓN (col P) de COMENTARIOS
