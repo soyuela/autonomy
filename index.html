@@ -33,8 +33,21 @@
   .client-id-form input:focus{border-color:var(--accent)}
   .app{display:none;min-height:100vh}
   .app.visible{display:flex}
-  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100}
-  .logo{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+  .sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:width .2s ease}
+  .sidebar.collapsed{width:56px}
+  .sidebar.collapsed .logo h1{display:none}
+  .sidebar.collapsed .logo span{display:none}
+  .sidebar.collapsed .logo{padding:16px 0;display:flex;justify-content:center}
+  .sidebar.collapsed .nav-item{padding:12px 0;justify-content:center;gap:0}
+  .sidebar.collapsed .nav-item .nav-label{display:none}
+  .sidebar.collapsed .nav-item .sync-dot{display:none}
+  .sidebar.collapsed .user-chip{padding:10px 0;justify-content:center;flex-direction:column;gap:4px}
+  .sidebar.collapsed .user-name{display:none}
+  .sidebar.collapsed .sign-out{display:none}
+  .sidebar.collapsed .nav-item .icon{width:auto;font-size:18px}
+  .sidebar.collapsed .btn-toggle-sidebar span{transform:rotate(180deg)}
+  .main{margin-left:220px;flex:1;padding:32px;min-height:100vh;transition:margin-left .2s ease}
+  .main.expanded{margin-left:56px}
   .logo h1{font-family:var(--fh);font-size:18px;font-weight:800;color:var(--accent);letter-spacing:-0.5px}
   .logo span{color:var(--muted);font-size:11px;font-family:var(--fm)}
   .user-chip{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border);margin-top:auto}
@@ -213,19 +226,25 @@
 
 <!-- APP -->
 <div class="app" id="app">
-  <aside class="sidebar">
-    <div class="logo"><h1>AUTONOMY</h1><span>Convenios · Drive</span></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="logo" style="padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h1 style="font-family:var(--fh);font-size:18px;font-weight:800;color:var(--accent);letter-spacing:-0.5px">AUTONOMY</h1>
+        <span style="color:var(--muted);font-size:11px;font-family:var(--fm)">Convenios · Drive</span>
+      </div>
+      <button class="btn-toggle-sidebar" onclick="toggleSidebar()" title="Ocultar panel" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:4px;line-height:1;flex-shrink:0"><span style="display:inline-block;transition:transform .2s">◀</span></button>
+    </div>
     <nav class="nav">
       <div class="nav-item active" onclick="setView('dashboard')">
-        <span class="icon">⬛</span> Dashboard
+        <span class="icon">⬛</span><span class="nav-label"> Dashboard</span>
         <span class="sync-dot" id="sync-dot"></span>
       </div>
-      <div class="nav-item" onclick="setView('busqueda')"><span class="icon">🔍</span> Búsqueda</div>
-      <div class="nav-item" onclick="setView('contactados')"><span class="icon">📋</span> Contactados</div>
-      <div class="nav-item" onclick="setView('convenios')"><span class="icon">📄</span> Convenios</div>
-      <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span> Pagos</div>
-      <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span> Vencimientos</div>
-      <div class="nav-item" onclick="setView('informes')"><span class="icon">📊</span> Informes</div>
+      <div class="nav-item" onclick="setView('busqueda')"><span class="icon">🔍</span><span class="nav-label"> Búsqueda</span></div>
+      <div class="nav-item" onclick="setView('contactados')"><span class="icon">📋</span><span class="nav-label"> Contactados</span></div>
+      <div class="nav-item" onclick="setView('convenios')"><span class="icon">📄</span><span class="nav-label"> Convenios</span></div>
+      <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span><span class="nav-label"> Pagos</span></div>
+      <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span><span class="nav-label"> Vencimientos</span></div>
+      <div class="nav-item" onclick="setView('informes')"><span class="icon">📊</span><span class="nav-label"> Informes</span></div>
     </nav>
     <div class="user-chip">
       <div class="user-avatar" id="user-avatar">?</div>
@@ -951,8 +970,28 @@ function setView(v) {
   if(v==='informes') initInformes();
 }
 
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const main    = document.querySelector('.main');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  main.classList.toggle('expanded', collapsed);
+  // Guardar preferencia
+  localStorage.setItem('autonomy_sidebar_collapsed', collapsed ? '1' : '0');
+  // Agregar tooltips en modo colapsado
+  const labels = ['Dashboard','Búsqueda','Contactados','Convenios','Pagos','Vencimientos','Informes'];
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    el.title = collapsed ? (labels[i]||'') : '';
+  });
+}
+
+// Restaurar estado del sidebar al cargar
+window.addEventListener('load', () => {
+  if (localStorage.getItem('autonomy_sidebar_collapsed') === '1') {
+    toggleSidebar();
+  }
+});
+
+
 
 // ─── SHEETS LOOKUP ────────────────────────────────────────────────────────────
 async function buscarEnSheets(cuit) {
@@ -1401,6 +1440,8 @@ async function guardarConvenio() {
     DB.convenios.push(conv);
     toast('Convenio guardado ✓');
     writeConvenioToSheets(conv);
+    // Agregar nota automática en COMENTARIOS col P
+    agregarNotaConvenioEnComentarios(conv);
   }
 
   scheduleSave();
@@ -1408,6 +1449,35 @@ async function guardarConvenio() {
   btn.disabled=false; btn.textContent='Guardar convenio';
   renderConvenios(); renderDashboard();
 }
+
+async function agregarNotaConvenioEnComentarios(conv) {
+  try {
+    const cuit  = String(conv.cuit).replace(/\D/g,'');
+    const nota  = `Se generó convenio en ${conv.cantCuotas} cuota/s por ${conv.tipo.toLowerCase()}`;
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:P`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      // Agregar al comentario existente
+      const existing = rows[rowIdx][15] || '';
+      const nuevo    = existing ? `${existing} | ${nota}` : nota;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[nuevo]] })
+      });
+    } else {
+      // Fila nueva
+      const valores = Array(16).fill(''); valores[0]=cuit; valores[15]=nota;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows.length+1}:P${rows.length+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+  } catch(e) { console.warn('agregarNotaConvenioEnComentarios error', e); }
+}
+
 
 function editarConvenio(id) {
   const c = DB.convenios.find(x=>x.id===id); if (!c) return;
@@ -2338,6 +2408,7 @@ async function ejecutarBusqueda() {
       </div>
       <textarea id="busqueda-comentario" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:var(--fb);font-size:13px;outline:none;resize:vertical;min-height:80px;transition:border-color .15s" placeholder="Registrá el resultado del contacto telefónico…" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">${accionExistente}</textarea>
       <div style="display:flex;justify-content:flex-end;margin-top:10px">
+        <button class="btn btn-danger btn-sm" onclick="borrarComentarioBusqueda('${cuitClean}')">🗑 Borrar comentario</button>
         <button class="btn btn-primary" onclick="guardarComentarioBusqueda('${cuitClean}')">💾 Guardar comentario</button>
       </div>
     </div>`;
@@ -2426,6 +2497,25 @@ async function toggleContactadoBaja(campo, valor, cuit) {
   } catch(e) {
     toast('Error al guardar: ' + e.message, 'error');
   }
+}
+
+async function borrarComentarioBusqueda(cuit) {
+  if (!confirm('¿Borrar el comentario de este titular?')) return;
+  document.getElementById('busqueda-comentario').value = '';
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['']] })
+      });
+    }
+    toast('Comentario borrado ✓');
+  } catch(e) { toast('Error al borrar: ' + e.message, 'error'); }
 }
 
 async function guardarComentarioBusqueda(cuit) {
