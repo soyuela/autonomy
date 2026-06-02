@@ -1826,7 +1826,7 @@ function renderVencimientos() {
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
           <td><div class="actions">
-            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">💬 Enviar</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="generarConvenioPDF('${c.id}')">📄 PDF</button>
             <button class="btn btn-ghost btn-sm" onclick="toggleEstado('${c.id}','enviado')">📤 Marcar enviado</button>
             <button class="btn btn-primary btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
           </div></td>
@@ -1865,6 +1865,91 @@ async function abrirWhatsAppFirma(telefono, nombre, cuit) {
     btns.forEach(b => { b.textContent='✓ WS'; b.style.color='var(--ok)'; b.style.borderColor='var(--ok)'; });
     toast(`Recordatorio de firma enviado a ${nombreCorto} ✓`);
   } catch(e) { toast('WS abierto pero error al registrar: '+e.message,'error'); }
+}
+
+function generarConvenioPDF(convId) {
+  const c = DB.convenios.find(x => x.id === convId);
+  if (!c) return;
+
+  // Solo alquiler por ahora
+  if (c.tipo !== 'Alquiler') {
+    toast('Por ahora solo disponible para convenios de Alquiler', 'error');
+    return;
+  }
+
+  const hoy     = new Date();
+  const dia     = hoy.getDate();
+  const mes     = MESES[hoy.getMonth()];
+  const anio    = hoy.getFullYear();
+  const depAp   = parseFloat(c.depositoAplicado) || 0;
+  const deudaAlq= c.deudaAlq || 0;
+
+  // Fecha primer vencimiento
+  let dia1 = '', mes1 = '', anio1 = '';
+  if (c.fechaInicio) {
+    const p = c.fechaInicio.split('-');
+    if (p.length === 3) { dia1 = parseInt(p[2]); mes1 = MESES[parseInt(p[1])-1]; anio1 = p[0]; }
+  }
+
+  const partes = [
+    `En la Ciudad de Buenos Aires, a ${dia} días del mes de ${mes} de ${anio}, entre AFS GROUP SA, representada en este acto por Calixto Oyuela, abogado, T72 F892 CPACF, con domicilio en Cerrito 1130, 6º Piso, en adelante la "EMPRESA", y ${c.nombre}, CUIT ${c.cuit}, con domicilio en ${c.direccion||'_________________'}, en adelante el "DEUDOR", convienen celebrar el presente convenio de pago sujeto a las siguientes cláusulas:`,
+    `1.- El "DEUDOR" reconoce adeudar a la "EMPRESA" la suma total de ${fmtPeso(deudaAlq)}, correspondiente a deuda de alquiler, por el uso de un vehículo Autonomy Dominio ${c.dominio||'_______'}. Se aplicó el descuento de ${fmtPeso(depAp)} correspondientes al depósito en garantía pagado oportunamente, monto que las partes aceptan de plena conformidad.`,
+    `2.- La suma indicada será abonada en ${c.cantCuotas} cuota/s ${c.modalidad}, iguales y consecutivas de ${fmtPeso(c.importeCuota)}, venciendo la primera el ${dia1} de ${mes1} de ${anio1}, mediante transferencia bancaria a AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO. El comprobante de cada pago deberá enviarse vía WhatsApp al 1135005392 para su correcta imputación.`,
+    `3.- La falta de pago de cualquiera de las cuotas facultará a la "EMPRESA" a iniciar las acciones judiciales correspondientes, produciéndose la mora automática y decayendo los plazos acordados, pudiendo ejecutarse el presente sin interpelación previa. Sobre los montos impagos se devengarán intereses desde su vencimiento hasta el efectivo pago a una tasa máxima equivalente a una vez y media la Tasa Activa Nominal Anual del BNA.`,
+    `4.- Los pagos parciales o entregas a cuenta no implicarán novación, quita ni espera de la obligación ni de las acciones judiciales, aun cuando se realicen con posterioridad al inicio de una demanda, aplicándose primero a intereses y gastos y luego a capital.`,
+    `5.- La mora del "DEUDOR" lo hará responsable de los gastos y costos derivados de la cobranza judicial o extrajudicial.`,
+    `6.- El "DEUDOR" se somete a la jurisdicción de los tribunales ordinarios competentes de la Capital Federal, con exclusión de cualquier otro fuero o jurisdicción, considerándose válidas las notificaciones en el domicilio indicado en el presente.`
+  ];
+
+  const cuitLimpio = String(c.cuit).replace(/\D/g,'');
+  const nombreArchivo = `a-${cuitLimpio}`;
+
+  const estilos = `
+    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman:ital,wght@0,400;0,700;1,400&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #000; background: white; padding: 0; }
+    .titulo { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 24pt; text-decoration: underline; }
+    .clausula { text-align: justify; margin-bottom: 12pt; line-height: 1.5; }
+    .firma-section { margin-top: 48pt; }
+    .firma-row { display: flex; justify-content: space-between; margin-top: 36pt; }
+    .firma-box { text-align: center; width: 45%; }
+    .firma-linea { border-top: 1px solid #000; margin-bottom: 4pt; }
+    .firma-label { font-size: 10pt; }
+    .datos-extra { margin-top: 24pt; font-size: 11pt; }
+    .datos-extra p { margin-bottom: 6pt; }
+    @page { margin: 25mm 20mm; size: A4 portrait; }
+    @media print { body { padding: 0; } }
+  `;
+
+  const html = `
+    <div class="titulo">Reconocimiento de deuda</div>
+    ${partes.map((p, i) => `<div class="clausula">${p}</div>`).join('')}
+    <div class="firma-section">
+      <div class="firma-row">
+        <div class="firma-box">
+          <div class="firma-linea"></div>
+          <div class="firma-label">Firma</div>
+        </div>
+        <div class="firma-box">
+          <div class="firma-linea"></div>
+          <div class="firma-label">Aclaración</div>
+        </div>
+      </div>
+      <div class="datos-extra">
+        <p>DNI: ___________________________</p>
+        <p>Teléfono: ${c.telefono||'___________________________'}</p>
+      </div>
+    </div>`;
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>${nombreArchivo}</title>
+    <style>${estilos}</style>
+  </head><body>${html}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
 }
 
 function cerrarBusqueda() {
