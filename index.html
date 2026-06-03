@@ -2935,28 +2935,17 @@ function volverAContactados() {
       if (c === sort.col) el.classList.add(sort.dir);
     });
     renderTablaContactados();
-    // Resaltar y hacer scroll a la última fila visitada
     if (ultimoCuit) {
       setTimeout(() => {
-        const tbody = document.getElementById('tabla-contactados');
-        const rows = tbody.querySelectorAll('tr');
-        let filaEncontrada = null;
-        rows.forEach(row => {
+        const rows = document.querySelectorAll('#tabla-contactados tr');
+        for (const row of rows) {
           const celdas = row.querySelectorAll('td');
-          const tieneCuit = Array.from(celdas).some(td => td.textContent.replace(/\D/g,'') === ultimoCuit);
-          if (tieneCuit) {
-            filaEncontrada = row;
-            row.style.background = 'rgba(79,70,229,.08)';
-            row.style.outline = '2px solid rgba(79,70,229,.3)';
-            row.scrollIntoView({ behavior:'smooth', block:'center' });
+          if (Array.from(celdas).some(td => td.textContent.replace(/\D/g,'') === ultimoCuit)) {
+            row.scrollIntoView({ behavior:'smooth', block:'start' });
+            break;
           }
-        });
-        if (filaEncontrada) {
-          const limpiar = () => { tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; }); };
-          tbody.addEventListener('click', limpiar, { once: true });
-          setTimeout(limpiar, 8000);
         }
-      }, 1000);
+      }, 400);
     }
   }
 }
