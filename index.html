@@ -1084,6 +1084,23 @@ window.addEventListener('load', () => {
 
 
 // ─── SHEETS LOOKUP ────────────────────────────────────────────────────────────
+async function buscarEnSheetsPorTelefono(termTel) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:O`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!r.ok) return null;
+  const data = await r.json();
+  const rows = data.values || [];
+  const row = rows.slice(1).find(r => String(r[4]||'').replace(/\D/g,'').includes(termTel));
+  if (!row) return null;
+  return {
+    cuit: String(row[0]||'').replace(/\D/g,''), nombre: row[1]||'', direccion: row[2]||'',
+    mail: row[3]||'', telefono: row[4]||'', dominio: row[5]||'',
+    fechaInicio: row[6]||'', fechaFin: row[7]||'',
+    deudaAlq: parsePeso(row[8]), deudaInf: parsePeso(row[9]), deudaSin: parsePeso(row[10]),
+    deposito: parsePeso(row[12]), diasMora: row[14]||'',
+  };
+}
+
 async function buscarEnSheets(cuit) {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:Q`;
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
@@ -2316,9 +2333,13 @@ async function ejecutarBusqueda() {
   let sheetData = null;
   const cuitParaSheets = titular ? String(titular.cuit).replace(/\D/g,'') : term;
   if (cuitParaSheets.length >= 10) {
-    try {
-      sheetData = await buscarEnSheets(cuitParaSheets);
-    } catch(e) {}
+    try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
+  } else if (!titular && term.length >= 4 && term.length < 10) {
+    // Búsqueda por teléfono parcial en Sheets
+    try { sheetData = await buscarEnSheetsPorTelefono(term); } catch(e) {}
+  } else if (titular) {
+    // Completar con datos de Sheets usando el CUIT del titular local
+    try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
   }
 
   if (!titular && !sheetData) {
