@@ -2920,8 +2920,9 @@ function volverAContactados() {
         const tbody = document.getElementById('tabla-contactados');
         const rows = tbody.querySelectorAll('tr');
         rows.forEach(row => {
-          const cuitCell = row.querySelector('.mono');
-          if (cuitCell && cuitCell.textContent.replace(/\D/g,'') === ultimoCuit) {
+          const celdas = row.querySelectorAll('td');
+          const tieneCuit = Array.from(celdas).some(td => td.textContent.replace(/\D/g,'') === ultimoCuit);
+          if (tieneCuit) {
             row.style.background = 'rgba(79,70,229,.08)';
             row.style.outline = '2px solid rgba(79,70,229,.3)';
             row.scrollIntoView({ behavior:'smooth', block:'center' });
