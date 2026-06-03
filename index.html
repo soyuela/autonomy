@@ -2940,20 +2940,24 @@ function volverAContactados() {
       setTimeout(() => {
         const tbody = document.getElementById('tabla-contactados');
         const rows = tbody.querySelectorAll('tr');
+        let filaEncontrada = null;
         rows.forEach(row => {
           const celdas = row.querySelectorAll('td');
           const tieneCuit = Array.from(celdas).some(td => td.textContent.replace(/\D/g,'') === ultimoCuit);
           if (tieneCuit) {
+            filaEncontrada = row;
             row.style.background = 'rgba(79,70,229,.08)';
             row.style.outline = '2px solid rgba(79,70,229,.3)';
             row.scrollIntoView({ behavior:'smooth', block:'center' });
           }
         });
-        // Desmarcar al hacer click en cualquier parte de la tabla o después de 5 segundos
-        const limpiar = () => { tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; }); };
-        tbody.addEventListener('click', limpiar, { once: true });
-        setTimeout(limpiar, 5000);
-      }, 100);
+        if (filaEncontrada) {
+          const limpiar = () => { tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; }); };
+          tbody.addEventListener('click', limpiar, { once: true });
+          // 6 segundos desde que el scroll termina (~1s) = 5s visibles
+          setTimeout(limpiar, 6000);
+        }
+      }, 300);
     }
   }
 }
