@@ -324,7 +324,7 @@
     <div id="view-vencimientos" class="view">
       <div class="page-header">
         <div><div class="page-title">Vencimientos</div><div class="page-sub">Cuotas por vencer y vencidas</div></div>
-        <button class="btn btn-ghost" onclick="syncFromDrive(true).then(()=>renderVencimientos())">↻ Actualizar</button>
+        <button class="btn btn-ghost" onclick="syncConveniosDesdeSheets().then(()=>syncFromDrive(true)).then(()=>renderVencimientos())">↻ Actualizar</button>
       </div>
       <div class="tabs">
         <div class="tab active" onclick="setVencTab('prox',this)">Próximas (7 días)</div>
