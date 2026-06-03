@@ -2312,11 +2312,12 @@ async function ejecutarBusqueda() {
   }
 
   // 2. Si no está en la app, buscar en Sheets ORIGINAL (solo si parece CUIT)
+  // Si ya encontramos por teléfono/nombre, igual buscamos en Sheets para tener fechas y días mora
   let sheetData = null;
-  if (!titular && term.length >= 10) {
+  const cuitParaSheets = titular ? String(titular.cuit).replace(/\D/g,'') : term;
+  if (cuitParaSheets.length >= 10) {
     try {
-      const cuitBuscar = term || '';
-      if (cuitBuscar.length >= 10) sheetData = await buscarEnSheets(cuitBuscar);
+      sheetData = await buscarEnSheets(cuitParaSheets);
     } catch(e) {}
   }
 
@@ -2325,7 +2326,8 @@ async function ejecutarBusqueda() {
     return;
   }
 
-  const datos = sheetData || titular;
+  // Fusionar: sheetData tiene más info (fechas, mora), titular tiene teléfono actualizado
+  const datos = { ...(titular||{}), ...(sheetData||{}), ...(titular ? { telefono: titular.telefono } : {}) };
   const cuitClean = String(datos.cuit||'').replace(/\D/g,'');
 
   // Convenios en la app para este titular
