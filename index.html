@@ -2314,25 +2314,51 @@ async function ejecutarBusqueda() {
   const term    = val.replace(/\D/g,'');
   const termMin = val.toLowerCase();
 
-  // 1. Buscar en DB local por CUIT, nombre o teléfono — todos los matches únicos por CUIT
-  const seen = new Set();
+  // 1. Buscar en DB local — todos los matches únicos por CUIT
+  const seenLocal = new Set();
   const convsTitular = DB.convenios.filter(c => {
     const cuit     = String(c.cuit).replace(/\D/g,'');
     const telClean = String(c.telefono||'').replace(/\D/g,'');
-    if (seen.has(cuit)) return false;
+    if (seenLocal.has(cuit)) return false;
     const match = (term && (cuit.includes(term) || (telClean && telClean.includes(term)))) || c.nombre.toLowerCase().includes(termMin);
-    if (match) seen.add(cuit);
+    if (match) seenLocal.add(cuit);
     return match;
   });
 
-  // Si hay múltiples titulares distintos, mostrar lista para elegir
-  const cuitsUnicos = [...new Set(convsTitular.map(c => String(c.cuit).replace(/\D/g,'')))];
-  if (cuitsUnicos.length > 1) {
+  // Convertir a candidatos: {cuit, nombre, telefono, dominio, source}
+  const candidatos = convsTitular.map(c => ({
+    cuit: String(c.cuit).replace(/\D/g,''), nombre: c.nombre,
+    telefono: c.telefono||'', dominio: c.dominio||'', source: 'local'
+  }));
+
+  // 2. Buscar en Sheets si el término es teléfono parcial o CUIT
+  if (term.length >= 4 && term.length < 10) {
+    // Búsqueda por teléfono en Sheets — puede traer uno que no está en la app
+    try {
+      const sd = await buscarEnSheetsPorTelefono(term);
+      if (sd && !candidatos.find(x => x.cuit === sd.cuit)) {
+        candidatos.push({ cuit: sd.cuit, nombre: sd.nombre, telefono: sd.telefono||'', dominio: sd.dominio||'', source: 'sheets', sheetData: sd });
+      }
+    } catch(e) {}
+  } else if (term.length >= 10 && !candidatos.length) {
+    try {
+      const sd = await buscarEnSheets(term);
+      if (sd) candidatos.push({ cuit: sd.cuit, nombre: sd.nombre, telefono: sd.telefono||'', dominio: sd.dominio||'', source: 'sheets', sheetData: sd });
+    } catch(e) {}
+  }
+
+  if (!candidatos.length) {
+    res.innerHTML = `<div class="alert alert-warning"><span>⚠</span> No se encontró ningún titular con ese criterio de búsqueda.</div>`;
+    return;
+  }
+
+  // Si hay múltiples, mostrar lista para elegir
+  if (candidatos.length > 1) {
     res.innerHTML = `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-        <div style="font-family:var(--fh);font-weight:700;font-size:14px;margin-bottom:12px">Se encontraron ${cuitsUnicos.length} titulares — elegí uno:</div>
-        ${convsTitular.map(c => `
-          <div onclick="seleccionarBusqueda('${String(c.cuit).replace(/\D/g,'')}')"
+        <div style="font-family:var(--fh);font-weight:700;font-size:14px;margin-bottom:12px">Se encontraron ${candidatos.length} titulares — elegí uno:</div>
+        ${candidatos.map(c => `
+          <div onclick="seleccionarBusqueda('${c.cuit}')"
             style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:background .1s"
             onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
             <div>
@@ -2346,21 +2372,14 @@ async function ejecutarBusqueda() {
     return;
   }
 
+  // Un solo resultado — ir directo
   let titular = null;
-  if (convsTitular.length) {
+  let sheetData = candidatos[0].sheetData || null;
+  if (candidatos[0].source === 'local') {
     const c0 = convsTitular[0];
     titular = { cuit: c0.cuit, nombre: c0.nombre, dominio: c0.dominio, telefono: c0.telefono, direccion: c0.direccion };
-  }
-
-  // 2. Si no está en la app, buscar en Sheets ORIGINAL
-  let sheetData = null;
-  const cuitParaSheets = titular ? String(titular.cuit).replace(/\D/g,'') : term;
-  if (cuitParaSheets.length >= 10) {
-    try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
-  } else if (!titular && term.length >= 4 && term.length < 10) {
-    try { sheetData = await buscarEnSheetsPorTelefono(term); } catch(e) {}
-  } else if (titular) {
-    try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
+    // Completar con Sheets
+    try { sheetData = await buscarEnSheets(String(c0.cuit).replace(/\D/g,'')); } catch(e) {}
   }
 
   if (!titular && !sheetData) {
@@ -2928,10 +2947,10 @@ function volverAContactados() {
             row.scrollIntoView({ behavior:'smooth', block:'center' });
           }
         });
-        // Desmarcar al hacer click en cualquier parte de la tabla
-        tbody.addEventListener('click', () => {
-          tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; });
-        }, { once: true });
+        // Desmarcar al hacer click en cualquier parte de la tabla o después de 5 segundos
+        const limpiar = () => { tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; }); };
+        tbody.addEventListener('click', limpiar, { once: true });
+        setTimeout(limpiar, 5000);
       }, 100);
     }
   }
