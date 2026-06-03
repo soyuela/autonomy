@@ -913,11 +913,11 @@ function renderDepositoWidget() {
     // Sin depósito: OK
     inputEl.className = '';
     alertHtml = '';
-  } else if (aplicadoInput >= deudaTipo) {
-    // Deuda neta quedaría en 0 o negativa: ERROR
+  } else if (aplicadoInput > deudaTipo) {
+    // Deuda neta quedaría negativa: ERROR
     inputEl.className = 'input-error';
     alertHtml = `<div class="alert alert-danger" style="margin-top:8px;margin-bottom:0">
-      ⚠ El depósito aplicado (${fmtPeso(aplicadoInput)}) no puede igualar o superar la deuda de ${tipo.toLowerCase()} (${fmtPeso(deudaTipo)}). La deuda neta debe quedar positiva.
+      ⚠ El depósito aplicado (${fmtPeso(aplicadoInput)}) no puede superar la deuda de ${tipo.toLowerCase()} (${fmtPeso(deudaTipo)}). La deuda neta no puede ser negativa.
     </div>`;
   } else if (aplicadoInput > disponible) {
     // Supera el disponible: ERROR
@@ -987,8 +987,7 @@ function aplicarDepositoTotal() {
   const deudaTipo     = getDeudaTipo(tipo);
   const disponible    = calcDepositoDisponible(cuit, depositoTotal, editId);
   // Aplicar el disponible pero sin igualar/superar la deuda (deuda neta debe quedar > 0)
-  const maximo = Math.min(disponible, deudaTipo > 1 ? deudaTipo - 1 : 0);
-  document.getElementById('c-deposito-aplicado').value = maximo > 0 ? fmtPeso(maximo) : '';
+  const maximo = Math.min(disponible, deudaTipo);  document.getElementById('c-deposito-aplicado').value = maximo > 0 ? fmtPeso(maximo) : '';
   onDepositoAplicadoInput();
 }
 
@@ -1497,15 +1496,15 @@ async function guardarConvenio() {
   const tipo   = document.getElementById('c-tipo').value;
   const cant   = parseInt(document.getElementById('c-cant-cuotas').value);
   const imp    = parsePeso(document.getElementById('c-importe-cuota').value);
-  if (!cuit||!nombre||!tipo||!cant||!imp) { toast('Completá los campos obligatorios','error'); return; }
+  if (!cuit||!nombre||!tipo||!cant||imp==null) { toast('Completá los campos obligatorios','error'); return; }
 
   const depositoTotal   = parseFloat(document.getElementById('c-deposito').value) || 0;
   const depositoAplicado= parsePeso(document.getElementById('c-deposito-aplicado').value) || 0;
   const deudaTipo       = getDeudaTipo(tipo);
 
-  // Validación: depósito aplicado no puede dejar deuda neta <= 0
-  if (depositoAplicado > 0 && depositoAplicado >= deudaTipo) {
-    toast('El depósito aplicado no puede igualar o superar la deuda. La deuda neta debe quedar positiva.','error');
+  // Validación: depósito no puede superar la deuda (deuda neta no puede ser negativa)
+  if (depositoAplicado > deudaTipo) {
+    toast('El depósito aplicado no puede superar la deuda. La deuda neta no puede ser negativa.','error');
     return;
   }
   // Validación: no superar el disponible
