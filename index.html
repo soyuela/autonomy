@@ -1091,7 +1091,11 @@ async function buscarEnSheetsPorTelefono(termTel) {
   const data = await r.json();
   const rows = data.values || [];
   return rows.slice(1)
-    .filter(row => String(row[4]||'').replace(/\D/g,'').includes(termTel))
+    .filter(row => {
+      const cuit = String(row[0]||'').replace(/\D/g,'');
+      const tel  = String(row[4]||'').replace(/\D/g,'');
+      return tel.includes(termTel) || cuit.includes(termTel);
+    })
     .map(row => ({
       cuit: String(row[0]||'').replace(/\D/g,''), nombre: row[1]||'', direccion: row[2]||'',
       mail: row[3]||'', telefono: row[4]||'', dominio: row[5]||'',
