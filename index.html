@@ -821,7 +821,13 @@ function setSyncState(s) {
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const fmtPeso  = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
 const fmtPesoCentavos = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
-const parsePeso = s => { const clean=String(s||'0').replace(/[^0-9,]/g,'').replace(',','.'); return parseFloat(clean)||0; };
+const parsePeso = s => {
+  if (!s && s !== 0) return 0;
+  // Formato argentino: $1.234.567,89 → puntos = miles, coma = decimal
+  const str = String(s).replace(/[^0-9,]/g, ''); // quitar $ y puntos de miles
+  const clean = str.replace(',', '.');             // coma → punto decimal
+  return parseFloat(clean) || 0;
+};
 // Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
 const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
 const fmtFecha = d => { if (!d) return '—'; const f = parseLocalDate(d); return f.toLocaleDateString('es-AR'); };
