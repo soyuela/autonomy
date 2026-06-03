@@ -2314,31 +2314,52 @@ async function ejecutarBusqueda() {
   const term    = val.replace(/\D/g,'');
   const termMin = val.toLowerCase();
 
-  // 1. Buscar en DB local por CUIT o nombre
-  let titular = null;
+  // 1. Buscar en DB local por CUIT, nombre o teléfono — todos los matches únicos por CUIT
+  const seen = new Set();
   const convsTitular = DB.convenios.filter(c => {
     const cuit     = String(c.cuit).replace(/\D/g,'');
     const telClean = String(c.telefono||'').replace(/\D/g,'');
-    return (term && (cuit.includes(term) || (telClean && telClean.includes(term)))) || c.nombre.toLowerCase().includes(termMin);
+    if (seen.has(cuit)) return false;
+    const match = (term && (cuit.includes(term) || (telClean && telClean.includes(term)))) || c.nombre.toLowerCase().includes(termMin);
+    if (match) seen.add(cuit);
+    return match;
   });
 
+  // Si hay múltiples titulares distintos, mostrar lista para elegir
+  const cuitsUnicos = [...new Set(convsTitular.map(c => String(c.cuit).replace(/\D/g,'')))];
+  if (cuitsUnicos.length > 1) {
+    res.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+        <div style="font-family:var(--fh);font-weight:700;font-size:14px;margin-bottom:12px">Se encontraron ${cuitsUnicos.length} titulares — elegí uno:</div>
+        ${convsTitular.map(c => `
+          <div onclick="seleccionarBusqueda('${String(c.cuit).replace(/\D/g,'')}')"
+            style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:background .1s"
+            onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div>
+              <div style="font-weight:600">${c.nombre}</div>
+              <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">${c.cuit} · ${c.telefono||'—'} · ${c.dominio||'—'}</div>
+            </div>
+            <span style="color:var(--accent);font-size:13px">→</span>
+          </div>`).join('')}
+      </div>`;
+    document.getElementById('btn-cerrar-busqueda').style.display = 'inline-flex';
+    return;
+  }
+
+  let titular = null;
   if (convsTitular.length) {
-    // Tomar datos del primer convenio encontrado
     const c0 = convsTitular[0];
     titular = { cuit: c0.cuit, nombre: c0.nombre, dominio: c0.dominio, telefono: c0.telefono, direccion: c0.direccion };
   }
 
-  // 2. Si no está en la app, buscar en Sheets ORIGINAL (solo si parece CUIT)
-  // Si ya encontramos por teléfono/nombre, igual buscamos en Sheets para tener fechas y días mora
+  // 2. Si no está en la app, buscar en Sheets ORIGINAL
   let sheetData = null;
   const cuitParaSheets = titular ? String(titular.cuit).replace(/\D/g,'') : term;
   if (cuitParaSheets.length >= 10) {
     try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
   } else if (!titular && term.length >= 4 && term.length < 10) {
-    // Búsqueda por teléfono parcial en Sheets
     try { sheetData = await buscarEnSheetsPorTelefono(term); } catch(e) {}
   } else if (titular) {
-    // Completar con datos de Sheets usando el CUIT del titular local
     try { sheetData = await buscarEnSheets(cuitParaSheets); } catch(e) {}
   }
 
@@ -2860,10 +2881,11 @@ function renderTablaContactados() {
 function buscarDesdeContactados(cuit) {
   // Guardar estado actual de Contactados
   _contactadosEstado = {
-    q:       document.getElementById('search-contactados')?.value || '',
-    fConv:   document.getElementById('filter-contactados-convenio')?.value || '',
-    fComent: document.getElementById('filter-contactados-comentario')?.value || '',
-    sort:    { ..._contactadosSort },
+    q:           document.getElementById('search-contactados')?.value || '',
+    fConv:       document.getElementById('filter-contactados-convenio')?.value || '',
+    fComent:     document.getElementById('filter-contactados-comentario')?.value || '',
+    sort:        { ..._contactadosSort },
+    ultimoCuit:  cuit,
   };
   setView('busqueda');
   document.getElementById('busqueda-input').value = cuit;
@@ -2875,14 +2897,12 @@ function buscarDesdeContactados(cuit) {
 function volverAContactados() {
   document.getElementById('btn-volver-contactados').style.display = 'none';
   setView('contactados');
-  // Restaurar estado
   if (_contactadosEstado) {
-    const { q, fConv, fComent, sort } = _contactadosEstado;
+    const { q, fConv, fComent, sort, ultimoCuit } = _contactadosEstado;
     document.getElementById('search-contactados').value = q;
     document.getElementById('filter-contactados-convenio').value = fConv;
     document.getElementById('filter-contactados-comentario').value = fComent;
     _contactadosSort = sort;
-    // Actualizar clases de headers
     ['fecha','mora','alq','inf','sin','total'].forEach(c => {
       const el = document.getElementById('th-cont-'+c);
       if (!el) return;
@@ -2890,6 +2910,25 @@ function volverAContactados() {
       if (c === sort.col) el.classList.add(sort.dir);
     });
     renderTablaContactados();
+    // Resaltar y hacer scroll a la última fila visitada
+    if (ultimoCuit) {
+      setTimeout(() => {
+        const tbody = document.getElementById('tabla-contactados');
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach(row => {
+          const cuitCell = row.querySelector('.mono');
+          if (cuitCell && cuitCell.textContent.replace(/\D/g,'') === ultimoCuit) {
+            row.style.background = 'rgba(79,70,229,.08)';
+            row.style.outline = '2px solid rgba(79,70,229,.3)';
+            row.scrollIntoView({ behavior:'smooth', block:'center' });
+          }
+        });
+        // Desmarcar al hacer click en cualquier parte de la tabla
+        tbody.addEventListener('click', () => {
+          tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; });
+        }, { once: true });
+      }, 100);
+    }
   }
 }
 
