@@ -820,6 +820,7 @@ function setSyncState(s) {
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const fmtPeso  = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtPesoCentavos = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const parsePeso = s => { const clean=String(s||'0').replace(/[^0-9,]/g,'').replace(',','.'); return parseFloat(clean)||0; };
 // Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
 const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
@@ -923,12 +924,12 @@ function renderDepositoWidget() {
     // Supera el disponible: ERROR
     inputEl.className = 'input-error';
     alertHtml = `<div class="alert alert-danger" style="margin-top:8px;margin-bottom:0">
-      ⚠ No hay suficiente depósito. Disponible: ${fmtPeso(disponible)}.
+      ⚠ No hay suficiente depósito. Disponible: ${fmtPesoCentavos(disponible)}.
     </div>`;
   } else {
     inputEl.className = 'input-ok';
     alertHtml = `<div class="alert alert-ok" style="margin-top:8px;margin-bottom:0">
-      ✓ Deuda neta de ${tipo.toLowerCase()} después de aplicar depósito: <strong>${fmtPeso(deudaNeta)}</strong>
+      ✓ Deuda neta de ${tipo.toLowerCase()} después de aplicar depósito: <strong>${fmtPesoCentavos(deudaNeta)}</strong>
     </div>`;
   }
 
@@ -938,20 +939,20 @@ function renderDepositoWidget() {
     <div class="dep-widget">
       <div class="dep-widget-row">
         <span class="dep-widget-label">Depósito total del titular</span>
-        <span class="dep-widget-val">${fmtPeso(depositoTotal)}</span>
+        <span class="dep-widget-val">${fmtPesoCentavos(depositoTotal)}</span>
       </div>
       ${usadoPorOtros > 0 ? `<div class="dep-widget-row">
         <span class="dep-widget-label">Usado en otros convenios</span>
-        <span class="dep-widget-val" style="color:var(--warning)">− ${fmtPeso(usadoPorOtros)}</span>
+        <span class="dep-widget-val" style="color:var(--warning)">− ${fmtPesoCentavos(usadoPorOtros)}</span>
       </div>` : ''}
       <div class="dep-widget-row">
         <span class="dep-widget-label">Disponible para este convenio</span>
-        <span class="dep-widget-val" style="color:var(--ok)">${fmtPeso(disponible)}</span>
+        <span class="dep-widget-val" style="color:var(--ok)">${fmtPesoCentavos(disponible)}</span>
       </div>
       <div class="dep-bar"><div class="dep-bar-fill ${barClass}" style="width:${pct}%"></div></div>
       <div class="dep-widget-row" style="margin-top:2px">
         <span class="dep-widget-label">Restante luego de aplicar</span>
-        <span class="dep-widget-val" style="color:${restante < 0 ? 'var(--danger)' : 'var(--muted)'}">${fmtPeso(Math.max(0,restante))}</span>
+        <span class="dep-widget-val" style="color:${restante < 0 ? 'var(--danger)' : 'var(--muted)'}">${fmtPesoCentavos(Math.max(0,restante))}</span>
       </div>
     </div>
     ${alertHtml}`;
@@ -1440,10 +1441,10 @@ function precargarForm(t) {
   document.getElementById('c-deuda-sin').value = t.deudaSin||0;
   document.getElementById('c-deposito').value  = t.deposito||0;
   // Displays formateados
-  document.getElementById('d-deuda-alq').textContent = t.deudaAlq > 0 ? fmtPeso(t.deudaAlq) : '—';
-  document.getElementById('d-deuda-inf').textContent = t.deudaInf > 0 ? fmtPeso(t.deudaInf) : '—';
-  document.getElementById('d-deuda-sin').textContent = t.deudaSin > 0 ? fmtPeso(t.deudaSin) : '—';
-  document.getElementById('d-deposito').textContent  = t.deposito  > 0 ? fmtPeso(t.deposito)  : '—';
+  document.getElementById('d-deuda-alq').textContent = t.deudaAlq > 0 ? fmtPesoCentavos(t.deudaAlq) : '—';
+  document.getElementById('d-deuda-inf').textContent = t.deudaInf > 0 ? fmtPesoCentavos(t.deudaInf) : '—';
+  document.getElementById('d-deuda-sin').textContent = t.deudaSin > 0 ? fmtPesoCentavos(t.deudaSin) : '—';
+  document.getElementById('d-deposito').textContent  = t.deposito  > 0 ? fmtPesoCentavos(t.deposito)  : '—';
   document.getElementById('c-deposito-aplicado').value = '';
   document.getElementById('convenio-form-section').style.display = 'block';
   document.getElementById('btn-guardar-conv').style.display = 'inline-flex';
@@ -1486,7 +1487,7 @@ function actualizarCuota() {
   base = base * (1 - qui/100);
   if (cant > 0 && base > 0) {
     const importe = Math.round(base/cant*100)/100;
-    document.getElementById('c-importe-cuota').value = fmtPeso(importe);
+    document.getElementById('c-importe-cuota').value = fmtPesoCentavos(importe);
   }
 }
 
@@ -1510,7 +1511,7 @@ async function guardarConvenio() {
   // Validación: no superar el disponible
   const disponible = calcDepositoDisponible(cuit, depositoTotal, editId);
   if (depositoAplicado > disponible) {
-    toast(`El depósito a aplicar supera el disponible (${fmtPeso(disponible)})`, 'error');
+    toast(`El depósito a aplicar supera el disponible (${fmtPesoCentavos(disponible)})`, 'error');
     return;
   }
 
@@ -1606,10 +1607,10 @@ function editarConvenio(id) {
   document.getElementById('c-deuda-inf').value = c.deudaInf||0;
   document.getElementById('c-deuda-sin').value = c.deudaSin||0;
   document.getElementById('c-deposito').value  = c.deposito||0;
-  document.getElementById('d-deuda-alq').textContent = c.deudaAlq > 0 ? fmtPeso(c.deudaAlq) : '—';
-  document.getElementById('d-deuda-inf').textContent = c.deudaInf > 0 ? fmtPeso(c.deudaInf) : '—';
-  document.getElementById('d-deuda-sin').textContent = c.deudaSin > 0 ? fmtPeso(c.deudaSin) : '—';
-  document.getElementById('d-deposito').textContent  = c.deposito  > 0 ? fmtPeso(c.deposito)  : '—';
+  document.getElementById('d-deuda-alq').textContent = c.deudaAlq > 0 ? fmtPesoCentavos(c.deudaAlq) : '—';
+  document.getElementById('d-deuda-inf').textContent = c.deudaInf > 0 ? fmtPesoCentavos(c.deudaInf) : '—';
+  document.getElementById('d-deuda-sin').textContent = c.deudaSin > 0 ? fmtPesoCentavos(c.deudaSin) : '—';
+  document.getElementById('d-deposito').textContent  = c.deposito  > 0 ? fmtPesoCentavos(c.deposito)  : '—';
   document.getElementById('c-deposito-aplicado').value = c.depositoAplicado > 0 ? fmtPeso(c.depositoAplicado) : '';
   document.getElementById('c-tipo').value      = c.tipo;
   document.getElementById('c-modalidad').value = c.modalidad;
@@ -1626,7 +1627,7 @@ function editarConvenio(id) {
   recalcDepositoAplicadoAutomatico();
   // En edición, restaurar el valor guardado (no auto-recalcular)
   document.getElementById('c-deposito-aplicado').value = c.depositoAplicado > 0 ? fmtPeso(c.depositoAplicado) : '';
-  document.getElementById('c-importe-cuota').value = fmtPeso(c.importeCuota);
+  document.getElementById('c-importe-cuota').value = fmtPesoCentavos(c.importeCuota);
   renderDepositoWidget();
   openModal('modal-convenio');
 }
