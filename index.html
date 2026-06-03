@@ -2728,9 +2728,10 @@ async function cargarContactados() {
     const comentMap = {};
     const moraMap   = {};
     const recontactarMap = {};
+    const bajaMap   = {};
     comentRows.forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; recontactarMap[c] = r[18]||''; }
+      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; recontactarMap[c] = r[18]||''; bajaMap[c] = r[17]||''; }
     });
 
     // 4. Cruzar todo
@@ -2746,8 +2747,9 @@ async function cargarContactados() {
       const comentario   = comentMap[cuit]||'';
       const diasMora     = moraMap[cuit]||'';
       const recontactar  = recontactarMap[cuit]||'';
+      const baja         = bajaMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, baja, convs };
     });
 
     renderTablaContactados();
@@ -2844,9 +2846,11 @@ function renderTablaContactados() {
 
   tbody.innerHTML = lista.map((d, i) => {
     const total = (d.deudaAlq||0)+(d.deudaInf||0)+(d.deudaSin||0);
-    const convBadges = d.convs.length
-      ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
-      : `<span class="badge badge-vencido">Sin convenio</span>`;
+    const convBadges = d.baja === 'SI'
+      ? `<span class="badge badge-vencido">Baja</span>`
+      : d.convs.length
+        ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
+        : `<span class="badge badge-vencido">Sin convenio</span>`;
     const mora = parseInt(d.diasMora)||0;
     const moraColor = mora > 365 ? 'var(--danger)' : mora > 180 ? 'var(--warning)' : 'var(--muted)';
     const comentarioHtml = d.comentario
