@@ -2954,10 +2954,9 @@ function volverAContactados() {
         if (filaEncontrada) {
           const limpiar = () => { tbody.querySelectorAll('tr').forEach(r => { r.style.background = ''; r.style.outline = ''; }); };
           tbody.addEventListener('click', limpiar, { once: true });
-          // 6 segundos desde que el scroll termina (~1s) = 5s visibles
-          setTimeout(limpiar, 6000);
+          setTimeout(limpiar, 8000);
         }
-      }, 300);
+      }, 1000);
     }
   }
 }
