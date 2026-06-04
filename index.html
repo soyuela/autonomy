@@ -2005,7 +2005,7 @@ function renderVencimientos() {
         <td><span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
         <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},false)">💬</button>` : ''}
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},false)">📋 Copiar</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
         </div></td>
       </tr>`).join('');
@@ -2021,7 +2021,7 @@ function renderVencimientos() {
         <td><span class="dias-badge dias-bad">${dias}d</span></td>
         <td class="importe">${fmtPeso(cq.importe)}</td>
         <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},true)">💬</button>` : ''}
+          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},true)">📋 Copiar</button>` : ''}
           <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
         </div></td>
       </tr>`).join('');
@@ -2044,7 +2044,7 @@ function renderVencimientos() {
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
           <td><div class="actions">
-            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">💬 Recordar firma</button>` : ''}
+            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">📋 Copiar recordatorio</button>` : ''}
             <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Firmado</button>
           </div></td>
         </tr>`;
@@ -2079,14 +2079,12 @@ function renderVencimientos() {
       }).join('');
 }
 async function abrirWhatsAppFirma(telefono, nombre, cuit) {
-  let num = String(telefono).replace(/[\s\-\(\)]/g, '');
-  if (num.startsWith('0')) num = '54' + num.slice(1);
-  if (!num.startsWith('54') && !num.startsWith('+')) num = '54' + num;
-  num = num.replace(/^\+/, '');
   const nombreCorto = nombre.split(',')[0].trim();
   const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene pendiente la firma del reconocimiento de deuda con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
-  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
-  if (!cuit) return;
+
+  await navigator.clipboard.writeText(msg);
+
+  if (!cuit) { toast(`Mensaje copiado ✓`); return; }
   const fechaHoy = isoADMY(today());
   try {
     const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
@@ -2107,9 +2105,9 @@ async function abrirWhatsAppFirma(telefono, nombre, cuit) {
       });
     }
     const btns = document.querySelectorAll(`button[data-ws-cuit="${cuit}"]`);
-    btns.forEach(b => { b.textContent='✓ WS'; b.style.color='var(--ok)'; b.style.borderColor='var(--ok)'; });
-    toast(`Recordatorio de firma enviado a ${nombreCorto} ✓`);
-  } catch(e) { toast('WS abierto pero error al registrar: '+e.message,'error'); }
+    btns.forEach(b => { b.textContent='📋 Copiado'; b.style.color='var(--ok)'; b.style.borderColor='var(--ok)'; });
+    toast(`Mensaje de firma copiado para ${nombreCorto} ✓`);
+  } catch(e) { toast('Mensaje copiado pero error al registrar: '+e.message,'error'); }
 }
 
 function generarConvenioPDF(convId) {
@@ -2228,20 +2226,16 @@ function generarConvenioDesdeResultado() {
 }
 
 async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, vencida) {
-  // Limpiar número
-  let num = String(telefono).replace(/[\s\-\(\)]/g, '');
-  if (num.startsWith('0')) num = '54' + num.slice(1);
-  if (!num.startsWith('54') && !num.startsWith('+')) num = '54' + num;
-  num = num.replace(/^\+/, '');
   const nombreCorto = nombre.split(',')[0].trim();
   const infoCuenta = `\n\nLe recordamos el vencimiento de su cuota pactada con Autonomy, y le agradeceremos nos envíe el comprobante una vez realizado el pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
   const msg = vencida
     ? `Estimado/a ${nombreCorto}, le informamos que la cuota N° ${cuotaNum} de su convenio con Autonomy, con vencimiento el ${fecha} por un importe de ${importe}, se encuentra impaga.${infoCuenta}`
     : `Estimado/a ${nombreCorto}, le recordamos que tiene la cuota N° ${cuotaNum} con vencimiento el ${fecha} por un importe de ${importe}, correspondiente a su contrato con Autonomy.${infoCuenta}`;
-  window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
 
-  // Registrar fecha de envío en col T de COMENTARIOS
-  if (!cuit) return;
+  await navigator.clipboard.writeText(msg);
+
+  // Registrar fecha en col T de COMENTARIOS
+  if (!cuit) { toast(`Mensaje copiado ✓`); return; }
   const fechaHoy = isoADMY(today());
   try {
     const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
@@ -2250,10 +2244,8 @@ async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, v
     const rows    = dRead.values || [];
     const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === String(cuit).replace(/\D/g,''));
     if (rowIdx >= 0) {
-      const sheetRow = rowIdx + 1;
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!T${sheetRow}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!T${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [[fechaHoy]] })
       });
     } else {
@@ -2261,17 +2253,15 @@ async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, v
       const valores = Array(20).fill('');
       valores[0] = cuit; valores[19] = fechaHoy;
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:T${nextRow}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [valores] })
       });
     }
-    // Marcar visualmente el botón en la fila
     const btns = document.querySelectorAll(`button[data-ws-cuit="${cuit}"]`);
-    btns.forEach(b => { b.textContent = '✓ WS'; b.style.color = 'var(--ok)'; b.style.borderColor = 'var(--ok)'; });
-    toast(`WS enviado a ${nombreCorto} · registrado ✓`);
+    btns.forEach(b => { b.textContent = '📋 Copiado'; b.style.color = 'var(--ok)'; b.style.borderColor = 'var(--ok)'; });
+    toast(`Mensaje copiado para ${nombreCorto} ✓`);
   } catch(e) {
-    toast('WS abierto pero error al registrar: ' + e.message, 'error');
+    toast('Mensaje copiado pero error al registrar: ' + e.message, 'error');
   }
 }
 
