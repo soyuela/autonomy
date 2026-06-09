@@ -2106,39 +2106,40 @@ async function copiarMensajeUnificado(cuit) {
   const nombre = convs[0].nombre;
   const nombreCorto = nombre.split(',')[0].trim();
 
-  // Construir estado por tipo de convenio
   const partes = [];
   convs.forEach(conv => {
-    const pagadas = new Set(pagosDeConv(conv.id, conv.tipo).map(p => p.cuotaNum));
-    const cuotas  = generarCuotas(conv);
+    const pagadas  = new Set(pagosDeConv(conv.id, conv.tipo).map(p => p.cuotaNum));
+    const cuotas   = generarCuotas(conv);
     const vencidas = cuotas.filter(cq => !pagadas.has(cq.num) && diffDays(hoy, cq.vencimiento) < 0);
     const proxima  = cuotas.find(cq => !pagadas.has(cq.num) && diffDays(hoy, cq.vencimiento) >= 0);
-
     if (!vencidas.length && !proxima) return;
 
-    let parte = `${conv.tipo}:`;
+    const totalImpago = vencidas.reduce((s, cq) => s + (cq.importe||0), 0);
+
+    let parte = '';
     if (vencidas.length === 1) {
-      parte += ` la cuota N° ${vencidas[0].num} (${fmtFecha(vencidas[0].vencimiento)}, ${fmtPeso(vencidas[0].importe)}) se encuentra impaga`;
+      parte = `registra 1 cuota impaga de su convenio de ${conv.tipo} (${fmtPeso(totalImpago)} en total)`;
     } else if (vencidas.length > 1) {
-      const nums = vencidas.map(c => `N° ${c.num}`).join(', ');
-      parte += ` las cuotas ${nums} se encuentran impagas`;
+      parte = `registra ${vencidas.length} cuotas impagas de su convenio de ${conv.tipo} (${fmtPeso(totalImpago)} en total)`;
     }
     if (proxima) {
-      if (vencidas.length) parte += `;`;
-      parte += ` la cuota N° ${proxima.num} vence el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
+      const desc = vencidas.length ? `La próxima cuota (N° ${proxima.num})` : `La cuota N° ${proxima.num}`;
+      const conector = vencidas.length ? `. ${desc}` : `tiene la ${desc}`;
+      parte += `${conector} vence el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
     }
     partes.push(parte);
   });
 
   if (!partes.length) { toast('No hay cuotas pendientes', 'info'); return; }
 
-  const infoCuenta = `\n\nLe recordamos el vencimiento de su/s cuota/s pactada/s con Autonomy, y le agradeceremos nos envíe el comprobante una vez realizado el pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+  const cuerpo = partes.length === 1
+    ? `le informamos que ${partes[0]} con Autonomy`
+    : `le informamos que ${partes.join(', y ')} con Autonomy`;
 
-  const msg = `Estimado/a ${nombreCorto}, le informamos el estado de su/s convenio/s con Autonomy:\n\n${partes.join('\n')}${infoCuenta}`;
+  const msg = `Estimado/a ${nombreCorto}, ${cuerpo}.\n\nLe agradeceremos regularice su situación y nos envíe el comprobante de pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
 
   await navigator.clipboard.writeText(msg);
 
-  // Registrar en col T de COMENTARIOS
   const fechaHoy = isoADMY(today());
   try {
     const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
