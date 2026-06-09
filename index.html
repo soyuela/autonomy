@@ -571,7 +571,7 @@
         </div>
         <div class="field"><label>Tipo</label><select id="p-tipo"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
         <div class="field"><label>N° de cuota</label><input id="p-cuota-num" type="number" min="1"></div>
-        <div class="field"><label>Monto *</label><input id="p-monto" type="number" placeholder="0"></div>
+        <div class="field"><label>Monto *</label><input id="p-monto" type="number" placeholder="0" step="0.01"></div>
         <div class="field"><label>Fecha *</label><input id="p-fecha" type="date"></div>
         <div class="field form-full"><label>Observación</label><input id="p-obs" type="text" placeholder="Transferencia, efectivo…"></div>
       </div>
@@ -2118,23 +2118,31 @@ async function copiarMensajeUnificado(cuit) {
 
     let parte = '';
     if (vencidas.length === 1) {
-      parte = `registra 1 cuota impaga de su convenio de ${conv.tipo} (${fmtPeso(totalImpago)} en total)`;
+      parte = `registra 1 cuota impaga de ${conv.tipo} (${fmtPeso(totalImpago)})`;
     } else if (vencidas.length > 1) {
-      parte = `registra ${vencidas.length} cuotas impagas de su convenio de ${conv.tipo} (${fmtPeso(totalImpago)} en total)`;
+      parte = `registra ${vencidas.length} cuotas impagas de ${conv.tipo} (${fmtPeso(totalImpago)} en total)`;
     }
     if (proxima) {
-      const desc = vencidas.length ? `La próxima cuota (N° ${proxima.num})` : `La cuota N° ${proxima.num}`;
-      const conector = vencidas.length ? `. ${desc}` : `tiene la ${desc}`;
-      parte += `${conector} vence el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
+      if (vencidas.length) {
+        parte += `. La próxima cuota de ${conv.tipo} (N° ${proxima.num}) vence el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
+      } else {
+        parte = `tiene la cuota N° ${proxima.num} de ${conv.tipo} con vencimiento el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
+      }
+    } else {
+      parte = parte.charAt(0).toUpperCase() + parte.slice(1);
     }
     partes.push(parte);
   });
 
   if (!partes.length) { toast('No hay cuotas pendientes', 'info'); return; }
 
-  const cuerpo = partes.length === 1
-    ? `le informamos que ${partes[0]} con Autonomy`
-    : `le informamos que ${partes.join(', y ')} con Autonomy`;
+  let cuerpo;
+  if (partes.length === 1) {
+    cuerpo = `le informamos que ${partes[0]} con Autonomy`;
+  } else {
+    const partesCapitalizadas = partes.map(p => p.charAt(0).toUpperCase() + p.slice(1));
+    cuerpo = `le informamos el estado de sus convenios con Autonomy:\n\n${partesCapitalizadas.join('\n\n')}`;
+  }
 
   const msg = `Estimado/a ${nombreCorto}, ${cuerpo}.\n\nLe agradeceremos regularice su situación y nos envíe el comprobante de pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
 
