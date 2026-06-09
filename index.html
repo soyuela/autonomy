@@ -1994,37 +1994,57 @@ function setVencTab(t,el) {
 
 function renderVencimientos() {
   const {prox,venc} = calcStatus();
+  // Agrupar próximas por CUIT
+  const proxPorCuit = {};
+  prox.forEach(({conv,cq,dias}) => {
+    const k = String(conv.cuit).replace(/\D/g,'');
+    if (!proxPorCuit[k]) proxPorCuit[k] = { conv, cuotas: [] };
+    proxPorCuit[k].cuotas.push({conv, cq, dias});
+  });
+
   const tbP = document.getElementById('tabla-venc-prox');
   tbP.innerHTML = !prox.length
     ? `<tr><td colspan="7"><div class="empty"><div class="icon">🎉</div><p>Sin cuotas próximas</p></div></td></tr>`
-    : prox.map(({conv,cq,dias})=>`<tr>
-        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
-        <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
-        <td class="mono">${cq.num}/${conv.cantCuotas}</td>
-        <td class="mono">${fmtFecha(cq.vencimiento)}</td>
-        <td><span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span></td>
-        <td class="importe">${fmtPeso(cq.importe)}</td>
-        <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},false)">📋 Copiar</button>` : ''}
-          <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
-        </div></td>
-      </tr>`).join('');
+    : Object.values(proxPorCuit).map(({conv, cuotas}) => {
+        const detalles = cuotas.map(({conv:c, cq, dias}) =>
+          `<span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span> cuota ${cq.num}/${c.cantCuotas} — ${fmtFecha(cq.vencimiento)} <span class="dias-badge ${dias<=3?'dias-warn':'dias-ok'}">${dias}d</span> ${fmtPeso(cq.importe)}`
+        ).join('<br>');
+        const primeraCuota = cuotas[0].cq;
+        return `<tr>
+          <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
+          <td colspan="5" style="font-size:12px;line-height:2">${detalles}</td>
+          <td><div class="actions">
+            ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
+            <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${primeraCuota.num},${primeraCuota.importe})">Registrar pago</button>
+          </div></td>
+        </tr>`;
+      }).join('');
+
+  // Agrupar vencidas por CUIT
+  const vencPorCuit = {};
+  venc.forEach(({conv,cq,dias}) => {
+    const k = String(conv.cuit).replace(/\D/g,'');
+    if (!vencPorCuit[k]) vencPorCuit[k] = { conv, cuotas: [] };
+    vencPorCuit[k].cuotas.push({conv, cq, dias});
+  });
 
   const tbV = document.getElementById('tabla-venc-vencidas');
   tbV.innerHTML = !venc.length
     ? `<tr><td colspan="7"><div class="empty"><div class="icon">✅</div><p>Sin cuotas vencidas</p></div></td></tr>`
-    : venc.map(({conv,cq,dias})=>`<tr>
-        <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
-        <td><span class="badge badge-${conv.tipo[0].toLowerCase()}">${conv.tipo}</span></td>
-        <td class="mono">${cq.num}/${conv.cantCuotas}</td>
-        <td class="mono">${fmtFecha(cq.vencimiento)}</td>
-        <td><span class="dias-badge dias-bad">${dias}d</span></td>
-        <td class="importe">${fmtPeso(cq.importe)}</td>
-        <td><div class="actions">
-          ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="abrirWhatsApp('${conv.telefono}','${conv.nombre}','${fmtFecha(cq.vencimiento)}','${fmtPeso(cq.importe)}','${conv.cuit}',${cq.num},true)">📋 Copiar</button>` : ''}
-          <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${cq.num},${cq.importe})">Registrar pago</button>
-        </div></td>
-      </tr>`).join('');
+    : Object.values(vencPorCuit).map(({conv, cuotas}) => {
+        const detalles = cuotas.map(({conv:c, cq, dias}) =>
+          `<span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span> cuota ${cq.num}/${c.cantCuotas} — venció ${fmtFecha(cq.vencimiento)} <span class="dias-badge dias-bad">${dias}d</span> ${fmtPeso(cq.importe)}`
+        ).join('<br>');
+        const primeraCuota = cuotas[0].cq;
+        return `<tr>
+          <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
+          <td colspan="5" style="font-size:12px;line-height:2">${detalles}</td>
+          <td><div class="actions">
+            ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
+            <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${primeraCuota.num},${primeraCuota.importe})">Registrar pago</button>
+          </div></td>
+        </tr>`;
+      }).join('');
 
   // FIRMA PENDIENTE: enviados pero sin firma
   const firmaEnviados = DB.convenios.filter(c => c.enviado==='SI' && c.firmado!=='SI');
@@ -2078,6 +2098,69 @@ function renderVencimientos() {
         </tr>`;
       }).join('');
 }
+async function copiarMensajeUnificado(cuit) {
+  const hoy = today();
+  const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === String(cuit).replace(/\D/g,''));
+  if (!convs.length) { toast('No se encontraron convenios', 'error'); return; }
+
+  const nombre = convs[0].nombre;
+  const nombreCorto = nombre.split(',')[0].trim();
+
+  // Construir estado por tipo de convenio
+  const partes = [];
+  convs.forEach(conv => {
+    const pagadas = new Set(pagosDeConv(conv.id, conv.tipo).map(p => p.cuotaNum));
+    const cuotas  = generarCuotas(conv);
+    const vencidas = cuotas.filter(cq => !pagadas.has(cq.num) && diffDays(hoy, cq.vencimiento) < 0);
+    const proxima  = cuotas.find(cq => !pagadas.has(cq.num) && diffDays(hoy, cq.vencimiento) >= 0);
+
+    if (!vencidas.length && !proxima) return;
+
+    let parte = `${conv.tipo}:`;
+    if (vencidas.length === 1) {
+      parte += ` la cuota N° ${vencidas[0].num} (${fmtFecha(vencidas[0].vencimiento)}, ${fmtPeso(vencidas[0].importe)}) se encuentra impaga`;
+    } else if (vencidas.length > 1) {
+      const nums = vencidas.map(c => `N° ${c.num}`).join(', ');
+      parte += ` las cuotas ${nums} se encuentran impagas`;
+    }
+    if (proxima) {
+      if (vencidas.length) parte += `;`;
+      parte += ` la cuota N° ${proxima.num} vence el ${fmtFecha(proxima.vencimiento)} por ${fmtPeso(proxima.importe)}`;
+    }
+    partes.push(parte);
+  });
+
+  if (!partes.length) { toast('No hay cuotas pendientes', 'info'); return; }
+
+  const infoCuenta = `\n\nLe recordamos el vencimiento de su/s cuota/s pactada/s con Autonomy, y le agradeceremos nos envíe el comprobante una vez realizado el pago.\nCUENTA BANCARIA: AFS GROUP S.A. (CUIT 30-71683799-4), CBU 4320001010003520390016, Alias AFSGROUPCOMERCIO\n\nSaludos, Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
+
+  const msg = `Estimado/a ${nombreCorto}, le informamos el estado de su/s convenio/s con Autonomy:\n\n${partes.join('\n')}${infoCuenta}`;
+
+  await navigator.clipboard.writeText(msg);
+
+  // Registrar en col T de COMENTARIOS
+  const fechaHoy = isoADMY(today());
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === String(cuit).replace(/\D/g,''));
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!T${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
+    }
+    const btns = document.querySelectorAll(`button[data-ws-cuit="${cuit}"]`);
+    btns.forEach(b => { b.textContent='📋 Copiado'; b.style.color='var(--ok)'; b.style.borderColor='var(--ok)'; });
+    toast(`Mensaje copiado para ${nombreCorto} ✓`);
+  } catch(e) {
+    toast('Mensaje copiado ✓');
+  }
+}
+
+
 async function abrirWhatsAppFirma(telefono, nombre, cuit) {
   const nombreCorto = nombre.split(',')[0].trim();
   const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene pendiente la firma del reconocimiento de deuda con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
