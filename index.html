@@ -1401,7 +1401,7 @@ async function syncPagosDesdeSheets() {
     rows.forEach(row => {
       const cuit=String(row[0]||'').replace(/\D/g,''), tipo=tipoDesdeSheets(row[1]);
       const fecha=parseFechaArgCorta(row[2]), cuotaNum=parseInt(row[3])||null, monto=parsePeso(row[4]);
-      if (!cuit||!monto||!fecha) return;
+      if (!cuit||monto==null||isNaN(monto)||!fecha) return;
       const conv = DB.convenios.find(c => String(c.cuit).replace(/\D/g,'')=== cuit && c.tipo===tipo);
       const existe = DB.pagos.some(p => String(p.cuit).replace(/\D/g,'')=== cuit && p.tipo===tipo && p.fecha===fecha && p.cuotaNum===cuotaNum);
       if (!existe) {
