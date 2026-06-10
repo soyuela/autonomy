@@ -823,10 +823,32 @@ const fmtPeso  = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{mi
 const fmtPesoCentavos = n => n==null ? '—' : '$'+Number(n).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const parsePeso = s => {
   if (!s && s !== 0) return 0;
-  // Formato argentino: $1.234.567,89 → puntos = miles, coma = decimal
-  const str = String(s).replace(/[^0-9,]/g, ''); // quitar $ y puntos de miles
-  const clean = str.replace(',', '.');             // coma → punto decimal
-  return parseFloat(clean) || 0;
+  const str = String(s).replace(/[$\s]/g, ''); // quitar $ y espacios
+  if (str.includes(',') && str.includes('.')) {
+    // Formato argentino: 1.234.567,89 — punto=miles, coma=decimal
+    return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+  } else if (str.includes(',')) {
+    // Solo coma: puede ser decimal (1234,56) o miles sin decimal
+    const partes = str.split(',');
+    if (partes[1] && partes[1].length <= 2) {
+      // coma es decimal: 1234,56
+      return parseFloat(str.replace(',', '.')) || 0;
+    } else {
+      // coma es separador de miles: 1,234,567
+      return parseFloat(str.replace(/,/g, '')) || 0;
+    }
+  } else if (str.includes('.')) {
+    // Solo punto: puede ser decimal (1234.56) o miles (1.234.567)
+    const partes = str.split('.');
+    if (partes.length > 2 || (partes[1] && partes[1].length === 3)) {
+      // punto es miles: 1.234.567 o 1.234
+      return parseFloat(str.replace(/\./g, '')) || 0;
+    } else {
+      // punto es decimal: 1234.56
+      return parseFloat(str) || 0;
+    }
+  }
+  return parseFloat(str) || 0;
 };
 // Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
 const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
@@ -1480,6 +1502,7 @@ function openNuevoConvenio() {
   document.getElementById('c-modalidad').value='mensuales';
   document.getElementById('c-firmado').value='';
   document.getElementById('c-fecha-inicio').value=isoADMY(today());
+  document.getElementById('c-fecha-picker').value='';
   openModal('modal-convenio');
 }
 
