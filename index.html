@@ -336,8 +336,8 @@
         <div class="tab" onclick="setVencTab('firma',this)">Firma pendiente <span id="badge-firma" style="background:var(--warning);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
         <div class="tab" onclick="setVencTab('sinfirma',this)">Convenios a enviar <span id="badge-sinfirma" style="background:var(--accent2);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px;margin-left:4px"></span></div>
       </div>
-      <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Vence</th><th>Días</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
-      <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Tipo</th><th>N° cuota</th><th>Venció</th><th>Atraso</th><th>Importe</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
+      <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
+      <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
       <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
       <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Nombre PDF</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
@@ -2035,7 +2035,8 @@ function renderVencimientos() {
         const primeraCuota = cuotas[0].cq;
         return `<tr>
           <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
-          <td colspan="5" style="font-size:12px;line-height:2">${detalles}</td>
+          <td style="font-size:13px;white-space:nowrap"><strong>${conv.telefono||'—'}</strong></td>
+          <td colspan="4" style="font-size:12px;line-height:2">${detalles}</td>
           <td><div class="actions">
             ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
             <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${primeraCuota.num},${primeraCuota.importe})">Registrar pago</button>
@@ -2061,7 +2062,8 @@ function renderVencimientos() {
         const primeraCuota = cuotas[0].cq;
         return `<tr>
           <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
-          <td colspan="5" style="font-size:12px;line-height:2">${detalles}</td>
+          <td style="font-size:13px;white-space:nowrap"><strong>${conv.telefono||'—'}</strong></td>
+          <td colspan="4" style="font-size:12px;line-height:2">${detalles}</td>
           <td><div class="actions">
             ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
             <button class="btn btn-primary btn-sm" onclick="openRegistrarPago('${conv.id}','${conv.tipo}',${primeraCuota.num},${primeraCuota.importe})">Registrar pago</button>
