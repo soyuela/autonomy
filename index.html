@@ -1809,7 +1809,7 @@ function seleccionarConvenioPago(convId) {
   document.getElementById('p-conv-seleccionado').innerHTML =
     `<b>${c.nombre}</b> · ${c.cuit} · <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span> · ${c.cantCuotas} cuotas de ${fmtPeso(c.importeCuota)}`;
   document.getElementById('p-tipo').value = c.tipo;
-  document.getElementById('p-monto').value = parsePeso(c.importeCuota) || c.importeCuota;
+  document.getElementById('p-monto').value = Number(parsePeso(c.importeCuota) || c.importeCuota).toFixed(2).replace(/\.00$/, '');
   const pags = new Set(pagosDeConv(c.id,c.tipo).map(p=>p.cuotaNum));
   for (let i=1;i<=c.cantCuotas;i++) { if (!pags.has(i)) { document.getElementById('p-cuota-num').value=i; break; } }
 }
@@ -1821,7 +1821,7 @@ function openRegistrarPago(convId,tipo,cuotaNum,monto) {
   document.getElementById('p-convenio-select').value='';
   document.getElementById('p-fecha').value=today();
   document.getElementById('p-cuota-num').value=cuotaNum||'';
-  document.getElementById('p-monto').value=monto||'';
+  document.getElementById('p-monto').value = monto != null ? Number(monto).toFixed(2).replace(/\.00$/, '') : '';
   document.getElementById('p-obs').value='';
   if (tipo) document.getElementById('p-tipo').value=tipo;
   if (convId) seleccionarConvenioPago(convId);
