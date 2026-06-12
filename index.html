@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1844,7 +1844,7 @@ function openRegistrarPago(convId,tipo,cuotaNum,monto) {
   document.getElementById('p-convenio-select').value='';
   document.getElementById('p-fecha').value=today();
   document.getElementById('p-cuota-num').value=cuotaNum||'';
-  document.getElementById('p-monto').value = monto != null ? Number(monto).toFixed(2).replace(/\.00$/, '') : '';
+  document.getElementById('p-monto').value = monto != null && monto !== '' ? Number(monto).toFixed(2).replace(/\.00$/, '') : '';
   document.getElementById('p-obs').value='';
   if (tipo) document.getElementById('p-tipo').value=tipo;
   if (convId) seleccionarConvenioPago(convId);
@@ -2334,12 +2334,18 @@ function cerrarBusqueda() {
 
 
 
-function generarConvenioDesdeResultado() {
+async function generarConvenioDesdeResultado() {
   if (!_busquedaTitular) return;
   openNuevoConvenio();
-  // Ocultar sección de búsqueda de CUIT y mostrar form directo con datos precargados
   document.getElementById('cuit-lookup-section').style.display = 'none';
-  precargarForm(_busquedaTitular);
+  // Leer datos frescos de ORIGINAL antes de precargar
+  try {
+    const cuit = String(_busquedaTitular.cuit).replace(/\D/g,'');
+    const fresco = await buscarEnSheets(cuit);
+    precargarForm(fresco || _busquedaTitular);
+  } catch(e) {
+    precargarForm(_busquedaTitular);
+  }
 }
 
 async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, vencida) {
