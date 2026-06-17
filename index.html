@@ -2918,7 +2918,7 @@ function renderPanelRecontactar() {
   const aRecontactar = _contactadosData.filter(d => {
     const f = toISO(d.recontactar||'');
     if (!f || f > hoy) return false;
-    // Excluir si ya tiene convenio
+    if (d.baja === 'SI') return false;
     const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === d.cuit);
     return !tieneConvenio;
   });
