@@ -2397,6 +2397,28 @@ async function darDeBajaConvenio(convId) {
     }
   } catch(e) { console.warn('Error marcando baja en Sheets:', e); }
 
+  // También marcar Baja por incobrable (col R) en COMENTARIOS
+  try {
+    const cuit = String(conv.cuit).replace(/\D/g,'');
+    const urlRead2 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead2   = await fetch(urlRead2, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead2   = await rRead2.json();
+    const rows2    = dRead2.values || [];
+    const rowIdx2  = rows2.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx2 >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!R${rowIdx2+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['SI']] })
+      });
+    } else {
+      const valores = Array(18).fill(''); valores[0]=cuit; valores[17]='SI';
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows2.length+1}:R${rows2.length+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+  } catch(e) { console.warn('Error marcando baja en COMENTARIOS:', e); }
+
   // Eliminar de DB local
   DB.convenios = DB.convenios.filter(c => c.id !== convId);
   scheduleSave();
