@@ -2969,6 +2969,7 @@ function renderTablaContactados() {
   const fComent= document.getElementById('filter-contactados-comentario')?.value||'';
 
   let lista = _contactadosData.filter(d => {
+    if (d.baja === 'SI') return false;
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
     const oC = !fConv || (fConv==='sin' && !d.convs.length) || (fConv==='con' && d.convs.length);
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
