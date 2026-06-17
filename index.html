@@ -2341,7 +2341,46 @@ function cerrarBusqueda() {
 
 
 
-async function generarConvenioDesdeResultado() {
+function editarConvenioDesdeResultado(convId) {
+  editarConvenio(convId);
+}
+
+async function darDeBajaConvenio(convId) {
+  if (!confirm('¿Dar de baja este convenio? Quedará marcado en el Sheets y desaparecerá de la lista activa.')) return;
+  const conv = DB.convenios.find(c => c.id === convId);
+  if (!conv) return;
+
+  // Marcar col AJ (índice 35) = "SI" en CONVENIOS
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const convIdSheet = conv.id;
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convIdSheet);
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AJ${sheetRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['SI']] })
+      });
+    }
+  } catch(e) { console.warn('Error marcando baja en Sheets:', e); }
+
+  // Eliminar de DB local
+  DB.convenios = DB.convenios.filter(c => c.id !== convId);
+  scheduleSave();
+  renderConvenios();
+  renderDashboard();
+  toast('Convenio dado de baja ✓');
+  // Recargar búsqueda para actualizar la vista
+  ejecutarBusqueda();
+}
+
+
+  if (!_busquedaTitular) return;
+  openNuevoConvenio();
+  async function generarConvenioDesdeResultado() {
   if (!_busquedaTitular) return;
   openNuevoConvenio();
   document.getElementById('cuit-lookup-section').style.display = 'none';
@@ -2580,6 +2619,10 @@ async function ejecutarBusqueda() {
         ${vencidas.length ? `<div class="alert alert-danger" style="margin-bottom:10px">⚠ ${vencidas.length} cuota${vencidas.length>1?'s':''} vencida${vencidas.length>1?'s':''} sin pagar · última: ${fmtFecha(vencidas[vencidas.length-1].vencimiento)}</div>` : ''}
         ${proxima ? `<div class="alert alert-info" style="margin-bottom:0">📅 Próxima cuota: <strong>#${proxima.num}</strong> — ${fmtFecha(proxima.vencimiento)} · ${fmtPeso(proxima.importe)}</div>` : ''}
         ${pgos.length>=c.cantCuotas ? `<div class="alert alert-ok" style="margin-bottom:0">✓ Convenio completado — todas las cuotas abonadas</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+          <button class="btn btn-ghost btn-sm" onclick="editarConvenioDesdeResultado('${c.id}')">✏ Editar convenio</button>
+          <button class="btn btn-danger btn-sm" onclick="darDeBajaConvenio('${c.id}')">🗑 Dar de baja</button>
+        </div>
       </div>`;
   }).join('') : `<div style="background:var(--surface2);border-radius:10px;padding:16px;color:var(--muted);font-size:13px;text-align:center">Sin convenios registrados en la app</div>`;
 
