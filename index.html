@@ -338,7 +338,7 @@
       </div>
       <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
       <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
-      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
+      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Último intento</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
       <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Nombre PDF</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
     <!-- BÚSQUEDA -->
@@ -2078,9 +2078,10 @@ function renderVencimientos() {
   const badgeFirma = document.getElementById('badge-firma');
   if (badgeFirma) badgeFirma.textContent = firmaEnviados.length || '';
   tbF.innerHTML = !firmaEnviados.length
-    ? `<tr><td colspan="8"><div class="empty"><div class="icon">✅</div><p>Sin convenios pendientes de firma</p></div></td></tr>`
+    ? `<tr><td colspan="9"><div class="empty"><div class="icon">✅</div><p>Sin convenios pendientes de firma</p></div></td></tr>`
     : firmaEnviados.map(c => {
-        const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        const deuda       = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+        const ultimoInt   = c.ultimoIntento ? `<span style="font-family:var(--fm);font-size:12px;color:var(--muted)">${isoADMY(c.ultimoIntento)}</span>` : '—';
         return `<tr>
           <td><div style="font-weight:500">${c.nombre}</div></td>
           <td class="mono">${c.cuit}</td>
@@ -2089,7 +2090,9 @@ function renderVencimientos() {
           <td class="importe">${fmtPeso(deuda)}</td>
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
+          <td style="text-align:center">${ultimoInt}</td>
           <td><div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="registrarIntentoFirma('${c.id}')">📞 No contestó</button>
             ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">📋 Copiar recordatorio</button>` : ''}
             <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Firmado</button>
           </div></td>
@@ -2196,9 +2199,36 @@ async function copiarMensajeUnificado(cuit) {
 }
 
 
+async function registrarIntentoFirma(convId) {
+  const conv = DB.convenios.find(c => c.id === convId);
+  if (!conv) return;
+  const hoyIso = today();
+  conv.ultimoIntento = hoyIso;
+  scheduleSave();
+
+  // Escribir en col AK de CONVENIOS
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convId);
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AK${sheetRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[isoADMY(hoyIso)]] })
+      });
+    }
+  } catch(e) { console.warn('Error registrando intento:', e); }
+
+  renderVencimientos();
+  toast(`Intento registrado para ${conv.nombre.split(',')[0]} ✓`);
+}
+
+
 async function abrirWhatsAppFirma(telefono, nombre, cuit) {
   const nombreCorto = nombre.split(',')[0].trim();
-  const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene pendiente la firma del reconocimiento de deuda con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
 
   await navigator.clipboard.writeText(msg);
 
