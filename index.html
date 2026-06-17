@@ -2648,6 +2648,7 @@ async function ejecutarBusqueda() {
         ${proxima ? `<div class="alert alert-info" style="margin-bottom:0">📅 Próxima cuota: <strong>#${proxima.num}</strong> — ${fmtFecha(proxima.vencimiento)} · ${fmtPeso(proxima.importe)}</div>` : ''}
         ${pgos.length>=c.cantCuotas ? `<div class="alert alert-ok" style="margin-bottom:0">✓ Convenio completado — todas las cuotas abonadas</div>` : ''}
         <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+          ${c.enviado==='SI' && c.firmado!=='SI' ? `<button class="btn btn-ghost btn-sm" onclick="registrarIntentoFirma('${c.id}')">📞 No contestó${c.ultimoIntento ? ' · '+isoADMY(c.ultimoIntento) : ''}</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="editarConvenioDesdeResultado('${c.id}')">✏ Editar convenio</button>
           <button class="btn btn-danger btn-sm" onclick="darDeBajaConvenio('${c.id}')">🗑 Dar de baja</button>
         </div>
