@@ -393,6 +393,7 @@
               <option value="">Todos</option>
               <option value="sin">Sin convenio</option>
               <option value="con">Con convenio</option>
+              <option value="firma">Firma pendiente</option>
             </select>
             <select class="filter-select" id="filter-contactados-comentario" onchange="renderTablaContactados()">
               <option value="">Con y sin comentario</option>
@@ -2990,7 +2991,10 @@ function renderTablaContactados() {
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
-    const oC = !fConv || (fConv==='sin' && !d.convs.length) || (fConv==='con' && d.convs.length);
+    const oC = !fConv
+      || (fConv==='sin' && !d.convs.length)
+      || (fConv==='con' && d.convs.length)
+      || (fConv==='firma' && d.convs.some(c => c.firmado !== 'SI'));
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
     return oQ && oC && oK;
   });
