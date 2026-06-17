@@ -2378,9 +2378,7 @@ async function darDeBajaConvenio(convId) {
 }
 
 
-  if (!_busquedaTitular) return;
-  openNuevoConvenio();
-  async function generarConvenioDesdeResultado() {
+async function generarConvenioDesdeResultado() {
   if (!_busquedaTitular) return;
   openNuevoConvenio();
   document.getElementById('cuit-lookup-section').style.display = 'none';
