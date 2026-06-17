@@ -2683,6 +2683,7 @@ async function ejecutarBusqueda() {
           <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('busqueda-recontactar-picker').showPicker()" title="Abrir calendario">📅</button>
           <input id="busqueda-recontactar-picker" type="date" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="document.getElementById('busqueda-recontactar').value=isoADMY(this.value)">
           <button class="btn btn-primary btn-sm" onclick="guardarRecontactar('${cuitClean}')">Guardar</button>
+          ${recontactarExistente ? `<button class="btn btn-ghost btn-sm" style="color:var(--ok);border-color:var(--ok)" onclick="borrarRecontactar('${cuitClean}')">✓ Recontactado</button>` : ''}
           ${recontactarExistente ? `<span style="font-size:11px;color:var(--accent2)">Guardado: ${recontactarExistente}</span>` : ''}
         </div>
       </div>
@@ -2719,6 +2720,24 @@ function cargarComentarioEstandar(n) {
     const fecha4 = fmt(new Date(hoy.getTime() + 4*86400000));
     ta.value = `Enviamos mensaje vía SMS con fecha ${fecha0}, ${fecha2} y ${fecha4}. Reiterados mensaje de voz en celular, no hay teléfonos de contacto alternativos, intimado por mail, no responde intimación por carta.`;
   }
+}
+
+async function borrarRecontactar(cuit) {
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!S${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['']] })
+      });
+    }
+    document.getElementById('busqueda-recontactar').value = '';
+    toast('Fecha de recontacto eliminada ✓');
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
 }
 
 async function guardarRecontactar(cuit) {
