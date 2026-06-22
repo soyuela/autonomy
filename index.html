@@ -2229,6 +2229,7 @@ async function registrarIntentoFirma(convId) {
 
 async function abrirWhatsAppFirma(telefono, nombre, cuit) {
   const nombreCorto = nombre.split(',')[0].trim();
+  const msg = `Estimado/a ${nombreCorto}, le recordamos que tiene pendiente la firma del reconocimiento de deuda con Autonomy. Estudio Oyuela & Asociados. Tel: (54 11) 5235-8800.`;
 
   await navigator.clipboard.writeText(msg);
 
