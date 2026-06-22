@@ -898,9 +898,14 @@ function calcStatus() {
       else if(d<=7) prox.push({conv:c,cq,dias:d});
     });
   });
-  prox.sort((a,b)=>a.dias-b.dias);
+
+  // Excluir de próximas los CUITs que ya tienen cuotas vencidas
+  const cuitsConVencidas = new Set(venc.map(v => String(v.conv.cuit).replace(/\D/g,'')));
+  const proxFiltradas = prox.filter(p => !cuitsConVencidas.has(String(p.conv.cuit).replace(/\D/g,'')));
+
+  proxFiltradas.sort((a,b)=>a.dias-b.dias);
   venc.sort((a,b)=>b.dias-a.dias);
-  return {prox,venc};
+  return { prox: proxFiltradas, venc };
 }
 
 // ─── DEPÓSITO: lógica central ─────────────────────────────────────────────────
