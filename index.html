@@ -263,10 +263,11 @@
       <div class="page-header">
         <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-fecha"></div></div>
         <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="syncFromDrive(true)">↻ Actualizar</button>
+          <button class="btn btn-ghost" onclick="syncFromDrive(true);syncOriginalDesdeSheets()">↻ Actualizar</button>
           <button class="btn btn-primary" onclick="openNuevoConvenio()">＋ Nuevo convenio</button>
         </div>
       </div>
+      <div id="panel-alertas-original" style="display:none"></div>
       <div class="stats-row">
         <div class="stat-card accent"><div class="stat-label">Convenios activos</div><div class="stat-value" id="stat-activos">—</div><div class="stat-sub">con cuotas pendientes</div></div>
         <div class="stat-card danger"><div class="stat-label">Vencidos sin pago</div><div class="stat-value" id="stat-vencidos">—</div><div class="stat-sub">cuotas sin registrar</div></div>
@@ -685,6 +686,8 @@ function onSignedIn() {
   setInterval(() => { if (currentUser) registrarSesion(currentUser); }, 5 * 60 * 1000);
   syncConveniosDesdeSheets();
   syncPagosDesdeSheets();
+  syncOriginalDesdeSheets();
+  setInterval(() => syncOriginalDesdeSheets(), 5 * 60 * 1000);
 }
 
 async function registrarSesion(u) {
@@ -1292,6 +1295,119 @@ function rowToConvenio(row) {
   };
 }
 
+async function syncOriginalDesdeSheets() {
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:O`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!r.ok) return;
+    const data = await r.json();
+    const rows = (data.values||[]).slice(1);
+
+    // Mapa CUIT → datos
+    const mapaOriginal = {};
+    rows.forEach(row => {
+      const cuit = String(row[0]||'').replace(/\D/g,'');
+      if (cuit.length >= 10) mapaOriginal[cuit] = {
+        nombre:     row[1]||'',
+        deudaAlq:   parsePeso(row[8]),
+        deudaInf:   parsePeso(row[9]),
+        deudaSin:   parsePeso(row[10]),
+        deposito:   parsePeso(row[12]),
+        diasMora:   row[14]||'',
+      };
+    });
+
+    DB._originalMap = mapaOriginal;
+
+    // Detectar convenios cuyo CUIT ya no está en ORIGINAL
+    const sinTitular = DB.convenios.filter(c => {
+      const cuit = String(c.cuit).replace(/\D/g,'');
+      return !mapaOriginal[cuit];
+    });
+
+    // Detectar convenios con deuda modificada
+    const deudaModificada = DB.convenios.filter(c => {
+      const cuit = String(c.cuit).replace(/\D/g,'');
+      const orig = mapaOriginal[cuit];
+      if (!orig) return false;
+      const deudaOrig = c.tipo==='Alquiler' ? orig.deudaAlq : c.tipo==='Infracciones' ? orig.deudaInf : orig.deudaSin;
+      const deudaConv = c.tipo==='Alquiler' ? c.deudaAlq   : c.tipo==='Infracciones' ? c.deudaInf   : c.deudaSin;
+      return Math.abs((deudaOrig||0) - (deudaConv||0)) > 1; // tolerancia $1 por redondeo
+    });
+
+    DB._sinTitular      = sinTitular.map(c => c.id);
+    DB._deudaModificada = deudaModificada.map(c => c.id);
+
+    // Mostrar alerta en dashboard si hay novedades
+    renderAlertas();
+    renderConvenios();
+
+  } catch(e) { console.warn('syncOriginalDesdeSheets error', e); }
+}
+
+function renderAlertas() {
+  const panel = document.getElementById('panel-alertas-original');
+  if (!panel) return;
+  const sinTit = (DB._sinTitular||[]).map(id => DB.convenios.find(c=>c.id===id)).filter(Boolean);
+  const deudaMod = (DB._deudaModificada||[]).map(id => DB.convenios.find(c=>c.id===id)).filter(Boolean);
+  if (!sinTit.length && !deudaMod.length) { panel.style.display='none'; return; }
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);border-radius:12px;padding:16px 20px;margin-bottom:20px">
+      <div style="font-family:var(--fh);font-weight:700;font-size:14px;color:var(--danger);margin-bottom:12px">⚠ Novedades en ORIGINAL</div>
+      ${sinTit.length ? `
+        <div style="font-size:12px;font-weight:600;color:var(--danger);margin-bottom:8px">Titulares que ya no figuran en ORIGINAL (${sinTit.length}):</div>
+        ${sinTit.map(c=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:8px 12px;margin-bottom:6px;gap:12px;flex-wrap:wrap">
+            <div>
+              <span style="font-weight:600;font-size:13px">${c.nombre}</span>
+              <span style="font-size:11px;color:var(--muted);font-family:var(--fm);margin-left:8px">${c.cuit} · ${c.tipo}</span>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="archivarConvenio('${c.id}')">Archivar</button>
+          </div>`).join('')}` : ''}
+      ${deudaMod.length ? `
+        <div style="font-size:12px;font-weight:600;color:var(--warning);margin-bottom:8px;margin-top:${sinTit.length?'12px':'0'}">Deudas modificadas en ORIGINAL (${deudaMod.length}):</div>
+        ${deudaMod.map(c=>{
+          const orig = (DB._originalMap||{})[String(c.cuit).replace(/\D/g,'')];
+          const deudaOrig = orig ? (c.tipo==='Alquiler'?orig.deudaAlq:c.tipo==='Infracciones'?orig.deudaInf:orig.deudaSin) : 0;
+          const deudaConv = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+          return `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid rgba(217,119,6,.2);border-radius:8px;padding:8px 12px;margin-bottom:6px;gap:12px;flex-wrap:wrap">
+            <div>
+              <span style="font-weight:600;font-size:13px">${c.nombre}</span>
+              <span style="font-size:11px;color:var(--muted);font-family:var(--fm);margin-left:8px">${c.cuit} · ${c.tipo}</span>
+              <div style="font-size:11px;margin-top:3px">Convenio: <strong>${fmtPeso(deudaConv)}</strong> → ORIGINAL: <strong style="color:var(--warning)">${fmtPeso(deudaOrig)}</strong></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="archivarConvenio('${c.id}')">Archivar</button>
+          </div>`}).join('')}` : ''}
+    </div>`;
+}
+
+async function archivarConvenio(convId) {
+  if (!confirm('¿Archivar este convenio? Desaparecerá de la lista activa pero quedará registrado en el Sheets.')) return;
+  const conv = DB.convenios.find(c => c.id === convId);
+  if (!conv) return;
+  // Marcar AJ = "SI" en CONVENIOS
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convId);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AJ${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values:[['SI']] })
+      });
+    }
+  } catch(e) { console.warn('archivarConvenio Sheets error', e); }
+  DB.convenios = DB.convenios.filter(c => c.id !== convId);
+  DB._sinTitular      = (DB._sinTitular||[]).filter(id => id !== convId);
+  DB._deudaModificada = (DB._deudaModificada||[]).filter(id => id !== convId);
+  scheduleSave(); renderConvenios(); renderDashboard(); renderAlertas();
+  toast('Convenio archivado ✓');
+}
+
 async function syncConveniosDesdeSheets() {
   try {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
@@ -1742,8 +1858,10 @@ function renderConvenios() {
     const pct = Math.round(pg.length/c.cantCuotas*100);
     const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
     const depAp = parseFloat(c.depositoAplicado)||0;
-    return `<tr>
-      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
+    const sinTit  = (DB._sinTitular||[]).includes(c.id);
+    const deudaMod = (DB._deudaModificada||[]).includes(c.id);
+    return `<tr${sinTit||deudaMod ? ' style="background:rgba(220,38,38,.04)"' : ''}>
+      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}${deudaMod?` <span title="Deuda modificada en ORIGINAL" style="color:var(--warning)">⚠</span>`:''}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
       <td class="mono">${c.cuit}</td>
       <td class="mono">${c.dominio||'—'}</td>
       <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
