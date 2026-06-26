@@ -1382,11 +1382,12 @@ async function archivarConvenio(convId) {
 
 async function syncConveniosDesdeSheets() {
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AJ`;
     const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
     if (!r.ok) return;
     const data = await r.json();
-    const rows = (data.values||[]).slice(1).filter(r => r[3] && String(r[3]).replace(/\D/g,'').length >= 10);
+    // Excluir filas con AJ (índice 35) = "SI" — dados de baja o archivados
+    const rows = (data.values||[]).slice(1).filter(r => r[3] && String(r[3]).replace(/\D/g,'').length >= 10 && String(r[35]||'').toUpperCase() !== 'SI');
     let changed = false;
     rows.forEach(row => {
       const conv = rowToConvenio(row);
@@ -3324,16 +3325,30 @@ async function guardarComentarioRapido(cuit, n) {
     const rows    = dRead.values || [];
     const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
     if (rowIdx >= 0) {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+      // Si es comentario 2, también marcar Baja = SI en col R
+      const range = n === 2 ? `COMENTARIOS!P${rowIdx+1}:R${rowIdx+1}` : `COMENTARIOS!P${rowIdx+1}`;
+      const values = n === 2 ? [[texto, '', 'SI']] : [[texto]];
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
         method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
-        body: JSON.stringify({ values: [[texto]] })
+        body: JSON.stringify({ values })
       });
     } else {
-      const valores = Array(16).fill(''); valores[0]=cuit; valores[15]=texto;
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows.length+1}:P${rows.length+1}?valueInputOption=USER_ENTERED`, {
+      const nextRow = rows.length + 1;
+      const valores = Array(n === 2 ? 18 : 16).fill('');
+      valores[0] = cuit; valores[15] = texto;
+      if (n === 2) valores[17] = 'SI';
+      const range = `COMENTARIOS!A${nextRow}:${n === 2 ? 'R' : 'P'}${nextRow}`;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
         method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
         body: JSON.stringify({ values: [valores] })
       });
+    }
+    // Actualizar _contactadosData localmente
+    if (n === 2) {
+      const idx2 = _contactadosData.findIndex(d => d.cuit === cuit);
+      if (idx2 >= 0) _contactadosData[idx2].baja = 'SI';
+      renderTablaContactados();
+      renderPanelRecontactar();
     }
     toast('Comentario guardado ✓');
   } catch(e) { toast('Error al guardar comentario: '+e.message, 'error'); }
