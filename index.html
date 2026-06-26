@@ -263,7 +263,7 @@
       <div class="page-header">
         <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-fecha"></div></div>
         <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="syncFromDrive(true);syncOriginalDesdeSheets()">↻ Actualizar</button>
+          <button class="btn btn-ghost" onclick="syncFromDrive(true).then(()=>syncOriginalDesdeSheets())">↻ Actualizar</button>
           <button class="btn btn-primary" onclick="openNuevoConvenio()">＋ Nuevo convenio</button>
         </div>
       </div>
@@ -684,9 +684,8 @@ function onSignedIn() {
   setInterval(() => syncFromDrive(true), 120000);
   // Actualizar "última actividad" cada 5 minutos
   setInterval(() => { if (currentUser) registrarSesion(currentUser); }, 5 * 60 * 1000);
-  syncConveniosDesdeSheets();
+  syncConveniosDesdeSheets().then(() => syncOriginalDesdeSheets());
   syncPagosDesdeSheets();
-  syncOriginalDesdeSheets();
   setInterval(() => syncOriginalDesdeSheets(), 5 * 60 * 1000);
 }
 
