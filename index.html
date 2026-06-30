@@ -307,7 +307,7 @@
             </select>
           </div>
         </div>
-        <table><thead><tr><th id="th-export-check" style="display:none"><input type="checkbox" id="check-all-conv" onclick="toggleCheckAll(this)"></th><th>Titular</th><th>CUIT</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
+        <table><thead><tr><th id="th-export-check" style="display:none"><input type="checkbox" id="check-all-conv" onclick="toggleCheckAll(this)"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
         <tbody id="tabla-convenios"></tbody></table>
       </div>
     </div>
@@ -581,6 +581,35 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-pago')">Cancelar</button>
       <button class="btn btn-primary" id="btn-guardar-pago" onclick="guardarPago()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COMENTARIO CONVENIO -->
+<div class="modal-overlay" id="modal-comentario-convenio">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">Agregar comentario</span>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-comentario-convenio')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="cc-titular" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+      <div class="field">
+        <label>Comentario</label>
+        <textarea id="cc-texto" rows="4" placeholder="Escribir comentario…"></textarea>
+      </div>
+      <div class="field">
+        <label>Recontactar el</label>
+        <div style="display:flex;gap:8px;align-items:center;position:relative">
+          <input id="cc-recontactar" type="text" placeholder="dd/mm/aaaa" maxlength="10" oninput="autoFormatFecha(this)" style="flex:1">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('cc-recontactar-picker').showPicker()" title="Abrir calendario">📅</button>
+          <input id="cc-recontactar-picker" type="date" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="document.getElementById('cc-recontactar').value=isoADMY(this.value)">
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-comentario-convenio')">Cancelar</button>
+        <button class="btn btn-primary" id="cc-btn-guardar" onclick="guardarComentarioConvenio()">💾 Guardar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1354,6 +1383,67 @@ function renderAlertas() {
     </div>`;
 }
 
+let _ccConvId = null;
+
+function abrirComentarioConvenio(convId) {
+  const c = DB.convenios.find(x => x.id === convId);
+  if (!c) return;
+  _ccConvId = convId;
+  document.getElementById('cc-titular').textContent = `${c.nombre} · ${c.cuit} · ${c.tipo}`;
+  document.getElementById('cc-texto').value = '';
+  document.getElementById('cc-recontactar').value = '';
+  openModal('modal-comentario-convenio');
+}
+
+async function guardarComentarioConvenio() {
+  const c = DB.convenios.find(x => x.id === _ccConvId);
+  if (!c) return;
+  const texto = document.getElementById('cc-texto').value.trim();
+  const recontactar = document.getElementById('cc-recontactar').value.trim();
+  if (!texto && !recontactar) { toast('Escribí un comentario o una fecha de recontacto', 'error'); return; }
+  const cuit = String(c.cuit).replace(/\D/g,'');
+  const btn = document.getElementById('cc-btn-guardar');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:S`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      const sheetRow = rowIdx + 1;
+      if (texto) {
+        const existente = rows[rowIdx][15] || '';
+        const nuevo = existente ? `${existente} | ${texto}` : texto;
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${sheetRow}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[nuevo]] })
+        });
+      }
+      if (recontactar) {
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!S${sheetRow}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[recontactar]] })
+        });
+      }
+    } else {
+      const valores = Array(19).fill(''); valores[0] = cuit;
+      if (texto) valores[15] = texto;
+      if (recontactar) valores[18] = recontactar;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows.length+1}:S${rows.length+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+    toast('Guardado ✓');
+    closeModal('modal-comentario-convenio');
+  } catch(e) {
+    toast('Error al guardar: ' + e.message, 'error');
+  }
+  btn.disabled = false; btn.textContent = '💾 Guardar';
+}
+
 async function archivarConvenio(convId) {
   if (!confirm('¿Archivar este convenio? Desaparecerá de la lista activa pero quedará registrado en el Sheets.')) return;
   const conv = DB.convenios.find(c => c.id === convId);
@@ -1372,6 +1462,29 @@ async function archivarConvenio(convId) {
       });
     }
   } catch(e) { console.warn('archivarConvenio Sheets error', e); }
+
+  // También marcar Baja por incobrable (col R) en COMENTARIOS
+  try {
+    const cuit = String(conv.cuit).replace(/\D/g,'');
+    const urlRead2 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead2   = await fetch(urlRead2, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead2   = await rRead2.json();
+    const rows2    = dRead2.values || [];
+    const rowIdx2  = rows2.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx2 >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!R${rowIdx2+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['SI']] })
+      });
+    } else {
+      const valores = Array(18).fill(''); valores[0]=cuit; valores[17]='SI';
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows2.length+1}:R${rows2.length+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+  } catch(e) { console.warn('archivarConvenio COMENTARIOS error', e); }
+
   DB.convenios = DB.convenios.filter(c => c.id !== convId);
   DB._sinTitular      = (DB._sinTitular||[]).filter(id => id !== convId);
   DB._deudaModificada = (DB._deudaModificada||[]).filter(id => id !== convId);
@@ -1824,16 +1937,18 @@ function renderConvenios() {
     return oQ&&oT&&oE;
   });
   const tbody = document.getElementById('tabla-convenios');
-  if (!lista.length) { tbody.innerHTML=`<tr><td colspan="11"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
-  tbody.innerHTML = lista.map(c=>{
+  if (!lista.length) { tbody.innerHTML=`<tr><td colspan="13"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
+  tbody.innerHTML = lista.map((c,i)=>{
     const pg  = pagosDeConv(c.id,c.tipo);
     const pct = Math.round(pg.length/c.cantCuotas*100);
     const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
     const depAp = parseFloat(c.depositoAplicado)||0;
     const sinTit  = (DB._sinTitular||[]).includes(c.id);
     return `<tr${sinTit ? ' style="background:rgba(220,38,38,.04)"' : ''}>
+      <td style="text-align:center;font-family:var(--fm);font-size:12px;color:var(--muted)">${i+1}</td>
       <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
       <td class="mono">${c.cuit}</td>
+      <td style="font-size:13px;white-space:nowrap"><strong>${c.telefono||'—'}</strong></td>
       <td class="mono">${c.dominio||'—'}</td>
       <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
       <td class="importe">${fmtPeso(deuda)}${depAp>0?`<div style="font-size:10px;color:var(--accent2)">dep: ${fmtPeso(depAp)}</div>`:''}</td>
@@ -1846,6 +1961,8 @@ function renderConvenios() {
       <td><div class="actions">
         <button class="btn btn-ghost btn-sm" onclick="verDetalle('${c.id}')">Ver</button>
         <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirComentarioConvenio('${c.id}')">💬</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="archivarConvenio('${c.id}')">Baja</button>
         <button class="btn btn-danger btn-sm" onclick="borrarConvenio('${c.id}')">🗑</button>
       </div></td>
     </tr>`;
