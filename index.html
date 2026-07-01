@@ -1347,6 +1347,17 @@ async function syncOriginalDesdeSheets() {
 
     DB._originalMap = mapaOriginal;
 
+    // Leer también ULTIMO LLAMADO (col U de COMENTARIOS) para indicadores en Convenios
+    try {
+      const rCom = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:U`, { headers: { Authorization: 'Bearer ' + accessToken } });
+      const dCom = await rCom.json();
+      const llamadoMap = {};
+      (dCom.values||[]).slice(1).forEach(r => {
+        const c = String(r[0]||'').replace(/\D/g,'');
+        if (c) llamadoMap[c] = r[20]||'';
+      });
+      DB._ultimoLlamadoMap = llamadoMap;
+    } catch(e) {}
     // Detectar convenios cuyo CUIT ya no está en ORIGINAL
     const sinTitular = DB.convenios.filter(c => {
       const cuit = String(c.cuit).replace(/\D/g,'');
@@ -1944,9 +1955,20 @@ function renderConvenios() {
     const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
     const depAp = parseFloat(c.depositoAplicado)||0;
     const sinTit  = (DB._sinTitular||[]).includes(c.id);
-    return `<tr${sinTit ? ' style="background:rgba(220,38,38,.04)"' : ''}>
+    const cuitClean = String(c.cuit).replace(/\D/g,'');
+    const llamadoRaw = (DB._ultimoLlamadoMap||{})[cuitClean]||'';
+    const toISO3 = s => { if(!s) return ''; const p=s.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; };
+    const llamadoIso = toISO3(llamadoRaw);
+    const diasLlamado = llamadoIso ? diffDays(llamadoIso, today()) : 999;
+    const llamadoBg = diasLlamado === 0 ? 'rgba(5,150,105,.08)' : diasLlamado <= 3 ? 'rgba(217,119,6,.06)' : sinTit ? 'rgba(220,38,38,.04)' : '';
+    const llamadoBadge = diasLlamado === 0
+      ? `<span style="font-size:10px;background:var(--ok);color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px">Hoy</span>`
+      : diasLlamado <= 3
+        ? `<span style="font-size:10px;background:var(--warning);color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px">Hace ${diasLlamado}d</span>`
+        : '';
+    return `<tr style="${llamadoBg ? `background:${llamadoBg}` : ''}">
       <td style="text-align:center;font-family:var(--fm);font-size:12px;color:var(--muted)">${i+1}</td>
-      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
+      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}${llamadoBadge}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
       <td class="mono">${c.cuit}</td>
       <td style="font-size:13px;white-space:nowrap"><strong>${c.telefono||'—'}</strong></td>
       <td class="mono">${c.dominio||'—'}</td>
@@ -1962,6 +1984,7 @@ function renderConvenios() {
         <button class="btn btn-ghost btn-sm" onclick="verDetalle('${c.id}')">Ver</button>
         <button class="btn btn-ghost btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
         <button class="btn btn-ghost btn-sm" onclick="abrirComentarioConvenio('${c.id}')">💬</button>
+        <button class="btn btn-ghost btn-sm" title="Registrar llamado" onclick="registrarLlamado('${cuitClean}', this)">📞</button>
         <button class="btn btn-ghost btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="archivarConvenio('${c.id}')">Baja</button>
         <button class="btn btn-danger btn-sm" onclick="borrarConvenio('${c.id}')">🗑</button>
       </div></td>
@@ -3198,16 +3221,23 @@ async function cargarContactados() {
     });
 
     // 3. Leer COMENTARIOS para acción (col P = índice 15) y días mora (col O = índice 14)
-    const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:S`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:U`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d3 = await r3.json();
     const comentRows = (d3.values||[]).slice(1);
     const comentMap = {};
     const moraMap   = {};
     const recontactarMap = {};
     const bajaMap   = {};
+    const ultimoLlamadoMap = {};
     comentRows.forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) { comentMap[c] = r[15]||''; moraMap[c] = r[14]||''; recontactarMap[c] = r[18]||''; bajaMap[c] = r[17]||''; }
+      if (c) {
+        comentMap[c]         = r[15]||'';
+        moraMap[c]           = r[14]||'';
+        recontactarMap[c]    = r[18]||'';
+        bajaMap[c]           = r[17]||'';
+        ultimoLlamadoMap[c]  = r[20]||'';
+      }
     });
 
     // 4. Cruzar todo
@@ -3224,8 +3254,9 @@ async function cargarContactados() {
       const diasMora     = moraMap[cuit]||'';
       const recontactar  = recontactarMap[cuit]||'';
       const baja         = bajaMap[cuit]||'';
+      const ultimoLlamado = ultimoLlamadoMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, baja, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, baja, ultimoLlamado, convs };
     });
 
     renderTablaContactados();
@@ -3235,6 +3266,35 @@ async function cargarContactados() {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${e.message}</p></div></td></tr>`;
   }
 }
+
+async function registrarLlamado(cuit, btn) {
+  const fechaHoy = isoADMY(today());
+  // Actualizar en _contactadosData
+  const idx = _contactadosData.findIndex(d => d.cuit === cuit);
+  if (idx >= 0) _contactadosData[idx].ultimoLlamado = fechaHoy;
+  if (btn) { btn.textContent = '✓'; btn.style.color = 'var(--ok)'; }
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!U${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
+    } else {
+      const valores = Array(21).fill(''); valores[0]=cuit; valores[20]=fechaHoy;
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${rows.length+1}:U${rows.length+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [valores] })
+      });
+    }
+    toast('Llamado registrado ✓');
+  } catch(e) { toast('Error al registrar: '+e.message,'error'); }
+}
+
 
 function renderPanelRecontactar() {
   const hoy = today(); // yyyy-mm-dd
@@ -3339,10 +3399,20 @@ function renderTablaContactados() {
     const comentarioHtml = d.comentario
       ? `<span id="coment-${d.cuit}" style="font-size:11px;color:var(--ok)">${d.comentario}</span>`
       : `<span id="coment-${d.cuit}" style="font-size:11px;color:var(--muted);opacity:.5"><em>Sin comentario</em></span>`;
-    return `<tr>
+    const hoy = today();
+    const toISO2 = s => { if (!s) return ''; const p=s.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; };
+    const llamadoIso = toISO2(d.ultimoLlamado||'');
+    const diasDesde  = llamadoIso ? diffDays(llamadoIso, hoy) : 999;
+    const llamadoColor = diasDesde === 0 ? 'rgba(5,150,105,.12)' : diasDesde <= 3 ? 'rgba(217,119,6,.08)' : '';
+    const llamadoBadge = diasDesde === 0
+      ? `<span style="font-size:10px;background:var(--ok);color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px">Hoy</span>`
+      : diasDesde <= 3
+        ? `<span style="font-size:10px;background:var(--warning);color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px">Hace ${diasDesde}d</span>`
+        : '';
+    return `<tr style="${llamadoColor ? `background:${llamadoColor}` : ''}">
       <td style="text-align:center;font-family:var(--fm);font-size:12px;color:var(--muted);width:40px">${i+1}</td>
       <td>
-        <div style="font-weight:500">${d.nombre}</div>
+        <div style="font-weight:500">${d.nombre}${llamadoBadge}</div>
         <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
       </td>
       <td style="font-size:13px;white-space:nowrap"><strong>${d.telefono||'—'}</strong></td>
@@ -3358,6 +3428,7 @@ function renderTablaContactados() {
         <div class="actions">
           <button class="btn btn-ghost btn-sm" title="Contacto 3 veces" onclick="guardarComentarioRapido('${d.cuit}', 1)">📋1</button>
           <button class="btn btn-ghost btn-sm" title="No hay datos telefónicos" onclick="guardarComentarioRapido('${d.cuit}', 2)">📋2</button>
+          <button class="btn btn-ghost btn-sm" title="Registrar llamado" onclick="registrarLlamado('${d.cuit}', this)">📞</button>
           <button class="btn btn-ghost btn-sm" onclick="buscarDesdeContactados('${d.cuit}')">🔍 Ver</button>
         </div>
       </td>
