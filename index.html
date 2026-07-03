@@ -1499,7 +1499,7 @@ async function archivarConvenio(convId) {
   DB.convenios = DB.convenios.filter(c => c.id !== convId);
   DB._sinTitular      = (DB._sinTitular||[]).filter(id => id !== convId);
   DB._deudaModificada = (DB._deudaModificada||[]).filter(id => id !== convId);
-  scheduleSave(); renderConvenios(); renderDashboard(); renderAlertas();
+  drivePut(DB).catch(e=>console.warn('Drive error:',e)); renderConvenios(); renderDashboard(); renderAlertas();
   toast('Convenio archivado ✓');
 }
 
@@ -1520,7 +1520,7 @@ async function syncConveniosDesdeSheets() {
       if (idx >= 0) { DB.convenios[idx] = { ...conv, id: DB.convenios[idx].id }; changed = true; }
       else { DB.convenios.push(conv); changed = true; }
     });
-    if (changed) { scheduleSave(); renderConvenios(); renderDashboard(); renderVencimientos(); toast('Convenios sincronizados desde Sheets ✓','info'); }
+    if (changed) { drivePut(DB).catch(e=>console.warn('Drive error:',e)); renderConvenios(); renderDashboard(); renderVencimientos(); toast('Convenios sincronizados desde Sheets ✓','info'); }
   } catch(e) { console.warn('syncConveniosDesdeSheets error', e); }
 }
 
@@ -1649,7 +1649,7 @@ async function syncPagosDesdeSheets() {
         changed = true;
       }
     });
-    if (changed) { scheduleSave(); renderPagos(); renderDashboard(); toast('Pagos sincronizados desde Sheets ✓','info'); }
+    if (changed) { drivePut(DB).catch(e=>console.warn('Drive error:',e)); renderPagos(); renderDashboard(); toast('Pagos sincronizados desde Sheets ✓','info'); }
   } catch(e) { console.warn('syncPagosDesdeSheets error', e); }
 }
 
@@ -1789,23 +1789,32 @@ async function guardarConvenio() {
   const btn = document.getElementById('btn-guardar-conv');
   btn.disabled=true; btn.textContent='Guardando…';
 
+  let driveOk = false, sheetsOk = false;
+
   if (editId) {
     const i = DB.convenios.findIndex(c=>c.id===editId);
     if (i>=0) DB.convenios[i] = conv;
-    toast('Convenio actualizado ✓');
-    updateConvenioEnSheets(conv);
+    try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive error:', e); }
+    try { await updateConvenioEnSheets(conv); sheetsOk = true; } catch(e) { console.warn('Sheets error:', e); }
   } else {
     DB.convenios.push(conv);
-    toast('Convenio guardado ✓');
-    writeConvenioToSheets(conv);
-    // Agregar nota automática en COMENTARIOS col P
-    agregarNotaConvenioEnComentarios(conv);
+    try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive error:', e); }
+    try { await writeConvenioToSheets(conv); sheetsOk = true; } catch(e) { console.warn('Sheets error:', e); }
+    if (sheetsOk) agregarNotaConvenioEnComentarios(conv);
   }
 
-  scheduleSave();
-  closeModal('modal-convenio');
   btn.disabled=false; btn.textContent='Guardar convenio';
+
+  if (!driveOk && !sheetsOk) {
+    DB.convenios = DB.convenios.filter(c => c.id !== conv.id);
+    toast('Error al guardar — token expirado, volvé a iniciar sesión', 'error');
+    return;
+  }
+
+  closeModal('modal-convenio');
   renderConvenios(); renderDashboard();
+  if (!sheetsOk) toast('Convenio guardado en la app pero no en el Excel — verificá la conexión', 'error');
+  else toast(editId ? 'Convenio actualizado ✓' : 'Convenio guardado ✓');
 }
 
 async function agregarNotaConvenioEnComentarios(conv) {
@@ -1881,10 +1890,23 @@ function editarConvenio(id) {
 
 async function toggleEstado(id, campo) {
   const c = DB.convenios.find(x=>x.id===id); if (!c) return;
+  const valorAnterior = c[campo];
   c[campo] = c[campo]==='SI' ? '' : 'SI';
-  scheduleSave(); updateEstadoEnSheets(c);
+
+  let driveOk = false, sheetsOk = false;
+  try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive error:', e); }
+  try { await updateEstadoEnSheets(c); sheetsOk = true; } catch(e) { console.warn('Sheets error:', e); }
+
+  if (!driveOk && !sheetsOk) {
+    // Revertir
+    c[campo] = valorAnterior;
+    toast('Error al guardar — token expirado, volvé a iniciar sesión', 'error');
+    return;
+  }
+
   renderConvenios(); renderDashboard(); renderVencimientos();
-  toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
+  if (!sheetsOk) toast('Guardado en la app pero no en el Excel — verificá la conexión', 'error');
+  else toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
 }
 
 async function borrarConvenio(id) {
@@ -1892,7 +1914,8 @@ async function borrarConvenio(id) {
   const conv = DB.convenios.find(c=>c.id===id);
   DB.convenios = DB.convenios.filter(c=>c.id!==id);
   DB.pagos     = DB.pagos.filter(p=>p.convenioId!==id);
-  scheduleSave(); renderConvenios(); renderDashboard(); toast('Convenio eliminado');
+  try { await drivePut(DB); } catch(e) { console.warn('Drive error:', e); }
+  renderConvenios(); renderDashboard(); toast('Convenio eliminado');
   if (conv) await deleteConvenioEnSheets(conv);
 }
 
@@ -2092,19 +2115,36 @@ async function guardarPago() {
   const fecha  = document.getElementById('p-fecha').value;
   if (!convId||monto==null||isNaN(monto)||!fecha) { toast('Completá los campos obligatorios','error'); return; }
   const conv = DB.convenios.find(c=>c.id===convId);
-  DB.pagos.push({
+  const pago = {
     id:uid(), convenioId:convId, cuit:conv?.cuit, nombre:conv?.nombre,
     tipo: document.getElementById('p-tipo').value,
     cuotaNum: parseInt(document.getElementById('p-cuota-num').value)||null,
     monto, fecha, obs: document.getElementById('p-obs').value.trim(),
     registradoPor: currentUser?.name||currentUser?.email||'—'
-  });
+  };
+  DB.pagos.push(pago);
   const btn=document.getElementById('btn-guardar-pago');
   btn.disabled=true; btn.textContent='Guardando…';
-  scheduleSave(); writePagoToSheets({...DB.pagos[DB.pagos.length-1], modalidad:conv?.modalidad||''});
-  toast('Pago registrado ✓'); closeModal('modal-pago');
+
+  let driveOk = false, sheetsOk = false;
+  try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive save error:', e); }
+  try { await writePagoToSheets({...pago, modalidad:conv?.modalidad||''}); sheetsOk = true; } catch(e) { console.warn('Sheets pago error:', e); }
+
   btn.disabled=false; btn.textContent='Registrar';
-  renderPagos(); renderDashboard();
+
+  if (sheetsOk) {
+    toast('Pago registrado ✓');
+    closeModal('modal-pago');
+    renderPagos(); renderDashboard();
+  } else if (driveOk) {
+    toast('Pago guardado en la app pero no en el Excel — verificá la conexión', 'error');
+    closeModal('modal-pago');
+    renderPagos(); renderDashboard();
+  } else {
+    // Ni Drive ni Sheets — revertir
+    DB.pagos = DB.pagos.filter(p => p.id !== pago.id);
+    toast('Error al guardar — token expirado, volvé a iniciar sesión', 'error');
+  }
 }
 
 function renderPagos() {
@@ -2203,8 +2243,8 @@ async function borrarPago(id) {
   if (!confirm('¿Eliminar este pago?')) return;
   const pago = DB.pagos.find(p => p.id === id);
   DB.pagos = DB.pagos.filter(p => p.id !== id);
-  scheduleSave(); renderPagos(); renderDashboard(); toast('Pago eliminado');
-  // Eliminar de la hoja PAGOS del Sheets
+  try { await drivePut(DB); } catch(e) { console.warn('Drive error:', e); }
+  renderPagos(); renderDashboard(); toast('Pago eliminado');
   if (pago) await deletePagoEnSheets(pago);
 }
 
@@ -2438,7 +2478,7 @@ async function registrarIntentoFirma(convId) {
   if (!conv) return;
   const hoyIso = today();
   conv.ultimoIntento = hoyIso;
-  scheduleSave();
+  drivePut(DB).catch(e=>console.warn('Drive error:',e));
 
   // Escribir en col AK de CONVENIOS
   try {
@@ -2656,7 +2696,7 @@ async function darDeBajaConvenio(convId) {
 
   // Eliminar de DB local
   DB.convenios = DB.convenios.filter(c => c.id !== convId);
-  scheduleSave();
+  drivePut(DB).catch(e=>console.warn('Drive error:',e));
   renderConvenios();
   renderDashboard();
   toast('Convenio dado de baja ✓');
