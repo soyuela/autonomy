@@ -720,6 +720,7 @@ function onSignedIn() {
       document.getElementById('user-name').textContent = u.name || u.email;
       document.getElementById('user-avatar').textContent = ini || '?';
       sessionStorage.setItem('autonomy_hint', u.email || '');
+      localStorage.setItem('autonomy_user_name', u.name || u.email || '');
       currentUser = u;
       // Registrar sesión en Sheets
       registrarSesion(u);
@@ -1849,7 +1850,7 @@ let _logHeaderOk = false;
 async function registrarLog(accion, titular, cuit, detalle) {
   try {
     const ahora = new Date().toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    const usuario = currentUser?.name || currentUser?.email || '—';
+    const usuario = currentUser?.name || currentUser?.email || localStorage.getItem('autonomy_user_name') || '—';
     // Escribir encabezado la primera vez
     if (!_logHeaderOk) {
       const rH = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG!A1:F1`, { headers: { Authorization: 'Bearer ' + accessToken } });
