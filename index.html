@@ -404,8 +404,8 @@
             </select>
             <select class="filter-select" id="filter-contactados-semana" onchange="renderTablaContactados()">
               <option value="">Todos</option>
-              <option value="semana">Contactados esta semana</option>
-              <option value="no-semana">No contactados esta semana</option>
+              <option value="semana">SMS últimos 7 días</option>
+              <option value="no-semana">Sin SMS en últimos 7 días</option>
             </select>
           </div>
           <span id="contactados-count" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
@@ -3762,14 +3762,8 @@ function renderTablaContactados() {
 
   const fSemana = document.getElementById('filter-contactados-semana')?.value || '';
 
-  // Calcular inicio de semana (lunes)
-  const ahora = new Date();
-  const diaSemana = ahora.getDay() || 7; // 1=lun, 7=dom
-  const inicioSemana = new Date(ahora);
-  inicioSemana.setDate(ahora.getDate() - diaSemana + 1);
-  const inicioSemanaIso = inicioSemana.toISOString().split('T')[0];
-
-  const toISO4 = s => { if (!s) return ''; const p=s.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; };
+  // Últimos 7 días
+  const hace7dias = addDays(today(), -7);
 
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
@@ -3781,8 +3775,8 @@ function renderTablaContactados() {
       || (fConv==='firma' && d.convs.some(c => c.firmado !== 'SI'));
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
     const oS = !fSemana
-      || (fSemana==='semana' && d.ultimoSMS >= inicioSemanaIso)
-      || (fSemana==='no-semana' && (!d.ultimoSMS || d.ultimoSMS < inicioSemanaIso));
+      || (fSemana==='semana' && d.ultimoSMS >= hace7dias)
+      || (fSemana==='no-semana' && (!d.ultimoSMS || d.ultimoSMS < hace7dias));
     return oQ && oC && oK && oS;
   });
 
