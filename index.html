@@ -3574,7 +3574,25 @@ async function cargarContactados() {
       }
     });
 
-    // 4. Cruzar todo
+    // 4b. Leer fechas SMS de BASE (cols AA=26, AB=27, AC=28)
+    const rBase = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dBase = await rBase.json();
+    const smsMap = {};
+    (dBase.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) {
+        const fechas = [r[26]||'', r[27]||'', r[28]||''].filter(Boolean);
+        // Tomar la más reciente
+        if (fechas.length) {
+          // Convertir dd/mm/aaaa a yyyy-mm-dd para comparar
+          const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
+          isos.sort();
+          smsMap[c] = isos[isos.length-1]; // más reciente en ISO
+        }
+      }
+    });
+
+    // 5. Cruzar todo
     _contactadosData = contactRows.map(row => {
       const cuit     = String(row[0]||'').replace(/\D/g,'');
       const fecha    = row[1]||'';
@@ -3593,8 +3611,9 @@ async function cargarContactados() {
       const recontactar  = recontactarMap[cuit]||'';
       const baja         = bajaMap[cuit]||'';
       const ultimoLlamado = ultimoLlamadoMap[cuit]||'';
+      const ultimoSMS     = smsMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, diasMoraReal, recontactar, baja, ultimoLlamado, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, diasMoraReal, recontactar, baja, ultimoLlamado, ultimoSMS, convs };
     });
 
     renderTablaContactados();
@@ -3712,10 +3731,9 @@ function renderTablaContactados() {
       || (fConv==='con' && d.convs.length)
       || (fConv==='firma' && d.convs.some(c => c.firmado !== 'SI'));
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
-    const llamadoIso = toISO4(d.ultimoLlamado||'');
     const oS = !fSemana
-      || (fSemana==='semana' && llamadoIso >= inicioSemanaIso)
-      || (fSemana==='no-semana' && (!llamadoIso || llamadoIso < inicioSemanaIso));
+      || (fSemana==='semana' && d.ultimoSMS >= inicioSemanaIso)
+      || (fSemana==='no-semana' && (!d.ultimoSMS || d.ultimoSMS < inicioSemanaIso));
     return oQ && oC && oK && oS;
   });
 
