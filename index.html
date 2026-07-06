@@ -3582,12 +3582,22 @@ async function cargarContactados() {
       const c = String(r[0]||'').replace(/\D/g,'');
       if (c) {
         const fechas = [r[26]||'', r[27]||'', r[28]||''].filter(Boolean);
-        // Tomar la más reciente
-        if (fechas.length) {
-          // Convertir dd/mm/aaaa a yyyy-mm-dd para comparar
-          const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
-          isos.sort();
-          smsMap[c] = isos[isos.length-1]; // más reciente en ISO
+        const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
+        if (isos.length) { isos.sort(); smsMap[c] = isos[isos.length-1]; }
+      }
+    });
+
+    // Leer 1er CONTACTO para sus fechas también (ya las tenemos en contactRows)
+    const primerContactoMap = {};
+    contactRows.forEach(row => {
+      const c = String(row[0]||'').replace(/\D/g,'');
+      const f = row[1]||'';
+      if (c && f) {
+        const p = f.split('/');
+        if (p.length === 3) {
+          let anio = p[2].trim();
+          if (anio.length <= 2) anio = '20' + anio.padStart(2,'0');
+          primerContactoMap[c] = `${anio}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
         }
       }
     });
@@ -3611,7 +3621,10 @@ async function cargarContactados() {
       const recontactar  = recontactarMap[cuit]||'';
       const baja         = bajaMap[cuit]||'';
       const ultimoLlamado = ultimoLlamadoMap[cuit]||'';
-      const ultimoSMS     = smsMap[cuit]||'';
+      // Último SMS: el más reciente entre 1er contacto, AA, AB, AC
+      const fechasSMS = [primerContactoMap[cuit]||'', smsMap[cuit]||''].filter(Boolean);
+      fechasSMS.sort();
+      const ultimoSMS = fechasSMS.length ? fechasSMS[fechasSMS.length-1] : '';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
       return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, diasMoraReal, recontactar, baja, ultimoLlamado, ultimoSMS, convs };
     });
