@@ -2785,7 +2785,7 @@ async function cargarSMS() {
   document.getElementById('sms-acciones').style.display = 'none';
 
   try {
-    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AA`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d = await r.json();
     const rows = (d.values||[]).slice(1);
     const hoy = today();
@@ -2805,30 +2805,44 @@ async function cargarSMS() {
       const deudaNeta = parsePeso(row[13]);
       if (deudaNeta <= 0) return;
       if (bajaMapSMS[cuit] === 'SI') return;
+
+      // Mora desde fecha fin
       const fechaFinObj = parseFechaFin(row[7]||'');
+      let diasMoraSMS = null;
       if (fechaFinObj && !isNaN(fechaFinObj)) {
-        const dias = diffDays(fechaFinObj.toISOString().split('T')[0], hoy);
-        if (dias > 100) return;
+        diasMoraSMS = diffDays(fechaFinObj.toISOString().split('T')[0], hoy);
+        if (diasMoraSMS > 100) return;
       }
+
       const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === cuit);
       if (tieneConvenio) return;
-      const segundoContacto = String(row[26]||'').trim();
-      if (segundoContacto) return;
+
+      // Contactos: AA=índice 26, AB=27, AC=28
+      const c1 = String(row[26]||'').trim();
+      const c2 = String(row[27]||'').trim();
+      const c3 = String(row[28]||'').trim();
+      if (c1 && c2 && c3) return; // ya recibió 3 contactos
+
       const telefono = String(row[4]||'').replace(/\D/g,'');
       const nombre   = row[1]||'';
       const deudaFmt = deudaNeta.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
       const texto    = `${telefono}/${nombre}/${deudaFmt}`;
-      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2 });
+      const proximaCol = !c1 ? 'AA' : !c2 ? 'AB' : 'AC';
+      const nroContacto = !c1 ? 1 : !c2 ? 2 : 3;
+
+      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2, diasMoraSMS, c1, c2, c3, proximaCol, nroContacto, nombre, deudaNeta });
     });
+
+    // Ordenar por días de mora descendente
+    _smsDatos.sort((a, b) => (b.diasMoraSMS||0) - (a.diasMoraSMS||0));
 
     const sobreLimite = _smsDatos.filter(x => x.largo > 49).length;
     document.getElementById('sms-stats').innerHTML = `
-      <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px">
-          <span style="color:var(--muted)">Total a enviar:</span> <strong>${_smsDatos.length}</strong>
+          <span style="color:var(--muted)">Total pendientes:</span> <strong>${_smsDatos.length}</strong>
         </div>
-        ${sobreLimite
-          ? `<div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--danger)">⚠ <strong>${sobreLimite}</strong> supera los 49 caracteres</div>`
+        ${sobreLimite ? `<div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--danger)">⚠ <strong>${sobreLimite}</strong> supera los 49 caracteres</div>`
           : '<div style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--ok)">✓ Todos dentro del límite</div>'}
       </div>`;
 
@@ -2837,42 +2851,145 @@ async function cargarSMS() {
       return;
     }
 
-    const textos = _smsDatos.map(x => x.texto).join('\n');
     document.getElementById('sms-lista').innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:13px;color:var(--muted)">Copiá el bloque y pegalo en la página de SMS masivos:</div>
-        <button class="btn btn-primary" onclick="copiarSMSCompleto()">📋 Copiar todo (${_smsDatos.length})</button>
+      <div class="table-wrap">
+        <div class="table-toolbar" style="flex-wrap:wrap;gap:10px">
+          <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="sms-check-all" onchange="toggleSMSAll(this)"> Seleccionar todos
+          </label>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <span style="color:var(--muted)">Desde fila</span>
+            <input type="number" id="sms-desde" min="1" max="${_smsDatos.length}" placeholder="1" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <span style="color:var(--muted)">hasta</span>
+            <input type="number" id="sms-hasta" min="1" max="${_smsDatos.length}" placeholder="${_smsDatos.length}" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <button class="btn btn-ghost btn-sm" onclick="seleccionarRangoSMS()">Aplicar</button>
+          </div>
+          <span id="sms-seleccionados" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
+        </div>
+        <table>
+          <thead><tr>
+            <th style="width:32px">#</th>
+            <th style="width:32px"></th>
+            <th>Titular</th>
+            <th>Teléfono</th>
+            <th>Días mora</th>
+            <th>Deuda neta</th>
+            <th>Texto SMS</th>
+            <th>Car.</th>
+            <th>Envíos</th>
+          </tr></thead>
+          <tbody>
+            ${_smsDatos.map((x, i) => `
+              <tr id="sms-row-${i}">
+                <td style="text-align:center;font-size:11px;color:var(--muted)">${i+1}</td>
+                <td><input type="checkbox" class="sms-check" data-idx="${i}" onchange="actualizarSeleccionSMS()"></td>
+                <td style="font-size:12px;font-weight:500">${x.nombre}</td>
+                <td class="mono" style="font-size:11px">${x.texto.split('/')[0]}</td>
+                <td class="mono" style="text-align:center;font-weight:600;color:${(x.diasMoraSMS||0)>60?'var(--danger)':(x.diasMoraSMS||0)>30?'var(--warning)':'var(--muted)'}">${x.diasMoraSMS!=null?x.diasMoraSMS+'d':'—'}</td>
+                <td class="importe">${fmtPeso(x.deudaNeta)}</td>
+                <td style="max-width:220px">
+                  ${x.largo > 49
+                    ? `<input type="text" class="sms-edit" data-idx="${i}" value="${x.texto}" oninput="editarSMS(this,${i})" style="width:100%;font-family:var(--fm);font-size:11px;padding:3px 6px;border:1px solid var(--danger);border-radius:4px;background:rgba(220,38,38,.04)">`
+                    : `<span style="font-family:var(--fm);font-size:11px">${x.texto}</span>`}
+                </td>
+                <td class="mono" style="text-align:center;${x.largo>49?'color:var(--danger);font-weight:700':''}" id="sms-car-${i}">${x.largo}</td>
+                <td style="font-size:11px;text-align:center">
+                  <span style="color:${x.c1?'var(--ok)':'var(--muted)'}">●</span>
+                  <span style="color:${x.c2?'var(--ok)':'var(--muted)'}">●</span>
+                  <span style="color:${x.c3?'var(--ok)':'var(--muted)'}">●</span>
+                  <div style="font-size:10px;color:var(--muted)">#${x.nroContacto}</div>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
       </div>
-      <textarea id="sms-texto" readonly style="width:100%;height:300px;font-family:var(--fm);font-size:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);resize:vertical">${textos}</textarea>`;
+      <div style="margin-top:12px;display:none" id="sms-bloque-area">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;color:var(--muted)">Texto para pegar en la página de SMS masivos:</div>
+          <button class="btn btn-primary" onclick="copiarSMSCompleto()">📋 Copiar seleccionados</button>
+        </div>
+        <textarea id="sms-texto" readonly style="width:100%;height:200px;font-family:var(--fm);font-size:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);resize:vertical"></textarea>
+      </div>`;
 
-    document.getElementById('sms-acciones').style.display = 'block';
+    document.getElementById('sms-acciones').style.display = 'none';
 
   } catch(e) {
     document.getElementById('sms-stats').innerHTML = `<div style="color:var(--danger)">Error al cargar: ${e.message}</div>`;
   }
 }
 
+function seleccionarRangoSMS() {
+  const desde = parseInt(document.getElementById('sms-desde').value) || 1;
+  const hasta = parseInt(document.getElementById('sms-hasta').value) || _smsDatos.length;
+  document.querySelectorAll('.sms-check').forEach(c => {
+    const idx = parseInt(c.dataset.idx) + 1; // 1-based
+    c.checked = idx >= desde && idx <= hasta;
+  });
+  actualizarSeleccionSMS();
+}
+
+function editarSMS(input, idx) {
+  const texto = input.value;
+  _smsDatos[idx].texto = texto;
+  _smsDatos[idx].largo = texto.length;
+  const carEl = document.getElementById(`sms-car-${idx}`);
+  if (carEl) {
+    carEl.textContent = texto.length;
+    carEl.style.color = texto.length > 49 ? 'var(--danger)' : 'var(--ok)';
+    carEl.style.fontWeight = texto.length > 49 ? '700' : 'normal';
+    input.style.borderColor = texto.length > 49 ? 'var(--danger)' : 'var(--ok)';
+  }
+  actualizarSeleccionSMS();
+}
+
+function toggleSMSAll(cb) {
+  document.querySelectorAll('.sms-check').forEach(c => c.checked = cb.checked);
+  actualizarSeleccionSMS();
+}
+
+function actualizarSeleccionSMS() {
+  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+  document.getElementById('sms-seleccionados').textContent = seleccionados.length ? `${seleccionados.length} seleccionados` : '';
+  const area = document.getElementById('sms-bloque-area');
+  const btn  = document.getElementById('sms-acciones');
+  if (seleccionados.length) {
+    const textos = seleccionados.map(i => _smsDatos[i].texto).join('\n');
+    document.getElementById('sms-texto').value = textos;
+    area.style.display = 'block';
+    btn.style.display = 'block';
+    btn.querySelector('button').textContent = `✓ Marcar ${seleccionados.length} como enviados`;
+  } else {
+    area.style.display = 'none';
+    btn.style.display = 'none';
+  }
+}
+
 function copiarSMSCompleto() {
   const texto = document.getElementById('sms-texto').value;
-  navigator.clipboard.writeText(texto).then(() => toast(`${_smsDatos.length} SMS copiados ✓`));
+  const n = [...document.querySelectorAll('.sms-check:checked')].length;
+  navigator.clipboard.writeText(texto).then(() => toast(`${n} SMS copiados ✓`));
 }
 
 async function marcarSMSEnviados() {
-  if (!confirm(`¿Marcar ${_smsDatos.length} registros como enviados en BASE col AA?`)) return;
+  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+  if (!seleccionados.length) return;
+  if (!confirm(`¿Marcar ${seleccionados.length} como enviados en BASE?`)) return;
   const btn = document.querySelector('#sms-acciones button');
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
   let ok = 0, err = 0;
-  for (const item of _smsDatos) {
+  for (const idx of seleccionados) {
+    const item = _smsDatos[idx];
+    const col = item.proximaCol; // AA, AB o AC
     try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!AA${item.sheetRow}?valueInputOption=USER_ENTERED`, {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!${col}${item.sheetRow}?valueInputOption=USER_ENTERED`, {
         method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [[fechaHoy]] })
       });
       ok++;
     } catch(e) { err++; }
   }
-  btn.disabled = false; btn.textContent = '✓ Marcar como enviados';
+  btn.disabled = false;
   toast(`${ok} marcados como enviados${err ? ` · ${err} errores` : ''} ✓`);
   cargarSMS();
 }
