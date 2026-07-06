@@ -3767,7 +3767,8 @@ function renderTablaContactados() {
 
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
-    if (d.diasMoraReal !== null && d.diasMoraReal > 100) return false;
+    // Excluir más de 100 días de mora, EXCEPTO si se filtra por SMS recientes
+    if (!fSemana && d.diasMoraReal !== null && d.diasMoraReal > 100) return false;
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
     const oC = !fConv
       || (fConv==='sin' && !d.convs.length)
