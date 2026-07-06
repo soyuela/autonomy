@@ -4178,13 +4178,24 @@ async function generarInforme() {
       }
     });
 
-    // 2. Leer comentarios ACCIÓN (col P) de COMENTARIOS
+    // 2. Leer comentarios ACCIÓN (col P) y BAJA (col R) de COMENTARIOS
     let comentMap = {};
-    const d2 = await fetchSheet('COMENTARIOS!A:P');
+    let bajaSet = new Set();
+    const d2 = await fetchSheet('COMENTARIOS!A:R');
     (d2.values||[]).slice(1).forEach(row => {
       const c = String(row[0]||'').replace(/\D/g,'');
-      if (c) comentMap[c] = row[15]||'';
+      if (c) {
+        comentMap[c] = row[15]||'';
+        if (String(row[17]||'').toUpperCase() === 'SI') bajaSet.add(c);
+      }
     });
+
+    // 2b. Total de asuntos en gestión (ORIGINAL) y activos
+    const d3 = await fetchSheet('ORIGINAL!A:A');
+    const totalGestion = (d3.values||[]).slice(1).filter(r => String(r[0]||'').replace(/\D/g,'').length >= 10).length;
+    const cuitsConConvenio = new Set(DB.convenios.map(c => String(c.cuit).replace(/\D/g,'')));
+    const totalBajas = bajaSet.size;
+    const totalSinConvenioSinBaja = totalGestion - cuitsConConvenio.size - totalBajas + [...cuitsConConvenio].filter(c => bajaSet.has(c)).length;
 
   // 3. Enriquecer convenios con ffinOriginal
   const convsEnriquecidos = DB.convenios.map(c => ({
@@ -4311,6 +4322,26 @@ async function generarInforme() {
           ${fmtRow('Total acumulado desde inicio de gestión', fmtPeso(acumTotal))}
           ${fmtRow('— Deuda antigua', fmtPeso(acumAntiguo), true)}
           ${fmtRow('— Deuda nueva', fmtPeso(acumNuevo), true)}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SECCIÓN IV: ESTADO DE LA CARTERA -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#111827;margin-bottom:4px">IV. Estado de la Cartera</div>
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px;line-height:1.5">
+        Se entiende por <em>asuntos activos en gestión</em> los titulares que figuran en la base de datos de Autonomy,
+        sin convenio vigente y sin baja por incobrable — es decir, los que aún están pendientes de ser contactados
+        o de llegar a un acuerdo de pago. Los <em>dados de baja</em> son aquellos en los que el estudio determinó
+        la incobrabilidad del crédito.
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-family:'Helvetica Neue',Arial,sans-serif">
+        <tbody>
+          ${sectionHeader('Composición de la cartera')}
+          ${fmtRow('Total de asuntos en la cartera', totalGestion)}
+          ${fmtRow('— Con convenio activo', cuitsConConvenio.size, true)}
+          ${fmtRow('— Dados de baja por incobrables', totalBajas, true)}
+          ${fmtRow('— Activos sin convenio en gestión', totalSinConvenioSinBaja, true)}
         </tbody>
       </table>
     </div>
