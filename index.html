@@ -4192,7 +4192,7 @@ async function generarInforme() {
     const totalBajas = bajaSet.size;
     const totalSinConvenioSinBaja = totalGestion - cuitsConConvenio.size - totalBajas + [...cuitsConConvenio].filter(c => bajaSet.has(c)).length;
 
-  // 3. Enriquecer convenios con ffinOriginal
+  // 3. Enriquecer convenios con ffinOriginal por CUIT
   const convsEnriquecidos = DB.convenios.map(c => ({
     ...c,
     ffinOriginal: ffinMap[String(c.cuit).replace(/\D/g,'')] || ''
@@ -4203,10 +4203,10 @@ async function generarInforme() {
   const convsFirmados   = convsDelMes.filter(c => c.firmado === 'SI');
   const convsPendientes = convsDelMes.filter(c => c.firmado !== 'SI');
 
-  // 5. Pagos del período, clasificados por deuda antigua/nueva
+  // 5. Pagos del período, clasificados por deuda antigua/nueva via CUIT → ffinMap
   const pagosDelMes = DB.pagos.filter(p => p.fecha && enRango(p.fecha)).map(p => {
-    const conv = convsEnriquecidos.find(c => c.id === p.convenioId);
-    return { ...p, ffinOriginal: conv?.ffinOriginal || '' };
+    const cuit = String(p.cuit||'').replace(/\D/g,'');
+    return { ...p, ffinOriginal: ffinMap[cuit] || '' };
   });
 
   const pagosAntiguos = pagosDelMes.filter(p => esDeudaAntigua(p.ffinOriginal));
@@ -4217,8 +4217,8 @@ async function generarInforme() {
 
   // Recupero acumulado total (todos los pagos desde siempre)
   const todosPagos = DB.pagos.map(p => {
-    const conv = convsEnriquecidos.find(c => c.id === p.convenioId);
-    return { ...p, ffinOriginal: conv?.ffinOriginal || '' };
+    const cuit = String(p.cuit||'').replace(/\D/g,'');
+    return { ...p, ffinOriginal: ffinMap[cuit] || '' };
   });
   const acumAntiguo = todosPagos.filter(p=>esDeudaAntigua(p.ffinOriginal)).reduce((s,p)=>s+p.monto,0);
   const acumNuevo   = todosPagos.filter(p=>!esDeudaAntigua(p.ffinOriginal)).reduce((s,p)=>s+p.monto,0);
