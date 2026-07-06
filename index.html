@@ -402,6 +402,11 @@
               <option value="con">Con comentario</option>
               <option value="sin">Sin comentario</option>
             </select>
+            <select class="filter-select" id="filter-contactados-semana" onchange="renderTablaContactados()">
+              <option value="">Todos</option>
+              <option value="semana">Contactados esta semana</option>
+              <option value="no-semana">No contactados esta semana</option>
+            </select>
           </div>
           <span id="contactados-count" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
         </div>
@@ -1814,7 +1819,10 @@ async function guardarConvenio() {
     DB.convenios.push(conv);
     try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive error:', e); }
     try { await writeConvenioToSheets(conv); sheetsOk = true; } catch(e) { console.warn('Sheets error:', e); }
-    if (sheetsOk) agregarNotaConvenioEnComentarios(conv);
+    if (sheetsOk) {
+      agregarNotaConvenioEnComentarios(conv);
+      limpiarBajaEnComentarios(conv.cuit);
+    }
   }
 
   btn.disabled=false; btn.textContent='Guardar convenio';
@@ -1829,6 +1837,23 @@ async function guardarConvenio() {
   renderConvenios(); renderDashboard();
   if (!sheetsOk) toast('Convenio guardado en la app pero no en el Excel — verificá la conexión', 'error');
   else toast(editId ? 'Convenio actualizado ✓' : 'Convenio guardado ✓');
+}
+
+async function limpiarBajaEnComentarios(cuit) {
+  try {
+    const cuitClean = String(cuit).replace(/\D/g,'');
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead   = await rRead.json();
+    const rows    = dRead.values || [];
+    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuitClean);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!R${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['']] })
+      });
+    }
+  } catch(e) { console.warn('limpiarBajaEnComentarios error', e); }
 }
 
 async function agregarNotaConvenioEnComentarios(conv) {
@@ -2977,17 +3002,54 @@ async function marcarSMSEnviados() {
   const btn = document.querySelector('#sms-acciones button');
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
+
+  // Leer COMENTARIOS de una vez para no hacer 200 llamadas
+  const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
+  const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+  const dRead   = await rRead.json();
+  const comentRows = dRead.values || [];
+  const comentMap = {};
+  comentRows.forEach((r,i) => { if(i>0) comentMap[String(r[0]||'').replace(/\D/g,'')] = i+1; });
+
   let ok = 0, err = 0;
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
-    const col = item.proximaCol; // AA, AB o AC
+    // 1. Marcar col AA/AB/AC en BASE
     try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!${col}${item.sheetRow}?valueInputOption=USER_ENTERED`, {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!${item.proximaCol}${item.sheetRow}?valueInputOption=USER_ENTERED`, {
         method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [[fechaHoy]] })
       });
       ok++;
-    } catch(e) { err++; }
+    } catch(e) { err++; continue; }
+
+    // 2. Registrar en COMENTARIOS
+    const nota = `SMS enviado (contacto #${item.nroContacto}) ${fechaHoy}`;
+    const existeRow = comentMap[item.cuit];
+    try {
+      if (existeRow) {
+        // Agregar nota a comentario existente en col P
+        const urlP = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${existeRow}`;
+        const rP   = await fetch(urlP, { headers: { Authorization: 'Bearer ' + accessToken } });
+        const dP   = await rP.json();
+        const existente = ((dP.values||[])[0]||[])[0]||'';
+        const nuevo = existente ? `${existente} | ${nota}` : nota;
+        await fetch(`${urlP}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[nuevo]] })
+        });
+      } else {
+        // Crear fila nueva
+        const nextRow = comentRows.length + 1;
+        const valores = Array(16).fill(''); valores[0] = item.cuit; valores[15] = nota;
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:P${nextRow}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [valores] })
+        });
+        comentMap[item.cuit] = nextRow;
+        comentRows.push([item.cuit]);
+      }
+    } catch(e) { console.warn('COMENTARIOS error:', e); }
   }
   btn.disabled = false;
   toast(`${ok} marcados como enviados${err ? ` · ${err} errores` : ''} ✓`);
@@ -3630,9 +3692,19 @@ function renderTablaContactados() {
   const fConv  = document.getElementById('filter-contactados-convenio')?.value||'';
   const fComent= document.getElementById('filter-contactados-comentario')?.value||'';
 
+  const fSemana = document.getElementById('filter-contactados-semana')?.value || '';
+
+  // Calcular inicio de semana (lunes)
+  const ahora = new Date();
+  const diaSemana = ahora.getDay() || 7; // 1=lun, 7=dom
+  const inicioSemana = new Date(ahora);
+  inicioSemana.setDate(ahora.getDate() - diaSemana + 1);
+  const inicioSemanaIso = inicioSemana.toISOString().split('T')[0];
+
+  const toISO4 = s => { if (!s) return ''; const p=s.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; };
+
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
-    // Excluir más de 100 días de mora (calculado desde fecha fin de contrato)
     if (d.diasMoraReal !== null && d.diasMoraReal > 100) return false;
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
     const oC = !fConv
@@ -3640,7 +3712,11 @@ function renderTablaContactados() {
       || (fConv==='con' && d.convs.length)
       || (fConv==='firma' && d.convs.some(c => c.firmado !== 'SI'));
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
-    return oQ && oC && oK;
+    const llamadoIso = toISO4(d.ultimoLlamado||'');
+    const oS = !fSemana
+      || (fSemana==='semana' && llamadoIso >= inicioSemanaIso)
+      || (fSemana==='no-semana' && (!llamadoIso || llamadoIso < inicioSemanaIso));
+    return oQ && oC && oK && oS;
   });
 
   const { col, dir } = _contactadosSort;
