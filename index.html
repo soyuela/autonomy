@@ -1519,6 +1519,7 @@ async function archivarConvenio(convId) {
   DB._sinTitular      = (DB._sinTitular||[]).filter(id => id !== convId);
   DB._deudaModificada = (DB._deudaModificada||[]).filter(id => id !== convId);
   drivePut(DB).catch(e=>console.warn('Drive error:',e)); renderConvenios(); renderDashboard(); renderAlertas();
+  registrarLog('Convenio archivado', conv.nombre, conv.cuit, conv.tipo);
   toast('Convenio archivado ✓');
 }
 
@@ -1836,14 +1837,43 @@ async function guardarConvenio() {
   closeModal('modal-convenio');
   renderConvenios(); renderDashboard();
   if (!sheetsOk) toast('Convenio guardado en la app pero no en el Excel — verificá la conexión', 'error');
+  const logAccion = editId ? 'Convenio editado' : 'Convenio generado';
+  registrarLog(logAccion, conv.nombre, conv.cuit, `${conv.tipo} · ${conv.cantCuotas} cuotas de ${fmtPeso(conv.importeCuota)}`);
+  if (!sheetsOk) toast('Convenio guardado en la app pero no en el Excel — verificá la conexión', 'error');
   else toast(editId ? 'Convenio actualizado ✓' : 'Convenio guardado ✓');
 }
+
+// ─── LOG DE ACTIVIDADES ────────────────────────────────────────────────────────
+let _logHeaderOk = false;
+
+async function registrarLog(accion, titular, cuit, detalle) {
+  try {
+    const ahora = new Date().toLocaleString('es-AR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const usuario = currentUser?.name || currentUser?.email || '—';
+    // Escribir encabezado la primera vez
+    if (!_logHeaderOk) {
+      const rH = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG!A1:F1`, { headers: { Authorization: 'Bearer ' + accessToken } });
+      const dH = await rH.json();
+      if (!(dH.values||[]).length) {
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG!A1:F1?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [['Fecha y hora','Usuario','Acción','Titular','CUIT','Detalle']] })
+        });
+      }
+      _logHeaderOk = true;
+    }
+    // Agregar fila
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG!A:F:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[ahora, usuario, accion, titular||'', String(cuit||''), detalle||'']] })
+    });
+  } catch(e) { console.warn('registrarLog error:', e); }
+}
+
 
 async function limpiarBajaEnComentarios(cuit) {
   try {
     const cuitClean = String(cuit).replace(/\D/g,'');
-    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
-    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dRead   = await rRead.json();
     const rows    = dRead.values || [];
     const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuitClean);
@@ -1944,6 +1974,8 @@ async function toggleEstado(id, campo) {
   }
 
   renderConvenios(); renderDashboard(); renderVencimientos();
+  const logMsg = campo==='firmado' ? (c.firmado==='SI'?'Convenio firmado':'Firma removida') : (c.enviado==='SI'?'Convenio enviado':'Envío removido');
+  registrarLog(logMsg, c.nombre, c.cuit, `${c.tipo}`);
   if (!sheetsOk) toast('Guardado en la app pero no en el Excel — verificá la conexión', 'error');
   else toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
 }
@@ -2173,6 +2205,7 @@ async function guardarPago() {
 
   if (sheetsOk) {
     toast('Pago registrado ✓');
+    registrarLog('Pago registrado', pago.nombre||conv?.nombre||'', pago.cuit, `${pago.tipo} · cuota ${pago.cuotaNum||'-'} · ${fmtPeso(pago.monto)}`);
     closeModal('modal-pago');
     renderPagos(); renderDashboard();
   } else if (driveOk) {
@@ -2284,7 +2317,7 @@ async function borrarPago(id) {
   DB.pagos = DB.pagos.filter(p => p.id !== id);
   try { await drivePut(DB); } catch(e) { console.warn('Drive error:', e); }
   renderPagos(); renderDashboard(); toast('Pago eliminado');
-  if (pago) await deletePagoEnSheets(pago);
+  if (pago) { registrarLog('Pago eliminado', pago.nombre||'', pago.cuit, `${pago.tipo} · cuota ${pago.cuotaNum||'-'} · ${fmtPeso(pago.monto)}`); await deletePagoEnSheets(pago); }
 }
 
 async function deletePagoEnSheets(pago) {
@@ -2738,6 +2771,7 @@ async function darDeBajaConvenio(convId) {
   drivePut(DB).catch(e=>console.warn('Drive error:',e));
   renderConvenios();
   renderDashboard();
+  registrarLog('Convenio dado de baja', conv.nombre, conv.cuit, conv.tipo);
   toast('Convenio dado de baja ✓');
   // Recargar búsqueda para actualizar la vista
   ejecutarBusqueda();
@@ -3053,6 +3087,7 @@ async function marcarSMSEnviados() {
   }
   btn.disabled = false;
   toast(`${ok} marcados como enviados${err ? ` · ${err} errores` : ''} ✓`);
+  registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}`);
   cargarSMS();
 }
 
@@ -3661,6 +3696,7 @@ async function registrarLlamado(cuit, btn) {
         body: JSON.stringify({ values: [valores] })
       });
     }
+    registrarLog('Llamado registrado', _contactadosData.find(d=>d.cuit===cuit)?.nombre||'', cuit, '');
     toast('Llamado registrado ✓');
   } catch(e) { toast('Error al registrar: '+e.message,'error'); }
 }
@@ -3922,6 +3958,7 @@ async function guardarComentarioRapido(cuit, n) {
       renderTablaContactados();
       renderPanelRecontactar();
     }
+    if (n === 2) registrarLog('Baja por incobrable', _contactadosData.find(d=>d.cuit===cuit)?.nombre||'', cuit, 'Comentario estándar 2');
     toast('Comentario guardado ✓');
   } catch(e) { toast('Error al guardar comentario: '+e.message, 'error'); }
 }
