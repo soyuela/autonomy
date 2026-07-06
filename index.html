@@ -248,6 +248,7 @@
       <div class="nav-item" onclick="setView('pagos')"><span class="icon">💳</span><span class="nav-label"> Pagos</span></div>
       <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span><span class="nav-label"> Vencimientos</span></div>
       <div class="nav-item" onclick="setView('informes')"><span class="icon">📊</span><span class="nav-label"> Informes</span></div>
+      <div class="nav-item" onclick="setView('sms')"><span class="icon">📱</span><span class="nav-label"> Generación SMS</span></div>
     </nav>
     <div id="sesiones-panel" style="padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;min-height:36px"></div>
     <div class="user-chip">
@@ -425,6 +426,18 @@
     </div>
 
     <!-- INFORMES -->
+    <div id="view-sms" class="view">
+      <div class="page-header">
+        <div><div class="page-title">Generación SMS</div><div class="page-sub">Segundo contacto — titulares con mora ≤ 100 días, sin convenio y sin baja</div></div>
+        <button class="btn btn-ghost" onclick="cargarSMS()">↻ Actualizar</button>
+      </div>
+      <div id="sms-stats" style="margin-bottom:16px"></div>
+      <div id="sms-lista" style="margin-bottom:16px"></div>
+      <div id="sms-acciones" style="display:none">
+        <button class="btn btn-primary" onclick="marcarSMSEnviados()">✓ Marcar como enviados</button>
+      </div>
+    </div>
+
     <div id="view-informes" class="view">
       <div class="page-header">
         <div><div class="page-title">Informes de Gestión</div><div class="page-sub">Generá el informe mensual para exportar en PDF</div></div>
@@ -1120,6 +1133,7 @@ function setView(v) {
   if(v==='vencimientos') renderVencimientos();
   if(v==='contactados') cargarContactados();
   if(v==='informes') initInformes();
+  if(v==='sms') cargarSMS();
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
@@ -2762,6 +2776,107 @@ async function abrirWhatsApp(telefono, nombre, fecha, importe, cuit, cuotaNum, v
 
 let busquedaTimer = null;
 
+// ─── GENERACIÓN SMS ───────────────────────────────────────────────────────────
+let _smsDatos = [];
+
+async function cargarSMS() {
+  document.getElementById('sms-stats').innerHTML = '<div style="color:var(--muted);font-size:13px">Cargando...</div>';
+  document.getElementById('sms-lista').innerHTML = '';
+  document.getElementById('sms-acciones').style.display = 'none';
+
+  try {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AA`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d = await r.json();
+    const rows = (d.values||[]).slice(1);
+    const hoy = today();
+
+    const rC = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:R`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dC = await rC.json();
+    const bajaMapSMS = {};
+    (dC.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) bajaMapSMS[c] = String(r[17]||'').toUpperCase();
+    });
+
+    _smsDatos = [];
+    rows.forEach((row, i) => {
+      const cuit = String(row[0]||'').replace(/\D/g,'');
+      if (cuit.length < 10) return;
+      const deudaNeta = parsePeso(row[13]);
+      if (deudaNeta <= 0) return;
+      if (bajaMapSMS[cuit] === 'SI') return;
+      const fechaFinObj = parseFechaFin(row[7]||'');
+      if (fechaFinObj && !isNaN(fechaFinObj)) {
+        const dias = diffDays(fechaFinObj.toISOString().split('T')[0], hoy);
+        if (dias > 100) return;
+      }
+      const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === cuit);
+      if (tieneConvenio) return;
+      const segundoContacto = String(row[26]||'').trim();
+      if (segundoContacto) return;
+      const telefono = String(row[4]||'').replace(/\D/g,'');
+      const nombre   = row[1]||'';
+      const deudaFmt = deudaNeta.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+      const texto    = `${telefono}/${nombre}/${deudaFmt}`;
+      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2 });
+    });
+
+    const sobreLimite = _smsDatos.filter(x => x.largo > 49).length;
+    document.getElementById('sms-stats').innerHTML = `
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px">
+          <span style="color:var(--muted)">Total a enviar:</span> <strong>${_smsDatos.length}</strong>
+        </div>
+        ${sobreLimite
+          ? `<div style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--danger)">⚠ <strong>${sobreLimite}</strong> supera los 49 caracteres</div>`
+          : '<div style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.2);border-radius:8px;padding:10px 16px;font-size:13px;color:var(--ok)">✓ Todos dentro del límite</div>'}
+      </div>`;
+
+    if (!_smsDatos.length) {
+      document.getElementById('sms-lista').innerHTML = '<div class="empty"><div class="icon">📱</div><p>No hay titulares para enviar SMS</p></div>';
+      return;
+    }
+
+    const textos = _smsDatos.map(x => x.texto).join('\n');
+    document.getElementById('sms-lista').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:13px;color:var(--muted)">Copiá el bloque y pegalo en la página de SMS masivos:</div>
+        <button class="btn btn-primary" onclick="copiarSMSCompleto()">📋 Copiar todo (${_smsDatos.length})</button>
+      </div>
+      <textarea id="sms-texto" readonly style="width:100%;height:300px;font-family:var(--fm);font-size:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);resize:vertical">${textos}</textarea>`;
+
+    document.getElementById('sms-acciones').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('sms-stats').innerHTML = `<div style="color:var(--danger)">Error al cargar: ${e.message}</div>`;
+  }
+}
+
+function copiarSMSCompleto() {
+  const texto = document.getElementById('sms-texto').value;
+  navigator.clipboard.writeText(texto).then(() => toast(`${_smsDatos.length} SMS copiados ✓`));
+}
+
+async function marcarSMSEnviados() {
+  if (!confirm(`¿Marcar ${_smsDatos.length} registros como enviados en BASE col AA?`)) return;
+  const btn = document.querySelector('#sms-acciones button');
+  btn.disabled = true; btn.textContent = 'Marcando…';
+  const fechaHoy = isoADMY(today());
+  let ok = 0, err = 0;
+  for (const item of _smsDatos) {
+    try {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!AA${item.sheetRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
+      ok++;
+    } catch(e) { err++; }
+  }
+  btn.disabled = false; btn.textContent = '✓ Marcar como enviados';
+  toast(`${ok} marcados como enviados${err ? ` · ${err} errores` : ''} ✓`);
+  cargarSMS();
+}
+
 function onBusquedaInput(val) {
   clearTimeout(busquedaTimer);
   const sug = document.getElementById('busqueda-sugerencias');
@@ -3250,8 +3365,8 @@ async function cargarContactados() {
       return;
     }
 
-    // 2. Leer ORIGINAL para nombres y deudas
-    const r2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:M`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    // 2. Leer ORIGINAL para nombres, deudas y fecha fin (col H)
+    const r2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:O`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d2 = await r2.json();
     const originalRows = (d2.values||[]).slice(1);
     const originalMap = {};
@@ -3290,13 +3405,17 @@ async function cargarContactados() {
       const deudaAlq = parsePeso(orig[8]);
       const deudaInf = parsePeso(orig[9]);
       const deudaSin = parsePeso(orig[10]);
+      const fechaFinRaw = orig[7]||'';
+      // Calcular días de mora desde fecha fin
+      const fechaFinIso = parseFechaFin(fechaFinRaw);
+      const diasMoraReal = fechaFinIso && !isNaN(fechaFinIso) ? diffDays(fechaFinIso.toISOString().split('T')[0], today()) : null;
       const comentario   = comentMap[cuit]||'';
       const diasMora     = moraMap[cuit]||'';
       const recontactar  = recontactarMap[cuit]||'';
       const baja         = bajaMap[cuit]||'';
       const ultimoLlamado = ultimoLlamadoMap[cuit]||'';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
-      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, recontactar, baja, ultimoLlamado, convs };
+      return { cuit, fecha, nombre, telefono, deudaAlq, deudaInf, deudaSin, comentario, diasMora, diasMoraReal, recontactar, baja, ultimoLlamado, convs };
     });
 
     renderTablaContactados();
@@ -3396,6 +3515,8 @@ function renderTablaContactados() {
 
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
+    // Excluir más de 100 días de mora (calculado desde fecha fin de contrato)
+    if (d.diasMoraReal !== null && d.diasMoraReal > 100) return false;
     const oQ = !q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q);
     const oC = !fConv
       || (fConv==='sin' && !d.convs.length)
