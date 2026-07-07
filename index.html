@@ -3603,7 +3603,20 @@ async function cargarContactados() {
     // 1. Leer 1er CONTACTO (CUIT col A, fecha col B)
     const r1 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d1 = await r1.json();
-    const contactRows = (d1.values||[]).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
+    const contactRowsRaw = (d1.values||[]).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
+    const cuitEnPrimerContacto = new Set(contactRowsRaw.map(r => String(r[0]).replace(/\D/g,'')));
+
+    // También incluir los que tienen fecha en AA/AB/AC de BASE (recontactos) aunque no estén en 1er CONTACTO
+    const rBase2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dBase2 = await rBase2.json();
+    const baseExtra = (dBase2.values||[]).slice(1).filter(r => {
+      const cuit = String(r[0]||'').replace(/\D/g,'');
+      if (cuit.length < 10) return false;
+      if (cuitEnPrimerContacto.has(cuit)) return false; // ya está en 1er CONTACTO
+      return String(r[26]||'').trim() || String(r[27]||'').trim() || String(r[28]||'').trim();
+    }).map(r => [String(r[0]).replace(/\D/g,''), '']); // sin fecha de primer contacto
+
+    const contactRows = [...contactRowsRaw, ...baseExtra];
 
     if (!contactRows.length) {
       tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en la hoja "1er CONTACTO"</p></div></td></tr>`;
@@ -3640,15 +3653,13 @@ async function cargarContactados() {
       }
     });
 
-    // 4b. Leer fechas SMS de BASE (cols AA=26, AB=27, AC=28)
-    const rBase = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dBase = await rBase.json();
+    // 4b. Calcular ultimoSMS desde BASE ya cargado (AA=26, AB=27, AC=28)
     const smsMap = {};
-    (dBase.values||[]).slice(1).forEach(r => {
+    (dBase2.values||[]).slice(1).forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
       if (c) {
         const fechas = [r[26]||'', r[27]||'', r[28]||''].filter(Boolean);
-        const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
+        const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2].length<=2?'20'+p[2]:p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
         if (isos.length) { isos.sort(); smsMap[c] = isos[isos.length-1]; }
       }
     });
