@@ -3038,7 +3038,7 @@ async function marcarSMSEnviados() {
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
 
-  // Leer COMENTARIOS de una vez para no hacer 200 llamadas
+  // Leer COMENTARIOS de una vez
   const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
   const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
   const dRead   = await rRead.json();
@@ -3046,9 +3046,17 @@ async function marcarSMSEnviados() {
   const comentMap = {};
   comentRows.forEach((r,i) => { if(i>0) comentMap[String(r[0]||'').replace(/\D/g,'')] = i+1; });
 
+  // Leer 1er CONTACTO de una vez
+  const urlC1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`;
+  const rC1   = await fetch(urlC1, { headers: { Authorization: 'Bearer ' + accessToken } });
+  const dC1   = await rC1.json();
+  const c1Rows = dC1.values || [];
+  const c1Set  = new Set(c1Rows.slice(1).map(r => String(r[0]||'').replace(/\D/g,'')));
+
   let ok = 0, err = 0;
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
+
     // 1. Marcar col AA/AB/AC en BASE
     try {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!${item.proximaCol}${item.sheetRow}?valueInputOption=USER_ENTERED`, {
@@ -3058,12 +3066,24 @@ async function marcarSMSEnviados() {
       ok++;
     } catch(e) { err++; continue; }
 
-    // 2. Registrar en COMENTARIOS
+    // 2. Si es primer contacto, agregar a 1er CONTACTO con fecha
+    if (item.nroContacto === 1 && !c1Set.has(item.cuit)) {
+      try {
+        const nextRow = c1Rows.length + 1;
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A${nextRow}:B${nextRow}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[item.cuit, fechaHoy]] })
+        });
+        c1Set.add(item.cuit);
+        c1Rows.push([item.cuit, fechaHoy]);
+      } catch(e) { console.warn('1er CONTACTO error:', e); }
+    }
+
+    // 3. Registrar en COMENTARIOS
     const nota = `SMS enviado (contacto #${item.nroContacto}) ${fechaHoy}`;
     const existeRow = comentMap[item.cuit];
     try {
       if (existeRow) {
-        // Agregar nota a comentario existente en col P
         const urlP = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${existeRow}`;
         const rP   = await fetch(urlP, { headers: { Authorization: 'Bearer ' + accessToken } });
         const dP   = await rP.json();
@@ -3074,7 +3094,6 @@ async function marcarSMSEnviados() {
           body: JSON.stringify({ values: [[nuevo]] })
         });
       } else {
-        // Crear fila nueva
         const nextRow = comentRows.length + 1;
         const valores = Array(16).fill(''); valores[0] = item.cuit; valores[15] = nota;
         await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:P${nextRow}?valueInputOption=USER_ENTERED`, {
