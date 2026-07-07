@@ -415,7 +415,7 @@
             <th style="width:40px;text-align:center">#</th>
             <th>Titular</th>
             <th>Teléfono</th>
-            <th class="th-sort" onclick="setSortContactados('fecha')" id="th-cont-fecha">Fecha contacto <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('fecha')" id="th-cont-fecha">Último contacto <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('mora')" id="th-cont-mora">Días mora <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('alq')" id="th-cont-alq">Deuda Alquiler <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('inf')" id="th-cont-inf">Infracciones <span class="sort-icon">↕</span></th>
@@ -3874,7 +3874,7 @@ function renderTablaContactados() {
         <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${d.cuit}</div>
       </td>
       <td style="font-size:13px;white-space:nowrap"><strong>${d.telefono||'—'}</strong></td>
-      <td class="mono" style="white-space:nowrap">${d.fecha||'—'}</td>
+      <td class="mono" style="white-space:nowrap">${d.ultimoSMS ? isoADMY(d.ultimoSMS) : (d.fecha||'—')}</td>
       <td class="mono" style="text-align:center;color:${moraColor};font-weight:600">${mora > 0 ? mora : '—'}</td>
       <td class="importe">${d.deudaAlq > 0 ? fmtPeso(d.deudaAlq) : '—'}</td>
       <td class="importe">${d.deudaInf > 0 ? fmtPeso(d.deudaInf) : '—'}</td>
