@@ -2885,12 +2885,13 @@ async function cargarSMS() {
 
       const telefono = String(row[4]||'').replace(/\D/g,'');
       const nombre   = row[1]||'';
+      const mail     = row[3]||'';
       const deudaFmt = deudaNeta.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
       const texto    = `${telefono}/${nombre}/${deudaFmt}`;
       const proximaCol = !c1 ? 'AA' : !c2 ? 'AB' : 'AC';
       const nroContacto = !c1 ? 1 : !c2 ? 2 : 3;
 
-      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2, diasMoraSMS, c1, c2, c3, proximaCol, nroContacto, nombre, deudaNeta });
+      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2, diasMoraSMS, c1, c2, c3, proximaCol, nroContacto, nombre, deudaNeta, mail });
     });
 
     // Ordenar por días de mora descendente
@@ -2966,7 +2967,10 @@ async function cargarSMS() {
       <div style="margin-top:12px;display:none" id="sms-bloque-area">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-size:13px;color:var(--muted)">Texto para pegar en la página de SMS masivos:</div>
-          <button class="btn btn-primary" onclick="copiarSMSCompleto()">📋 Copiar seleccionados</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="copiarMailsSeleccionados()">📧 Copiar mails</button>
+            <button class="btn btn-primary" onclick="copiarSMSCompleto()">📋 Copiar seleccionados</button>
+          </div>
         </div>
         <textarea id="sms-texto" readonly style="width:100%;height:200px;font-family:var(--fm);font-size:12px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);resize:vertical"></textarea>
       </div>`;
@@ -3022,6 +3026,13 @@ function actualizarSeleccionSMS() {
     area.style.display = 'none';
     btn.style.display = 'none';
   }
+}
+
+function copiarMailsSeleccionados() {
+  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+  const mails = seleccionados.map(i => _smsDatos[i].mail).filter(Boolean).join('\n');
+  if (!mails) { toast('No hay mails disponibles para los seleccionados', 'error'); return; }
+  navigator.clipboard.writeText(mails).then(() => toast(`${seleccionados.length} mails copiados ✓`));
 }
 
 function copiarSMSCompleto() {
