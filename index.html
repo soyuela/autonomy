@@ -3030,7 +3030,7 @@ function actualizarSeleccionSMS() {
 
 function copiarMailsSeleccionados() {
   const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
-  const mails = seleccionados.map(i => _smsDatos[i].mail).filter(Boolean).join('\n');
+  const mails = seleccionados.map(i => _smsDatos[i].mail).filter(Boolean).join(', ');
   if (!mails) { toast('No hay mails disponibles para los seleccionados', 'error'); return; }
   navigator.clipboard.writeText(mails).then(() => toast(`${seleccionados.length} mails copiados ✓`));
 }
