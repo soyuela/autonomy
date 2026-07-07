@@ -3607,7 +3607,7 @@ async function cargarContactados() {
     const cuitEnPrimerContacto = new Set(contactRowsRaw.map(r => String(r[0]).replace(/\D/g,'')));
 
     // También incluir los que tienen fecha en AA/AB/AC de BASE (recontactos) aunque no estén en 1er CONTACTO
-    const rBase2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const rBase2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dBase2 = await rBase2.json();
     const baseExtra = (dBase2.values||[]).slice(1).filter(r => {
       const cuit = String(r[0]||'').replace(/\D/g,'');
