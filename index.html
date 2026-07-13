@@ -734,6 +734,7 @@ function onSignedIn() {
   setInterval(() => { if (currentUser) registrarSesion(currentUser); }, 5 * 60 * 1000);
   syncConveniosDesdeSheets().then(() => syncOriginalDesdeSheets());
   syncPagosDesdeSheets();
+  reconcilePagos();
   setInterval(() => syncOriginalDesdeSheets(), 5 * 60 * 1000);
 }
 
@@ -1674,6 +1675,44 @@ async function syncPagosDesdeSheets() {
   } catch(e) { console.warn('syncPagosDesdeSheets error', e); }
 }
 
+async function reconcilePagos() {
+  // Detecta pagos que están en Drive pero no en Sheets y los reescribe
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/PAGOS!A:E`;
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    if (!r.ok) return;
+    const data = await r.json();
+    const sheetsRows = (data.values||[]).slice(1);
+
+    // Construir set de pagos ya en Sheets (cuit+tipo+fecha+cuota)
+    const enSheets = new Set();
+    sheetsRows.forEach(row => {
+      const cuit = String(row[0]||'').replace(/\D/g,'');
+      const tipo = tipoDesdeSheets(row[1]);
+      const fecha = parseFechaArgCorta(row[2]);
+      const cuota = parseInt(row[3])||null;
+      if (cuit && fecha) enSheets.add(`${cuit}|${tipo}|${fecha}|${cuota}`);
+    });
+
+    // Buscar pagos en Drive que no están en Sheets
+    const faltantes = DB.pagos.filter(p => {
+      if (p.fromSheet) return false;
+      const key = `${String(p.cuit||'').replace(/\D/g,'')}|${p.tipo}|${p.fecha}|${p.cuotaNum}`;
+      return !enSheets.has(key);
+    });
+
+    if (!faltantes.length) return;
+
+    console.warn(`Reconciliando ${faltantes.length} pagos faltantes en Sheets...`);
+    for (const pago of faltantes) {
+      const conv = DB.convenios.find(c => c.id === pago.convenioId);
+      await writePagoToSheets({...pago, modalidad: conv?.modalidad||''});
+    }
+    toast(`${faltantes.length} pago${faltantes.length>1?'s':''} reconciliado${faltantes.length>1?'s':''} con Sheets ✓`, 'info');
+  } catch(e) { console.warn('reconcilePagos error:', e); }
+}
+
+
 async function writePagoToSheets(pago) {
   try {
     const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/PAGOS!A:A`;
@@ -2210,11 +2249,17 @@ async function guardarPago() {
     closeModal('modal-pago');
     renderPagos(); renderDashboard();
   } else if (driveOk) {
-    toast('Pago guardado en la app pero no en el Excel — verificá la conexión', 'error');
+    // Drive ok pero Sheets falló — reintentá Sheets una vez más
+    try {
+      await writePagoToSheets({...pago, modalidad:conv?.modalidad||''});
+      toast('Pago registrado ✓');
+      registrarLog('Pago registrado', pago.nombre||conv?.nombre||'', pago.cuit, `${pago.tipo} · cuota ${pago.cuotaNum||'-'} · ${fmtPeso(pago.monto)}`);
+    } catch(e) {
+      toast('Pago guardado en la app pero no en el Excel — intentá de nuevo más tarde', 'error');
+    }
     closeModal('modal-pago');
     renderPagos(); renderDashboard();
   } else {
-    // Ni Drive ni Sheets — revertir
     DB.pagos = DB.pagos.filter(p => p.id !== pago.id);
     toast('Error al guardar — token expirado, volvé a iniciar sesión', 'error');
   }
@@ -3044,80 +3089,77 @@ function copiarSMSCompleto() {
 async function marcarSMSEnviados() {
   const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
   if (!seleccionados.length) return;
-  if (!confirm(`¿Marcar ${seleccionados.length} como enviados en BASE?`)) return;
+  if (!confirm(`¿Marcar ${seleccionados.length} como enviados?`)) return;
   const btn = document.querySelector('#sms-acciones button');
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
 
-  // Leer COMENTARIOS de una vez
-  const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:A`;
-  const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
-  const dRead   = await rRead.json();
-  const comentRows = dRead.values || [];
-  const comentMap = {};
-  comentRows.forEach((r,i) => { if(i>0) comentMap[String(r[0]||'').replace(/\D/g,'')] = i+1; });
+  // Leer LOG_SMS para mapear CUIT → fila
+  const urlLog = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E`;
+  const rLog = await fetch(urlLog, { headers: { Authorization: 'Bearer ' + accessToken } });
+  const dLog = await rLog.json();
+  const logRows = dLog.values || [];
+  const logMap = {}; // cuit → fila (1-indexed)
+  logRows.slice(1).forEach((r, i) => {
+    const c = String(r[0]||'').replace(/\D/g,'');
+    if (c) logMap[c] = i + 2; // i+2 porque slice(1) y rows son 1-indexed
+  });
 
-  // Leer 1er CONTACTO de una vez
+  // Leer 1er CONTACTO para nuevos titulares
   const urlC1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`;
-  const rC1   = await fetch(urlC1, { headers: { Authorization: 'Bearer ' + accessToken } });
-  const dC1   = await rC1.json();
+  const rC1 = await fetch(urlC1, { headers: { Authorization: 'Bearer ' + accessToken } });
+  const dC1 = await rC1.json();
   const c1Rows = dC1.values || [];
-  const c1Set  = new Set(c1Rows.slice(1).map(r => String(r[0]||'').replace(/\D/g,'')));
+  const c1Set = new Set(c1Rows.slice(1).map(r => String(r[0]||'').replace(/\D/g,'')));
 
-  let ok = 0, err = 0;
+  let ok = 0;
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
+    const cuit = item.cuit;
+    const colNum = item.nroContacto === 1 ? null : (item.nroContacto === 2 ? 3 : item.nroContacto === 3 ? 4 : 5); // C=3, D=4, E=5
 
-    // 1. Marcar col AA/AB/AC en BASE
-    try {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!${item.proximaCol}${item.sheetRow}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [[fechaHoy]] })
-      });
-      ok++;
-    } catch(e) { err++; continue; }
-
-    // 2. Si es primer contacto, agregar a 1er CONTACTO con fecha
-    if (item.nroContacto === 1 && !c1Set.has(item.cuit)) {
+    // Si es primer contacto, agregar a 1er CONTACTO
+    if (item.nroContacto === 1 && !c1Set.has(cuit)) {
       try {
         const nextRow = c1Rows.length + 1;
         await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A${nextRow}:B${nextRow}?valueInputOption=USER_ENTERED`, {
           method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[item.cuit, fechaHoy]] })
+          body: JSON.stringify({ values: [[cuit, fechaHoy]] })
         });
-        c1Set.add(item.cuit);
-        c1Rows.push([item.cuit, fechaHoy]);
+        c1Set.add(cuit);
+        c1Rows.push([cuit, fechaHoy]);
       } catch(e) { console.warn('1er CONTACTO error:', e); }
     }
 
-    // 3. Registrar en COMENTARIOS
-    const nota = `SMS enviado (contacto #${item.nroContacto}) ${fechaHoy}`;
-    const existeRow = comentMap[item.cuit];
+    // Escribir en LOG_SMS
     try {
-      if (existeRow) {
-        const urlP = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${existeRow}`;
-        const rP   = await fetch(urlP, { headers: { Authorization: 'Bearer ' + accessToken } });
-        const dP   = await rP.json();
-        const existente = ((dP.values||[])[0]||[])[0]||'';
-        const nuevo = existente ? `${existente} | ${nota}` : nota;
-        await fetch(`${urlP}?valueInputOption=USER_ENTERED`, {
-          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[nuevo]] })
-        });
-      } else {
-        const nextRow = comentRows.length + 1;
-        const valores = Array(16).fill(''); valores[0] = item.cuit; valores[15] = nota;
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A${nextRow}:P${nextRow}?valueInputOption=USER_ENTERED`, {
+      let logRow = logMap[cuit];
+      // Si no existe fila en LOG_SMS, crear una
+      if (!logRow) {
+        logRow = logRows.length + 1;
+        const valores = Array(5).fill(''); valores[0] = cuit;
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A${logRow}:E${logRow}?valueInputOption=USER_ENTERED`, {
           method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [valores] })
         });
-        comentMap[item.cuit] = nextRow;
-        comentRows.push([item.cuit]);
+        logMap[cuit] = logRow;
+        logRows.push([cuit]);
       }
-    } catch(e) { console.warn('COMENTARIOS error:', e); }
+
+      // Escribir fecha en la columna correspondiente (B, C, D o E)
+      if (colNum) {
+        const colLetter = String.fromCharCode(65 + colNum - 1); // 3→C, 4→D, 5→E
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!${colLetter}${logRow}?valueInputOption=USER_ENTERED`, {
+          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [[fechaHoy]] })
+        });
+      }
+      ok++;
+    } catch(e) { console.warn('LOG_SMS error:', e); }
   }
+
   btn.disabled = false;
-  toast(`${ok} marcados como enviados${err ? ` · ${err} errores` : ''} ✓`);
+  toast(`${ok} marcados como enviados${ok<seleccionados.length?' · algunos errores':''} ✓`);
   registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}`);
   cargarSMS();
 }
