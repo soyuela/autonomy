@@ -415,7 +415,7 @@
             <th style="width:40px;text-align:center">#</th>
             <th>Titular</th>
             <th>Teléfono</th>
-            <th class="th-sort" onclick="setSortContactados('fecha')" id="th-cont-fecha">Último contacto <span class="sort-icon">↕</span></th>
+            <th class="th-sort" onclick="setSortContactados('ultimoSMS')" id="th-cont-fecha">Último contacto <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('mora')" id="th-cont-mora">Días mora <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('alq')" id="th-cont-alq">Deuda Alquiler <span class="sort-icon">↕</span></th>
             <th class="th-sort" onclick="setSortContactados('inf')" id="th-cont-inf">Infracciones <span class="sort-icon">↕</span></th>
@@ -3694,7 +3694,17 @@ async function cargarContactados() {
       return String(r[26]||'').trim() || String(r[27]||'').trim() || String(r[28]||'').trim();
     }).map(r => [String(r[0]).replace(/\D/g,''), '']); // sin fecha de primer contacto
 
-    const contactRows = [...contactRowsRaw, ...baseExtra];
+    // También incluir CUITs de LOG_SMS que no estén en 1er CONTACTO
+    const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dLogSMS = await rLogSMS.json();
+    const logExtra = (dLogSMS.values||[]).slice(1).filter(r => {
+      const cuit = String(r[0]||'').replace(/\D/g,'');
+      if (cuit.length < 10) return false;
+      if (cuitEnPrimerContacto.has(cuit)) return false; // ya está en 1er CONTACTO
+      return true;
+    }).map(r => [String(r[0]).replace(/\D/g,''), '']); // sin fecha de primer contacto
+
+    const contactRows = [...contactRowsRaw, ...baseExtra, ...logExtra];
 
     if (!contactRows.length) {
       tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en la hoja "1er CONTACTO"</p></div></td></tr>`;
@@ -3731,10 +3741,7 @@ async function cargarContactados() {
       }
     });
 
-    // 4b. Calcular ultimoSMS desde BASE ya cargado (AA=26, AB=27, AC=28)
-    // 4b. Leer LOG_SMS para fechas con conversión
-    const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dLogSMS = await rLogSMS.json();
+    // 4b. Calcular ultimoSMS desde LOG_SMS (ya cargado arriba)
     const logSMSMap = {};
     (dLogSMS.values||[]).slice(1).forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
@@ -3871,7 +3878,7 @@ function renderPanelRecontactar() {
     </div>`).join('');
 }
 
-let _contactadosSort = { col: 'fecha', dir: 'desc' };
+let _contactadosSort = { col: 'ultimoSMS', dir: 'desc' };
 
 function setSortContactados(col) {
   if (_contactadosSort.col === col) {
@@ -3880,7 +3887,7 @@ function setSortContactados(col) {
     _contactadosSort.col = col;
     _contactadosSort.dir = 'desc';
   }
-  ['fecha','mora','alq','inf','sin','total'].forEach(c => {
+  ['fecha','mora','alq','inf','sin','total','ultimoSMS'].forEach(c => {
     const el = document.getElementById('th-cont-'+c);
     if (!el) return;
     el.classList.remove('asc','desc');
@@ -3922,10 +3929,15 @@ function renderTablaContactados() {
       const toNum = s => { if (!s) return 0; const p=s.split('/'); return p.length===3?parseInt(p[2]+p[1].padStart(2,'0')+p[0].padStart(2,'0'))||0:0; };
       return mul * (toNum(a.fecha) - toNum(b.fecha));
     }
+    if (col === 'ultimoSMS') {
+      return mul * ((b.ultimoSMS||'').localeCompare(a.ultimoSMS||''));
+    }
     if (col === 'mora')  return mul * ((parseInt(a.diasMora)||0) - (parseInt(b.diasMora)||0));
     if (col === 'inf')   return mul * ((a.deudaInf||0) - (b.deudaInf||0));
     if (col === 'sin')   return mul * ((a.deudaSin||0) - (b.deudaSin||0));
     if (col === 'total') return mul * (((a.deudaAlq||0)+(a.deudaInf||0)+(a.deudaSin||0)) - ((b.deudaAlq||0)+(b.deudaInf||0)+(b.deudaSin||0)));
+    // Sort default por ultimoSMS descendente si no hay criterio
+    if (!col) return (b.ultimoSMS||'').localeCompare(a.ultimoSMS||'');
     return 0;
   });
 
