@@ -2963,11 +2963,17 @@ async function cargarSMS() {
           <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
             <input type="checkbox" id="sms-check-all" onchange="toggleSMSAll(this)"> Seleccionar todos
           </label>
+          <select class="filter-select" id="filter-sms-nro" onchange="renderTablaSMS()" style="max-width:120px">
+            <option value="">Todos los contactos</option>
+            <option value="1">1er contacto</option>
+            <option value="2">2do contacto</option>
+            <option value="3">3er contacto</option>
+          </select>
           <div style="display:flex;align-items:center;gap:6px;font-size:13px">
             <span style="color:var(--muted)">Desde fila</span>
-            <input type="number" id="sms-desde" min="1" max="${_smsDatos.length}" placeholder="1" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <input type="number" id="sms-desde" min="1" placeholder="1" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
             <span style="color:var(--muted)">hasta</span>
-            <input type="number" id="sms-hasta" min="1" max="${_smsDatos.length}" placeholder="${_smsDatos.length}" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <input type="number" id="sms-hasta" placeholder="∞" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
             <button class="btn btn-ghost btn-sm" onclick="seleccionarRangoSMS()">Aplicar</button>
           </div>
           <span id="sms-seleccionados" style="font-size:12px;color:var(--muted);margin-left:auto"></span>
@@ -3027,11 +3033,32 @@ async function cargarSMS() {
   }
 }
 
+function renderTablaSMS() {
+  const fNro = document.getElementById('filter-sms-nro')?.value || '';
+  const lista = _smsDatos.filter(x => !fNro || String(x.nroContacto) === fNro);
+  
+  const tbody = document.querySelector('#sms-lista table tbody');
+  if (!tbody || !lista.length) return;
+  
+  tbody.innerHTML = lista.map((x, i) => `
+    <tr id="sms-row-${i}">
+      <td style="text-align:center;font-size:11px;color:var(--muted)">${i+1}</td>
+      <td><input type="checkbox" class="sms-check" data-idx="${_smsDatos.indexOf(x)}" onchange="actualizarSeleccionSMS()"></td>
+      <td style="font-size:12px;font-weight:500">${x.nombre}</td>
+      <td class="mono" style="font-size:11px">${x.texto.split('/')[0]}</td>
+      <td class="mono" style="text-align:center;font-weight:600;color:${(x.diasMoraSMS||0)>60?'var(--danger)':(x.diasMoraSMS||0)>30?'var(--warning)':'var(--muted)'}">${x.diasMoraSMS!=null?x.diasMoraSMS+'d':'—'}</td>
+      <td class="importe">${fmtPeso(x.deudaNeta)}</td>
+      <td style="max-width:220px">${x.largo>49?`<input type="text" class="sms-edit" data-idx="${_smsDatos.indexOf(x)}" value="${x.texto}" oninput="editarSMS(this,${_smsDatos.indexOf(x)})" style="width:100%;font-family:var(--fm);font-size:11px;padding:3px 6px;border:1px solid var(--danger);border-radius:4px;background:rgba(220,38,38,.04)">`:`<span style="font-family:var(--fm);font-size:11px">${x.texto}</span>`}</td>
+      <td class="mono" style="text-align:center;${x.largo>49?'color:var(--danger);font-weight:700':''}" id="sms-car-${_smsDatos.indexOf(x)}">${x.largo}</td>
+      <td style="font-size:11px;text-align:center"><span style="color:${x.c1?'var(--ok)':'var(--muted)'}">●</span><span style="color:${x.c2?'var(--ok)':'var(--muted)'}">●</span><span style="color:${x.c3?'var(--ok)':'var(--muted)'}">●</span><div style="font-size:10px;color:var(--muted)">#${x.nroContacto}</div></td>
+    </tr>`).join('');
+}
+
 function seleccionarRangoSMS() {
   const desde = parseInt(document.getElementById('sms-desde').value) || 1;
   const hasta = parseInt(document.getElementById('sms-hasta').value) || _smsDatos.length;
   document.querySelectorAll('.sms-check').forEach(c => {
-    const idx = parseInt(c.dataset.idx) + 1; // 1-based
+    const idx = parseInt(c.dataset.idx) + 1;
     c.checked = idx >= desde && idx <= hasta;
   });
   actualizarSeleccionSMS();
@@ -3929,6 +3956,7 @@ function renderTablaContactados() {
           <button class="btn btn-ghost btn-sm" title="Contacto 3 veces" onclick="guardarComentarioRapido('${d.cuit}', 1)">📋1</button>
           <button class="btn btn-ghost btn-sm" title="No hay datos telefónicos" onclick="guardarComentarioRapido('${d.cuit}', 2)">📋2</button>
           <button class="btn btn-ghost btn-sm" title="Registrar llamado" onclick="registrarLlamado('${d.cuit}', this)">📞</button>
+          <button class="btn btn-danger btn-sm" title="Dar de baja" onclick="darDeBajaRapido('${d.cuit}')">🚫</button>
           <button class="btn btn-ghost btn-sm" onclick="buscarDesdeContactados('${d.cuit}')">🔍 Ver</button>
         </div>
       </td>
@@ -3983,6 +4011,26 @@ function volverAContactados() {
   }
 }
 
+async function darDeBajaRapido(cuit) {
+  if (!confirm('¿Dar de baja este asunto?')) return;
+  try {
+    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:R`;
+    const rRead = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dRead = await rRead.json();
+    const rows = dRead.values || [];
+    const rowIdx = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
+    if (rowIdx >= 0) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!R${rowIdx+1}?valueInputOption=USER_ENTERED`, {
+        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+        body: JSON.stringify({ values: [['SI']] })
+      });
+    }
+    renderTablaContactados();
+    toast('Dado de baja ✓');
+    registrarLog('Baja rápida desde Contactados', _contactadosData.find(d=>d.cuit===cuit)?.nombre||'', cuit, '');
+  } catch(e) { toast('Error: '+e.message,'error'); }
+}
+
 async function guardarComentarioRapido(cuit, n) {
   const hoy    = new Date();
   const fmt    = d => d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year:'numeric'});
@@ -4012,9 +4060,15 @@ async function guardarComentarioRapido(cuit, n) {
     const rows    = dRead.values || [];
     const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').replace(/\D/g,'') === cuit);
     if (rowIdx >= 0) {
-      // Si es comentario 2, también marcar Baja = SI en col R
+      // Leer comentario existente y concatenar
+      const urlP = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!P${rowIdx+1}`;
+      const rP = await fetch(urlP, { headers: { Authorization: 'Bearer ' + accessToken } });
+      const dP = await rP.json();
+      const existente = ((dP.values||[])[0]||[])[0] || '';
+      const nuevo = existente ? `${existente} | ${texto}` : texto;
+      
       const range = n === 2 ? `COMENTARIOS!P${rowIdx+1}:R${rowIdx+1}` : `COMENTARIOS!P${rowIdx+1}`;
-      const values = n === 2 ? [[texto, '', 'SI']] : [[texto]];
+      const values = n === 2 ? [[nuevo, '', 'SI']] : [[nuevo]];
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=USER_ENTERED`, {
         method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
         body: JSON.stringify({ values })
