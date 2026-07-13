@@ -2954,7 +2954,20 @@ async function cargarSMS() {
       if (fechas.length) { fechas.sort(); logMap[c] = fechas[fechas.length-1]; }
     });
 
-    _smsDatos = _smsDatos.map(x => ({ ...x, ultimoSMS: logMap[x.cuit]||'' }));
+    // Leer 1er CONTACTO para fechas de primer contacto
+    const rC1 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dC1 = await rC1.json();
+    const c1Map = {};
+    (dC1.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      const f = r[1]||'';
+      if (c && f) {
+        const p = f.split('/');
+        if (p.length === 3) c1Map[c] = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      }
+    });
+
+    _smsDatos = _smsDatos.map(x => ({ ...x, ultimoSMS: logMap[x.cuit] || c1Map[x.cuit] || '' }));
 
     _smsDatos.sort((a, b) => (b.diasMoraSMS||0) - (a.diasMoraSMS||0));
 
