@@ -2916,7 +2916,6 @@ async function cargarSMS() {
       let diasMoraSMS = null;
       if (fechaFinObj && !isNaN(fechaFinObj)) {
         diasMoraSMS = diffDays(fechaFinObj.toISOString().split('T')[0], hoy);
-        if (diasMoraSMS > 100) return;
       }
 
       const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === cuit);
