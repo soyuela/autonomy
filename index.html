@@ -2940,6 +2940,18 @@ async function cargarSMS() {
     });
 
     // Ordenar por días de mora descendente
+    // Leer LOG_SMS para fechas
+    const rLog = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dLog = await rLog.json();
+    const logMap = {};
+    (dLog.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      const fechas = [r[1]||'', r[2]||'', r[3]||'', r[4]||''].filter(Boolean);
+      if (fechas.length) { fechas.sort(); logMap[c] = fechas[fechas.length-1]; }
+    });
+
+    _smsDatos = _smsDatos.map(x => ({ ...x, ultimoSMS: logMap[x.cuit]||'' }));
+
     _smsDatos.sort((a, b) => (b.diasMoraSMS||0) - (a.diasMoraSMS||0));
 
     const sobreLimite = _smsDatos.filter(x => x.largo > 49).length;
@@ -2970,6 +2982,12 @@ async function cargarSMS() {
             <option value="3">3er contacto</option>
           </select>
           <div style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <span style="color:var(--muted)">Desde</span>
+            <input type="date" id="filter-sms-desde" onchange="renderTablaSMS()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+            <span style="color:var(--muted)">hasta</span>
+            <input type="date" id="filter-sms-hasta" onchange="renderTablaSMS()" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px">
             <span style="color:var(--muted)">Desde fila</span>
             <input type="number" id="sms-desde" min="1" placeholder="1" style="width:60px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
             <span style="color:var(--muted)">hasta</span>
@@ -2990,29 +3008,7 @@ async function cargarSMS() {
             <th>Car.</th>
             <th>Envíos</th>
           </tr></thead>
-          <tbody>
-            ${_smsDatos.map((x, i) => `
-              <tr id="sms-row-${i}">
-                <td style="text-align:center;font-size:11px;color:var(--muted)">${i+1}</td>
-                <td><input type="checkbox" class="sms-check" data-idx="${i}" onchange="actualizarSeleccionSMS()"></td>
-                <td style="font-size:12px;font-weight:500">${x.nombre}</td>
-                <td class="mono" style="font-size:11px">${x.texto.split('/')[0]}</td>
-                <td class="mono" style="text-align:center;font-weight:600;color:${(x.diasMoraSMS||0)>60?'var(--danger)':(x.diasMoraSMS||0)>30?'var(--warning)':'var(--muted)'}">${x.diasMoraSMS!=null?x.diasMoraSMS+'d':'—'}</td>
-                <td class="importe">${fmtPeso(x.deudaNeta)}</td>
-                <td style="max-width:220px">
-                  ${x.largo > 49
-                    ? `<input type="text" class="sms-edit" data-idx="${i}" value="${x.texto}" oninput="editarSMS(this,${i})" style="width:100%;font-family:var(--fm);font-size:11px;padding:3px 6px;border:1px solid var(--danger);border-radius:4px;background:rgba(220,38,38,.04)">`
-                    : `<span style="font-family:var(--fm);font-size:11px">${x.texto}</span>`}
-                </td>
-                <td class="mono" style="text-align:center;${x.largo>49?'color:var(--danger);font-weight:700':''}" id="sms-car-${i}">${x.largo}</td>
-                <td style="font-size:11px;text-align:center">
-                  <span style="color:${x.c1?'var(--ok)':'var(--muted)'}">●</span>
-                  <span style="color:${x.c2?'var(--ok)':'var(--muted)'}">●</span>
-                  <span style="color:${x.c3?'var(--ok)':'var(--muted)'}">●</span>
-                  <div style="font-size:10px;color:var(--muted)">#${x.nroContacto}</div>
-                </td>
-              </tr>`).join('')}
-          </tbody>
+          <tbody></tbody>
         </table>
       </div>
       <div style="margin-top:12px;display:none" id="sms-bloque-area">
@@ -3027,6 +3023,7 @@ async function cargarSMS() {
       </div>`;
 
     document.getElementById('sms-acciones').style.display = 'none';
+    renderTablaSMS();
 
   } catch(e) {
     document.getElementById('sms-stats').innerHTML = `<div style="color:var(--danger)">Error al cargar: ${e.message}</div>`;
@@ -3035,7 +3032,15 @@ async function cargarSMS() {
 
 function renderTablaSMS() {
   const fNro = document.getElementById('filter-sms-nro')?.value || '';
-  const lista = _smsDatos.filter(x => !fNro || String(x.nroContacto) === fNro);
+  const fDesde = document.getElementById('filter-sms-desde')?.value || '';
+  const fHasta = document.getElementById('filter-sms-hasta')?.value || '';
+  
+  const lista = _smsDatos.filter(x => {
+    if (fNro && String(x.nroContacto) !== fNro) return false;
+    if (fDesde && x.ultimoSMS && x.ultimoSMS < fDesde) return false;
+    if (fHasta && x.ultimoSMS && x.ultimoSMS > fHasta) return false;
+    return true;
+  });
   
   const tbody = document.querySelector('#sms-lista table tbody');
   if (!tbody || !lista.length) return;
