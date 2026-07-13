@@ -2941,12 +2941,16 @@ async function cargarSMS() {
 
     // Ordenar por días de mora descendente
     // Leer LOG_SMS para fechas
-    const rLog = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const rLog = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dLog = await rLog.json();
     const logMap = {};
     (dLog.values||[]).slice(1).forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      const fechas = [r[1]||'', r[2]||'', r[3]||'', r[4]||''].filter(Boolean);
+      const fechas = [r[1]||'', r[2]||'', r[3]||'', r[4]||''].filter(Boolean).map(f => {
+        const p = String(f).split('/');
+        if (p.length === 3) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        return f;
+      });
       if (fechas.length) { fechas.sort(); logMap[c] = fechas[fechas.length-1]; }
     });
 
@@ -3728,6 +3732,20 @@ async function cargarContactados() {
     });
 
     // 4b. Calcular ultimoSMS desde BASE ya cargado (AA=26, AB=27, AC=28)
+    // 4b. Leer LOG_SMS para fechas con conversión
+    const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dLogSMS = await rLogSMS.json();
+    const logSMSMap = {};
+    (dLogSMS.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      const fechas = [r[1]||'', r[2]||'', r[3]||'', r[4]||''].filter(Boolean).map(f => {
+        const p = String(f).split('/');
+        if (p.length === 3) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        return f;
+      });
+      if (fechas.length) { fechas.sort(); logSMSMap[c] = fechas[fechas.length-1]; }
+    });
+
     const smsMap = {};
     (dBase2.values||[]).slice(1).forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
@@ -3772,8 +3790,8 @@ async function cargarContactados() {
       const recontactar  = recontactarMap[cuit]||'';
       const baja         = bajaMap[cuit]||'';
       const ultimoLlamado = ultimoLlamadoMap[cuit]||'';
-      // Último SMS: el más reciente entre 1er contacto, AA, AB, AC
-      const fechasSMS = [primerContactoMap[cuit]||'', smsMap[cuit]||''].filter(Boolean);
+      // Último SMS: el más reciente entre 1er contacto, LOG_SMS, AA, AB, AC
+      const fechasSMS = [primerContactoMap[cuit]||'', logSMSMap[cuit]||'', smsMap[cuit]||''].filter(Boolean);
       fechasSMS.sort();
       const ultimoSMS = fechasSMS.length ? fechasSMS[fechasSMS.length-1] : '';
       const convs = DB.convenios.filter(c => String(c.cuit).replace(/\D/g,'') === cuit);
