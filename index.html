@@ -2904,6 +2904,21 @@ async function cargarSMS() {
     });
 
     _smsDatos = [];
+    
+    // Leer LOG_SMS (cols C, D, E = 2do, 3er, 4to contacto)
+    const rLogPre = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dLogPre = await rLogPre.json();
+    const logContactsMap = {}; // cuit → {c2, c3, c4}
+    (dLogPre.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) logContactsMap[c] = { c2: String(r[2]||'').trim(), c3: String(r[3]||'').trim(), c4: String(r[4]||'').trim() };
+    });
+    
+    // Leer 1er CONTACTO
+    const rC1Pre = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dC1Pre = await rC1Pre.json();
+    const primerContactoSet = new Set((dC1Pre.values||[]).slice(1).map(r => String(r[0]||'').replace(/\D/g,'')).filter(Boolean));
+    
     rows.forEach((row, i) => {
       const cuit = String(row[0]||'').replace(/\D/g,'');
       if (cuit.length < 10) return;
@@ -2921,21 +2936,28 @@ async function cargarSMS() {
       const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === cuit);
       if (tieneConvenio) return;
 
-      // Contactos: AA=índice 26, AB=27, AC=28
-      const c1 = String(row[26]||'').trim();
-      const c2 = String(row[27]||'').trim();
-      const c3 = String(row[28]||'').trim();
-      if (c1 && c2 && c3) return; // ya recibió 3 contactos
+      // Contactos desde LOG_SMS y 1er CONTACTO
+      const tienePrimer = primerContactoSet.has(cuit);
+      const logC = logContactsMap[cuit] || { c2: '', c3: '', c4: '' };
+      const c1 = tienePrimer ? 'SI' : '';
+      const c2 = logC.c2;
+      const c3 = logC.c3;
+      const c4 = logC.c4;
+      
+      // Contar contactos totales
+      const totalContactos = (c1 ? 1 : 0) + (c2 ? 1 : 0) + (c3 ? 1 : 0) + (c4 ? 1 : 0);
+      if (totalContactos >= 4) return; // ya recibió los 4 permitidos
+      
+      // Próximo número de contacto (1, 2, 3 o 4)
+      const nroContacto = totalContactos + 1;
 
       const telefono = String(row[4]||'').replace(/\D/g,'');
       const nombre   = row[1]||'';
       const mail     = row[3]||'';
       const deudaFmt = deudaNeta.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
       const texto    = `${telefono}/${nombre}/${deudaFmt}`;
-      const proximaCol = !c1 ? 'AA' : !c2 ? 'AB' : 'AC';
-      const nroContacto = !c1 ? 1 : !c2 ? 2 : 3;
 
-      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2, diasMoraSMS, c1, c2, c3, proximaCol, nroContacto, nombre, deudaNeta, mail });
+      _smsDatos.push({ cuit, texto, largo: texto.length, sheetRow: i + 2, diasMoraSMS, c1, c2, c3, c4, nroContacto, nombre, deudaNeta, mail });
     });
 
     // Ordenar por días de mora descendente
