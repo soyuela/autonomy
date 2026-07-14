@@ -4001,7 +4001,7 @@ function renderTablaContactados() {
       : d.convs.length
         ? d.convs.map(c => `<span class="badge badge-${c.tipo[0].toLowerCase()}" style="margin-right:3px">${c.tipo}</span>`).join('')
         : `<span class="badge badge-vencido">Sin convenio</span>`;
-    const mora = parseInt(d.diasMora)||0;
+    const mora = parseInt(d.diasMora) || parseInt(d.diasMoraReal) || 0;
     const moraColor = mora > 365 ? 'var(--danger)' : mora > 180 ? 'var(--warning)' : 'var(--muted)';
     const comentarioHtml = d.comentario
       ? `<span id="coment-${d.cuit}" style="font-size:11px;color:var(--ok)">${d.comentario}</span>`
