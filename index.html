@@ -3075,8 +3075,11 @@ function renderTablaSMS() {
   
   const lista = _smsDatos.filter(x => {
     if (fNro && String(x.nroContacto) !== fNro) return false;
-    if (fDesde && x.ultimoSMS && x.ultimoSMS < fDesde) return false;
-    if (fHasta && x.ultimoSMS && x.ultimoSMS > fHasta) return false;
+    if (fDesde || fHasta) {
+      if (!x.ultimoSMS) return false; // sin fecha no pasa filtro de fechas
+      if (fDesde && x.ultimoSMS < fDesde) return false;
+      if (fHasta && x.ultimoSMS > fHasta) return false;
+    }
     return true;
   });
   
