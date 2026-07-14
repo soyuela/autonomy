@@ -405,6 +405,7 @@
             <select class="filter-select" id="filter-contactados-semana" onchange="renderTablaContactados()">
               <option value="">Todos</option>
               <option value="semana">SMS últimos 7 días</option>
+              <option value="14dias">SMS últimos 14 días</option>
               <option value="no-semana">Sin SMS en últimos 7 días</option>
             </select>
           </div>
@@ -3948,8 +3949,9 @@ function renderTablaContactados() {
 
   const fSemana = document.getElementById('filter-contactados-semana')?.value || '';
 
-  // Últimos 7 días
+  // Últimos 7 días / 14 días
   const hace7dias = addDays(today(), -7);
+  const hace14dias = addDays(today(), -14);
 
   let lista = _contactadosData.filter(d => {
     if (d.baja === 'SI') return false;
@@ -3963,6 +3965,7 @@ function renderTablaContactados() {
     const oK = !fComent || (fComent==='con' && d.comentario) || (fComent==='sin' && !d.comentario);
     const oS = !fSemana
       || (fSemana==='semana' && d.ultimoSMS >= hace7dias)
+      || (fSemana==='14dias' && d.ultimoSMS >= hace14dias)
       || (fSemana==='no-semana' && (!d.ultimoSMS || d.ultimoSMS < hace7dias));
     return oQ && oC && oK && oS;
   });
