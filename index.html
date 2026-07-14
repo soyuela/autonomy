@@ -3982,7 +3982,7 @@ function renderTablaContactados() {
     if (col === 'ultimoSMS') {
       return mul * ((b.ultimoSMS||'').localeCompare(a.ultimoSMS||''));
     }
-    if (col === 'mora')  return mul * ((parseInt(a.diasMora)||0) - (parseInt(b.diasMora)||0));
+    if (col === 'mora')  return mul * ((parseInt(a.diasMora)||parseInt(a.diasMoraReal)||0) - (parseInt(b.diasMora)||parseInt(b.diasMoraReal)||0));
     if (col === 'inf')   return mul * ((a.deudaInf||0) - (b.deudaInf||0));
     if (col === 'sin')   return mul * ((a.deudaSin||0) - (b.deudaSin||0));
     if (col === 'total') return mul * (((a.deudaAlq||0)+(a.deudaInf||0)+(a.deudaSin||0)) - ((b.deudaAlq||0)+(b.deudaInf||0)+(b.deudaSin||0)));
