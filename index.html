@@ -3013,8 +3013,9 @@ async function cargarSMS() {
           <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer">
             <input type="checkbox" id="sms-check-all" onchange="toggleSMSAll(this)"> Seleccionar todos
           </label>
-          <select class="filter-select" id="filter-sms-nro" onchange="renderTablaSMS()" style="max-width:120px">
+          <select class="filter-select" id="filter-sms-nro" onchange="renderTablaSMS()" style="max-width:140px">
             <option value="">Todos los contactos</option>
+            <option value="nunca">No contactados</option>
             <option value="1">1er contacto</option>
             <option value="2">2do contacto</option>
             <option value="3">3er contacto</option>
@@ -3074,7 +3075,9 @@ function renderTablaSMS() {
   const fHasta = document.getElementById('filter-sms-hasta')?.value || '';
   
   const lista = _smsDatos.filter(x => {
-    if (fNro && String(x.nroContacto) !== fNro) return false;
+    if (fNro === 'nunca') {
+      if (x.ultimoSMS) return false;
+    } else if (fNro && String(x.nroContacto) !== fNro) return false;
     if (fDesde || fHasta) {
       if (!x.ultimoSMS) return false; // sin fecha no pasa filtro de fechas
       if (fDesde && x.ultimoSMS < fDesde) return false;
