@@ -3202,9 +3202,11 @@ async function marcarSMSEnviados() {
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
     const cuit = item.cuit;
-    const colNum = item.nroContacto === 1 ? null : (item.nroContacto === 2 ? 3 : item.nroContacto === 3 ? 4 : 5); // C=3, D=4, E=5
+    // LOG_SMS: A=CUIT, B=1er contacto, C=2do, D=3er, E=4to
+    // nroContacto: 1, 2, 3 o 4 → mapea directamente a B, C, D, E
+    const colIndex = item.nroContacto; // 1→B, 2→C, 3→D, 4→E
 
-    // Si es primer contacto, agregar a 1er CONTACTO
+    // Si es primer contacto, agregar TAMBIÉN a hoja 1er CONTACTO
     if (item.nroContacto === 1 && !c1Set.has(cuit)) {
       try {
         const rowToWrite = nextC1Row;
@@ -3218,7 +3220,7 @@ async function marcarSMSEnviados() {
       } catch(e) { console.warn('1er CONTACTO error:', e); }
     }
 
-    // Escribir en LOG_SMS
+    // Escribir en LOG_SMS (TODOS los contactos: 1er, 2do, 3er, 4to)
     try {
       let logRow = logMap[cuit];
       // Si no existe fila en LOG_SMS, crear una
@@ -3234,14 +3236,13 @@ async function marcarSMSEnviados() {
         nextLogRow++;  // Incrementar contador para próxima nueva fila
       }
 
-      // Escribir fecha en la columna correspondiente (B, C, D o E)
-      if (colNum) {
-        const colLetter = String.fromCharCode(65 + colNum - 1); // 3→C, 4→D, 5→E
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!${colLetter}${logRow}?valueInputOption=USER_ENTERED`, {
-          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[fechaHoy]] })
-        });
-      }
+      // Escribir fecha en la columna correspondiente según nroContacto
+      // nroContacto 1 → B, 2 → C, 3 → D, 4 → E
+      const colLetter = String.fromCharCode(65 + colIndex); // 1→B(66), 2→C(67), 3→D(68), 4→E(69)
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!${colLetter}${logRow}?valueInputOption=USER_ENTERED`, {
+        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [[fechaHoy]] })
+      });
       ok++;
     } catch(e) { console.warn('LOG_SMS error:', e); }
   }
