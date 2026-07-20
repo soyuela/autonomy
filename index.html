@@ -3194,6 +3194,10 @@ async function marcarSMSEnviados() {
   const c1Rows = dC1.values || [];
   const c1Set = new Set(c1Rows.slice(1).map(r => String(r[0]||'').replace(/\D/g,'')));
 
+  // CONTADORES LOCALES para nuevas filas (evita sobrescrituras cuando hay múltiples nuevos)
+  let nextLogRow = logRows.length + 1;
+  let nextC1Row = c1Rows.length + 1;
+
   let ok = 0;
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
@@ -3203,13 +3207,14 @@ async function marcarSMSEnviados() {
     // Si es primer contacto, agregar a 1er CONTACTO
     if (item.nroContacto === 1 && !c1Set.has(cuit)) {
       try {
-        const nextRow = c1Rows.length + 1;
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A${nextRow}:B${nextRow}?valueInputOption=USER_ENTERED`, {
+        const rowToWrite = nextC1Row;
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A${rowToWrite}:B${rowToWrite}?valueInputOption=USER_ENTERED`, {
           method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [[cuit, fechaHoy]] })
         });
         c1Set.add(cuit);
         c1Rows.push([cuit, fechaHoy]);
+        nextC1Row++;  // Incrementar contador para próxima nueva fila
       } catch(e) { console.warn('1er CONTACTO error:', e); }
     }
 
@@ -3218,7 +3223,7 @@ async function marcarSMSEnviados() {
       let logRow = logMap[cuit];
       // Si no existe fila en LOG_SMS, crear una
       if (!logRow) {
-        logRow = logRows.length + 1;
+        logRow = nextLogRow;
         const valores = Array(5).fill(''); valores[0] = cuit;
         await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A${logRow}:E${logRow}?valueInputOption=USER_ENTERED`, {
           method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
@@ -3226,6 +3231,7 @@ async function marcarSMSEnviados() {
         });
         logMap[cuit] = logRow;
         logRows.push([cuit]);
+        nextLogRow++;  // Incrementar contador para próxima nueva fila
       }
 
       // Escribir fecha en la columna correspondiente (B, C, D o E)
