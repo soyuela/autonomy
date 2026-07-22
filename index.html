@@ -340,7 +340,15 @@
       </div>
       <div id="venc-prox"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-prox"></tbody></table></div></div>
       <div id="venc-vencidas" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>Teléfono</th><th>Cuotas</th><th colspan="3"></th><th>Acc.</th></tr></thead><tbody id="tabla-venc-vencidas"></tbody></table></div></div>
-      <div id="venc-firma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Último intento</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div></div>
+      <div id="venc-firma" style="display:none">
+        <div class="table-toolbar" style="padding:8px 0;display:flex;gap:10px;align-items:center">
+          <label style="font-size:13px;color:var(--muted)">Filtrar por mes de creación:</label>
+          <select id="filter-firma-mes" onchange="renderVencimientos()" class="filter-select" style="max-width:180px">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Último intento</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-firma"></tbody></table></div>
+      </div>
       <div id="venc-sinfirma" style="display:none"><div class="table-wrap"><table><thead><tr><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Tipo</th><th>Nombre PDF</th><th>Deuda</th><th>Cuotas</th><th>Creado</th><th>Acc.</th></tr></thead><tbody id="tabla-venc-sinfirma"></tbody></table></div></div>
     </div>
     <!-- BÚSQUEDA -->
@@ -2410,7 +2418,9 @@ function setVencTab(t,el) {
 }
 
 function renderVencimientos() {
-  const {prox,venc} = calcStatus();
+  const {prox: proxAll, venc} = calcStatus();
+  // Solo mostrar próximas de convenios firmados (recordatorios de pago)
+  const prox = proxAll.filter(({conv}) => conv.firmado === 'SI');
   // Agrupar próximas por CUIT
   const proxPorCuit = {};
   prox.forEach(({conv,cq,dias}) => {
@@ -2466,10 +2476,33 @@ function renderVencimientos() {
       }).join('');
 
   // FIRMA PENDIENTE: enviados pero sin firma
-  const firmaEnviados = DB.convenios.filter(c => c.enviado==='SI' && c.firmado!=='SI');
+  const firmaEnviadosAll = DB.convenios.filter(c => c.enviado==='SI' && c.firmado!=='SI');
+  
+  // Poblar select de meses únicos
+  const mesesFirma = [...new Set(firmaEnviadosAll.map(c => {
+    if (!c.creadoEn) return null;
+    const p = c.creadoEn.split('-');
+    return p.length >= 2 ? `${p[0]}-${p[1]}` : null;
+  }).filter(Boolean))].sort().reverse();
+  const selMes = document.getElementById('filter-firma-mes');
+  if (selMes && selMes.dataset.populated !== '1') {
+    const mesActual = selMes.value;
+    const mesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    selMes.innerHTML = `<option value="">Todos</option>` + mesesFirma.map(m => {
+      const [y, mm] = m.split('-');
+      return `<option value="${m}" ${m===mesActual?'selected':''}>${mesNombres[parseInt(mm)-1]} ${y}</option>`;
+    }).join('');
+    selMes.dataset.populated = '1';
+  }
+  
+  const filtroMes = selMes?.value || '';
+  const firmaEnviados = filtroMes 
+    ? firmaEnviadosAll.filter(c => c.creadoEn && c.creadoEn.startsWith(filtroMes))
+    : firmaEnviadosAll;
+  
   const tbF = document.getElementById('tabla-venc-firma');
   const badgeFirma = document.getElementById('badge-firma');
-  if (badgeFirma) badgeFirma.textContent = firmaEnviados.length || '';
+  if (badgeFirma) badgeFirma.textContent = firmaEnviadosAll.length || '';
   tbF.innerHTML = !firmaEnviados.length
     ? `<tr><td colspan="9"><div class="empty"><div class="icon">✅</div><p>Sin convenios pendientes de firma</p></div></td></tr>`
     : firmaEnviados.map(c => {
