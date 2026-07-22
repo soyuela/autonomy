@@ -1350,9 +1350,12 @@ function rowToConvenio(row) {
     firmado: String(row[34]||'').toUpperCase()==='SI' ? 'SI' : '',
     enviado: String(row[33]||'').toUpperCase()==='SI' ? 'SI' : '',
     comentario: '', creadoEn: (() => {
-      const dia=String(row[0]||'').trim(), mes=String(row[1]||'').trim(), anyo=String(row[2]||'').trim();
-      if (dia && mes && anyo) {
-        return `${anyo.padStart(4,'0')}-${mes.padStart(2,'0')}-${dia.padStart(2,'0')}T00:00:00.000Z`;
+      const dia=String(row[0]||'').trim(), mesRaw=String(row[1]||'').trim(), anyo=String(row[2]||'').trim();
+      if (dia && mesRaw && anyo) {
+        let mesNum = mesRaw;
+        const mesIdx = MESES.findIndex(m => m.toLowerCase() === mesRaw.toLowerCase());
+        if (mesIdx >= 0) mesNum = String(mesIdx + 1);
+        return `${anyo.padStart(4,'0')}-${String(mesNum).padStart(2,'0')}-${dia.padStart(2,'0')}T00:00:00.000Z`;
       }
       return new Date().toISOString();
     })(), creadoPor: 'Sheets', fromSheet: true
