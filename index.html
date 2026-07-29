@@ -2948,19 +2948,14 @@ async function cargarSMS() {
 
     _smsDatos = [];
     
-    // Leer LOG_SMS (cols C, D, E = 2do, 3er, 4to contacto)
+    // Leer LOG_SMS (cols B, C, D, E = 1er, 2do, 3er, 4to contacto)
     const rLogPre = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dLogPre = await rLogPre.json();
-    const logContactsMap = {}; // cuit → {c2, c3, c4}
+    const logContactsMap = {}; // cuit → {c1, c2, c3, c4}
     (dLogPre.values||[]).slice(1).forEach(r => {
       const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) logContactsMap[c] = { c2: String(r[2]||'').trim(), c3: String(r[3]||'').trim(), c4: String(r[4]||'').trim() };
+      if (c) logContactsMap[c] = { c1: String(r[1]||'').trim(), c2: String(r[2]||'').trim(), c3: String(r[3]||'').trim(), c4: String(r[4]||'').trim() };
     });
-    
-    // Leer 1er CONTACTO
-    const rC1Pre = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dC1Pre = await rC1Pre.json();
-    const primerContactoSet = new Set((dC1Pre.values||[]).slice(1).map(r => String(r[0]||'').replace(/\D/g,'')).filter(Boolean));
     
     rows.forEach((row, i) => {
       const cuit = String(row[0]||'').replace(/\D/g,'');
@@ -2979,10 +2974,9 @@ async function cargarSMS() {
       const tieneConvenio = DB.convenios.some(c => String(c.cuit).replace(/\D/g,'') === cuit);
       if (tieneConvenio) return;
 
-      // Contactos desde LOG_SMS y 1er CONTACTO
-      const tienePrimer = primerContactoSet.has(cuit);
-      const logC = logContactsMap[cuit] || { c2: '', c3: '', c4: '' };
-      const c1 = tienePrimer ? 'SI' : '';
+      // Contactos desde LOG_SMS
+      const logC = logContactsMap[cuit] || { c1: '', c2: '', c3: '', c4: '' };
+      const c1 = logC.c1;
       const c2 = logC.c2;
       const c3 = logC.c3;
       const c4 = logC.c4;
@@ -3219,72 +3213,61 @@ async function marcarSMSEnviados() {
   const fechaHoy = isoADMY(today());
 
   // Leer LOG_SMS para mapear CUIT → fila
-  const urlLog = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E`;
+  const urlLog = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`;
   const rLog = await fetch(urlLog, { headers: { Authorization: 'Bearer ' + accessToken } });
   const dLog = await rLog.json();
   const logRows = dLog.values || [];
   const logMap = {}; // cuit → fila (1-indexed)
   logRows.slice(1).forEach((r, i) => {
     const c = String(r[0]||'').replace(/\D/g,'');
-    if (c) logMap[c] = i + 2; // i+2 porque slice(1) y rows son 1-indexed
+    if (c) logMap[c] = i + 2;
   });
 
-  // Leer 1er CONTACTO para nuevos titulares
-  const urlC1 = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`;
-  const rC1 = await fetch(urlC1, { headers: { Authorization: 'Bearer ' + accessToken } });
-  const dC1 = await rC1.json();
-  const c1Rows = dC1.values || [];
-  const c1Set = new Set(c1Rows.slice(1).map(r => String(r[0]||'').replace(/\D/g,'')));
-
-  let ok = 0;
+  // Construir todas las escrituras a hacer
+  const dataToWrite = [];
+  let nuevasFilas = 0;
+  const nuevasFilasMap = {};
+  
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
     const cuit = item.cuit;
-    const colNum = item.nroContacto === 1 ? null : (item.nroContacto === 2 ? 3 : item.nroContacto === 3 ? 4 : 5); // C=3, D=4, E=5
-
-    // Si es primer contacto, agregar a 1er CONTACTO
-    if (item.nroContacto === 1 && !c1Set.has(cuit)) {
-      try {
-        const nextRow = c1Rows.length + 1;
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A${nextRow}:B${nextRow}?valueInputOption=USER_ENTERED`, {
-          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[cuit, fechaHoy]] })
-        });
-        c1Set.add(cuit);
-        c1Rows.push([cuit, fechaHoy]);
-      } catch(e) { console.warn('1er CONTACTO error:', e); }
+    const colNum = item.nroContacto === 1 ? 2 : (item.nroContacto === 2 ? 3 : item.nroContacto === 3 ? 4 : 5); // B=2, C=3, D=4, E=5
+    const colLetter = String.fromCharCode(65 + colNum - 1); // 2→B, 3→C, 4→D, 5→E
+    
+    let logRow = logMap[cuit] || nuevasFilasMap[cuit];
+    if (!logRow) {
+      logRow = logRows.length + 1 + nuevasFilas;
+      nuevasFilasMap[cuit] = logRow;
+      nuevasFilas++;
+      // Crear fila nueva: cuit en A y fecha en la col correspondiente
+      const rowValues = ['', '', '', '', ''];
+      rowValues[0] = cuit;
+      rowValues[colNum - 1] = fechaHoy;
+      dataToWrite.push({range: `LOG_SMS!A${logRow}:E${logRow}`, values: [rowValues]});
+    } else {
+      // Solo actualizar la columna del contacto
+      dataToWrite.push({range: `LOG_SMS!${colLetter}${logRow}`, values: [[fechaHoy]]});
     }
+  }
 
-    // Escribir en LOG_SMS
+  // Escribir en batches de 50 (máximo seguro para batchUpdate)
+  let ok = 0, errores = 0;
+  for (let i = 0; i < dataToWrite.length; i += 50) {
+    const lote = dataToWrite.slice(i, i + 50);
     try {
-      let logRow = logMap[cuit];
-      // Si no existe fila en LOG_SMS, crear una
-      if (!logRow) {
-        logRow = logRows.length + 1;
-        const valores = Array(5).fill(''); valores[0] = cuit;
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A${logRow}:E${logRow}?valueInputOption=USER_ENTERED`, {
-          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [valores] })
-        });
-        logMap[cuit] = logRow;
-        logRows.push([cuit]);
-      }
-
-      // Escribir fecha en la columna correspondiente (B, C, D o E)
-      if (colNum) {
-        const colLetter = String.fromCharCode(65 + colNum - 1); // 3→C, 4→D, 5→E
-        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!${colLetter}${logRow}?valueInputOption=USER_ENTERED`, {
-          method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [[fechaHoy]] })
-        });
-      }
-      ok++;
-    } catch(e) { console.warn('LOG_SMS error:', e); }
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+        method: 'POST',
+        headers: {Authorization: 'Bearer '+accessToken, 'Content-Type': 'application/json'},
+        body: JSON.stringify({valueInputOption: 'USER_ENTERED', data: lote})
+      });
+      if (!r.ok) throw new Error('Status '+r.status);
+      ok += lote.length;
+    } catch(e) { errores += lote.length; console.warn(`Lote ${Math.floor(i/50)+1} error:`, e); }
   }
 
   btn.disabled = false;
-  toast(`${ok} marcados como enviados${ok<seleccionados.length?' · algunos errores':''} ✓`);
-  registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}`);
+  toast(`${ok} marcados como enviados${errores ? ` · ${errores} errores (ver consola)` : ''} ✓`);
+  registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}${errores ? ` · ${errores} errores` : ''}`);
   cargarSMS();
 }
 
@@ -3766,36 +3749,16 @@ async function cargarContactados() {
   tbody.innerHTML = `<tr><td colspan="8"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando contactados…</div></td></tr>`;
 
   try {
-    // 1. Leer 1er CONTACTO (CUIT col A, fecha col B)
-    const r1 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/1er CONTACTO!A:B`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const d1 = await r1.json();
-    const contactRowsRaw = (d1.values||[]).slice(1).filter(r => r[0] && String(r[0]).replace(/\D/g,'').length >= 10);
-    const cuitEnPrimerContacto = new Set(contactRowsRaw.map(r => String(r[0]).replace(/\D/g,'')));
-
-    // También incluir los que tienen fecha en AA/AB/AC de BASE (recontactos) aunque no estén en 1er CONTACTO
-    const rBase2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/BASE!A:AC?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dBase2 = await rBase2.json();
-    const baseExtra = (dBase2.values||[]).slice(1).filter(r => {
-      const cuit = String(r[0]||'').replace(/\D/g,'');
-      if (cuit.length < 10) return false;
-      if (cuitEnPrimerContacto.has(cuit)) return false; // ya está en 1er CONTACTO
-      return String(r[26]||'').trim() || String(r[27]||'').trim() || String(r[28]||'').trim();
-    }).map(r => [String(r[0]).replace(/\D/g,''), '']); // sin fecha de primer contacto
-
-    // También incluir CUITs de LOG_SMS que no estén en 1er CONTACTO
+    // 1. Leer LOG_SMS como única fuente de contactados
     const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const dLogSMS = await rLogSMS.json();
-    const logExtra = (dLogSMS.values||[]).slice(1).filter(r => {
+    const contactRows = (dLogSMS.values||[]).slice(1).filter(r => {
       const cuit = String(r[0]||'').replace(/\D/g,'');
-      if (cuit.length < 10) return false;
-      if (cuitEnPrimerContacto.has(cuit)) return false; // ya está en 1er CONTACTO
-      return true;
-    }).map(r => [String(r[0]).replace(/\D/g,''), '']); // sin fecha de primer contacto
-
-    const contactRows = [...contactRowsRaw, ...baseExtra, ...logExtra];
+      return cuit.length >= 10 && (r[1] || r[2] || r[3] || r[4]);
+    }).map(r => [String(r[0]).replace(/\D/g,''), r[1] || '']);
 
     if (!contactRows.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en la hoja "1er CONTACTO"</p></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en LOG_SMS</p></div></td></tr>`;
       return;
     }
 
@@ -3841,15 +3804,8 @@ async function cargarContactados() {
       if (fechas.length) { fechas.sort(); logSMSMap[c] = fechas[fechas.length-1]; }
     });
 
+    // ultimoSMS viene solo de LOG_SMS
     const smsMap = {};
-    (dBase2.values||[]).slice(1).forEach(r => {
-      const c = String(r[0]||'').replace(/\D/g,'');
-      if (c) {
-        const fechas = [r[26]||'', r[27]||'', r[28]||''].filter(Boolean);
-        const isos = fechas.map(f => { const p=f.split('/'); return p.length===3?`${p[2].length<=2?'20'+p[2]:p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:''; }).filter(Boolean);
-        if (isos.length) { isos.sort(); smsMap[c] = isos[isos.length-1]; }
-      }
-    });
 
     // Leer 1er CONTACTO para sus fechas también (ya las tenemos en contactRows)
     const primerContactoMap = {};
