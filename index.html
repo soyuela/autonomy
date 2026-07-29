@@ -3749,20 +3749,7 @@ async function cargarContactados() {
   tbody.innerHTML = `<tr><td colspan="8"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando contactados…</div></td></tr>`;
 
   try {
-    // 1. Leer LOG_SMS como única fuente de contactados
-    const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dLogSMS = await rLogSMS.json();
-    const contactRows = (dLogSMS.values||[]).slice(1).filter(r => {
-      const cuit = String(r[0]||'').replace(/\D/g,'');
-      return cuit.length >= 10 && (r[1] || r[2] || r[3] || r[4]);
-    }).map(r => [String(r[0]).replace(/\D/g,''), r[1] || '']);
-
-    if (!contactRows.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en LOG_SMS</p></div></td></tr>`;
-      return;
-    }
-
-    // 2. Leer ORIGINAL para nombres, deudas y fecha fin (col H)
+    // 1. Leer ORIGINAL primero para saber qué CUITs existen
     const r2 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:O`, { headers: { Authorization: 'Bearer ' + accessToken } });
     const d2 = await r2.json();
     const originalRows = (d2.values||[]).slice(1);
@@ -3771,6 +3758,19 @@ async function cargarContactados() {
       const c = String(r[0]||'').replace(/\D/g,'');
       if (c) originalMap[c] = r;
     });
+
+    // 2. Leer LOG_SMS y filtrar solo CUITs que existan en ORIGINAL
+    const rLogSMS = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/LOG_SMS!A:E?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const dLogSMS = await rLogSMS.json();
+    const contactRows = (dLogSMS.values||[]).slice(1).filter(r => {
+      const cuit = String(r[0]||'').replace(/\D/g,'');
+      return cuit.length >= 10 && (r[1] || r[2] || r[3] || r[4]) && originalMap[cuit];
+    }).map(r => [String(r[0]).replace(/\D/g,''), r[1] || '']);
+
+    if (!contactRows.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="icon">📋</div><p>No hay contactados registrados en LOG_SMS</p></div></td></tr>`;
+      return;
+    }
 
     // 3. Leer COMENTARIOS para acción (col P = índice 15) y días mora (col O = índice 14)
     const r3 = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:U`, { headers: { Authorization: 'Bearer ' + accessToken } });
