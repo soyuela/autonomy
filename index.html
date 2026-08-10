@@ -303,10 +303,12 @@
             <select class="filter-select" id="filter-estado" onchange="renderConvenios()">
               <option value="">Todos</option>
               <option value="activo">Activos</option>
+              <option value="en-pago">En pago (con cuotas abonadas)</option>
               <option value="completado">Completados</option>
               <option value="sin-firma">Sin firma</option>
             </select>
           </div>
+          <span id="conv-count" style="color:var(--muted);font-size:12px;white-space:nowrap;margin-left:4px"></span>
         </div>
         <table><thead><tr><th id="th-export-check" style="display:none"><input type="checkbox" id="check-all-conv" onclick="toggleCheckAll(this)"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
         <tbody id="tabla-convenios"></tbody></table>
@@ -2096,9 +2098,12 @@ function renderConvenios() {
     const oT = !fT||c.tipo===fT;
     const p  = pagosDeConv(c.id,c.tipo).length;
     const comp = p>=c.cantCuotas;
-    const oE = !fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
+    const enPago = p>0 && !comp;
+    const oE = !fE||(fE==='activo'&&!comp)||(fE==='en-pago'&&enPago)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
     return oQ&&oT&&oE;
   });
+  const contador = document.getElementById('conv-count');
+  if (contador) contador.textContent = `${lista.length} resultado${lista.length===1?'':'s'}`;
   const tbody = document.getElementById('tabla-convenios');
   if (!lista.length) { tbody.innerHTML=`<tr><td colspan="13"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
   tbody.innerHTML = lista.map((c,i)=>{
