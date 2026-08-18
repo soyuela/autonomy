@@ -303,12 +303,10 @@
             <select class="filter-select" id="filter-estado" onchange="renderConvenios()">
               <option value="">Todos</option>
               <option value="activo">Activos</option>
-              <option value="en-pago">En pago (con cuotas abonadas)</option>
               <option value="completado">Completados</option>
               <option value="sin-firma">Sin firma</option>
             </select>
           </div>
-          <span id="conv-count" style="color:var(--muted);font-size:12px;white-space:nowrap;margin-left:4px"></span>
         </div>
         <table><thead><tr><th id="th-export-check" style="display:none"><input type="checkbox" id="check-all-conv" onclick="toggleCheckAll(this)"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
         <tbody id="tabla-convenios"></tbody></table>
@@ -494,6 +492,16 @@
           <button class="btn btn-primary" style="flex:1" onclick="generarInforme()">📊 Generar informe</button>
         </div>
       </div>
+
+      <div style="max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:28px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Comentarios de la cartera</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5">
+          Exporta un Excel con el comentario/acción actual, días de mora y estado de cada asunto de toda la cartera
+          (no depende del rango de fechas de arriba — es una foto del estado actual).
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="exportarComentariosCartera()" id="btn-export-comentarios">📝 Exportar comentarios (toda la cartera)</button>
+      </div>
+
       <div id="informe-resultado"></div>
     </div>
 
@@ -916,7 +924,7 @@ const parsePeso = s => {
 // Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
 const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
 const fmtFecha = d => { if (!d) return '—'; const f = parseLocalDate(d); return f.toLocaleDateString('es-AR'); };
-const today    = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const today    = () => new Date().toISOString().split('T')[0];
 const addDays  = (ds,n) => { const d=parseLocalDate(ds); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
 const addMonths= (ds,n) => { const d=parseLocalDate(ds); d.setMonth(d.getMonth()+n); return d.toISOString().split('T')[0]; };
 const addWeeks = (ds,n) => addDays(ds,n*7);
@@ -2098,12 +2106,9 @@ function renderConvenios() {
     const oT = !fT||c.tipo===fT;
     const p  = pagosDeConv(c.id,c.tipo).length;
     const comp = p>=c.cantCuotas;
-    const enPago = p>0 && !comp;
-    const oE = !fE||(fE==='activo'&&!comp)||(fE==='en-pago'&&enPago)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
+    const oE = !fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
     return oQ&&oT&&oE;
   });
-  const contador = document.getElementById('conv-count');
-  if (contador) contador.textContent = `${lista.length} resultado${lista.length===1?'':'s'}`;
   const tbody = document.getElementById('tabla-convenios');
   if (!lista.length) { tbody.innerHTML=`<tr><td colspan="13"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
   tbody.innerHTML = lista.map((c,i)=>{
@@ -2931,10 +2936,8 @@ let busquedaTimer = null;
 
 // ─── GENERACIÓN SMS ───────────────────────────────────────────────────────────
 let _smsDatos = [];
-let _smsSeleccionSnapshot = null; // guarda la selección al copiar, para que sobreviva a un re-render de filtros
 
 async function cargarSMS() {
-  _smsSeleccionSnapshot = null;
   document.getElementById('sms-stats').innerHTML = '<div style="color:var(--muted);font-size:13px">Cargando...</div>';
   document.getElementById('sms-lista').innerHTML = '';
   document.getElementById('sms-acciones').style.display = 'none';
@@ -3207,33 +3210,14 @@ function copiarMailsSeleccionados() {
 
 function copiarSMSCompleto() {
   const texto = document.getElementById('sms-texto').value;
-  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
-  const n = seleccionados.length;
-  // Guardamos snapshot: si después de esto se cambia un filtro y se pierden los checkboxes,
-  // "Marcar como enviados" va a poder usar esta lista igual.
-  _smsSeleccionSnapshot = seleccionados;
+  const n = [...document.querySelectorAll('.sms-check:checked')].length;
   navigator.clipboard.writeText(texto).then(() => toast(`${n} SMS copiados ✓`));
 }
 
 async function marcarSMSEnviados() {
-  let seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
-
-  // Si no hay checkboxes tildados pero existe un snapshot de una selección copiada previamente
-  // (por ejemplo, porque se cambió un filtro y se perdieron los checkboxes), usamos ese snapshot.
-  let usandoSnapshot = false;
-  if (!seleccionados.length && _smsSeleccionSnapshot && _smsSeleccionSnapshot.length) {
-    seleccionados = _smsSeleccionSnapshot;
-    usandoSnapshot = true;
-  }
-
-  if (!seleccionados.length) {
-    alert('No hay ningún titular seleccionado. Si ya habías tildado y copiado antes, revisá que no se haya perdido la selección al cambiar un filtro, y volvé a seleccionarlos.');
-    return;
-  }
-
-  const nombresPreview = seleccionados.slice(0, 5).map(i => _smsDatos[i]?.nombre).filter(Boolean).join(', ');
-  const msgConfirm = `¿Marcar ${seleccionados.length} como enviados?${usandoSnapshot ? ' (usando la selección guardada al copiar, los checkboxes actuales no coinciden)' : ''}\n\nEj: ${nombresPreview}${seleccionados.length>5?'…':''}`;
-  if (!confirm(msgConfirm)) return;
+  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+  if (!seleccionados.length) return;
+  if (!confirm(`¿Marcar ${seleccionados.length} como enviados?`)) return;
   const btn = document.querySelector('#sms-acciones button');
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
@@ -3294,7 +3278,6 @@ async function marcarSMSEnviados() {
   btn.disabled = false;
   toast(`${ok} marcados como enviados${errores ? ` · ${errores} errores (ver consola)` : ''} ✓`);
   registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}${errores ? ` · ${errores} errores` : ''}`);
-  _smsSeleccionSnapshot = null;
   cargarSMS();
 }
 
@@ -4608,6 +4591,97 @@ async function generarInforme() {
 }
 
 let _informeData = null;
+
+async function exportarComentariosCartera() {
+  const btn = document.getElementById('btn-export-comentarios');
+  const textoOriginal = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Generando…';
+
+  try {
+    const fetchSheet = async (range) => {
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    };
+
+    // 1. ORIGINAL: universo completo de la cartera (cuit, nombre, teléfono)
+    const dOrig = await fetchSheet('ORIGINAL!A:O');
+    const origRows = (dOrig.values||[]).slice(1).filter(r => String(r[0]||'').replace(/\D/g,'').length >= 10);
+
+    // 2. COMENTARIOS: comentario/acción (col P=15), días mora (col O=14), baja (col R=17), recontactar (col S=18), último llamado (col U=20)
+    const dCom = await fetchSheet('COMENTARIOS!A:U');
+    const comMap = {};
+    (dCom.values||[]).slice(1).forEach(r => {
+      const c = String(r[0]||'').replace(/\D/g,'');
+      if (c) comMap[c] = {
+        comentario: r[15]||'',
+        diasMora: r[14]||'',
+        baja: String(r[17]||'').toUpperCase(),
+        recontactar: r[18]||'',
+        ultimoLlamado: r[20]||''
+      };
+    });
+
+    const cuitsConConvenio = new Set(DB.convenios.map(c => String(c.cuit).replace(/\D/g,'')));
+
+    const filas = origRows.map(row => {
+      const cuit = String(row[0]||'').replace(/\D/g,'');
+      const info = comMap[cuit] || {};
+      return {
+        cuit,
+        nombre: row[1]||'',
+        telefono: row[4]||'',
+        diasMora: info.diasMora||'',
+        comentario: info.comentario||'',
+        convenio: cuitsConConvenio.has(cuit) ? 'SÍ' : 'NO',
+        baja: info.baja==='SI' ? 'SÍ' : 'NO',
+        recontactar: info.recontactar||'',
+        ultimoLlamado: info.ultimoLlamado||''
+      };
+    });
+
+    if (!window.XLSX) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = () => { _generarExcelComentarios(filas); btn.disabled = false; btn.textContent = textoOriginal; };
+      script.onerror = () => { toast('Error al cargar librería Excel', 'error'); btn.disabled = false; btn.textContent = textoOriginal; };
+      document.head.appendChild(script);
+    } else {
+      _generarExcelComentarios(filas);
+      btn.disabled = false; btn.textContent = textoOriginal;
+    }
+  } catch(e) {
+    toast('Error al generar el export: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = textoOriginal;
+  }
+}
+
+function _generarExcelComentarios(filas) {
+  const encabezados = ['CUIT','Titular','Teléfono','Días mora','Comentario / Acción','Con convenio','Dado de baja','Recontactar','Último llamado'];
+  const conComentario = filas.filter(f => f.comentario);
+  const sinComentario = filas.filter(f => !f.comentario);
+
+  const aFilas = lista => [encabezados, ...lista.map(f => [
+    f.cuit, f.nombre, f.telefono, f.diasMora, f.comentario, f.convenio, f.baja, f.recontactar, f.ultimoLlamado
+  ])];
+
+  const wb = XLSX.utils.book_new();
+  const wsTodos = XLSX.utils.aoa_to_sheet(aFilas(filas));
+  wsTodos['!cols'] = [{wch:14},{wch:28},{wch:14},{wch:10},{wch:50},{wch:11},{wch:11},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsTodos, 'Todos los asuntos');
+
+  const wsCon = XLSX.utils.aoa_to_sheet(aFilas(conComentario));
+  wsCon['!cols'] = wsTodos['!cols'];
+  XLSX.utils.book_append_sheet(wb, wsCon, 'Con comentario');
+
+  const wsSin = XLSX.utils.aoa_to_sheet(aFilas(sinComentario));
+  wsSin['!cols'] = wsTodos['!cols'];
+  XLSX.utils.book_append_sheet(wb, wsSin, 'Sin comentario');
+
+  const hoy = isoADMY(today()).replace(/\//g,'-');
+  XLSX.writeFile(wb, `Comentarios_Cartera_${hoy}.xlsx`);
+  toast(`Excel generado: ${filas.length} asuntos ✓`);
+}
 
 function exportarExcelInforme() {
   if (!_informeData) { toast('Primero generá el informe', 'error'); return; }
