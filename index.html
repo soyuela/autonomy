@@ -303,10 +303,12 @@
             <select class="filter-select" id="filter-estado" onchange="renderConvenios()">
               <option value="">Todos</option>
               <option value="activo">Activos</option>
+              <option value="en-pago">En pago (con cuotas abonadas)</option>
               <option value="completado">Completados</option>
               <option value="sin-firma">Sin firma</option>
             </select>
           </div>
+          <span id="conv-count" style="color:var(--muted);font-size:12px;white-space:nowrap;margin-left:4px"></span>
         </div>
         <table><thead><tr><th id="th-export-check" style="display:none"><input type="checkbox" id="check-all-conv" onclick="toggleCheckAll(this)"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Dominio</th><th>Tipo</th><th>Deuda</th><th>Cuota</th><th>Progreso</th><th>Cobrado</th><th>Enviado</th><th>Firmado</th><th></th></tr></thead>
         <tbody id="tabla-convenios"></tbody></table>
@@ -924,7 +926,7 @@ const parsePeso = s => {
 // Parsea yyyy-mm-dd como fecha local (evita el problema de UTC-3)
 const parseLocalDate = (ds) => { if (!ds) return new Date(); const p=String(ds).split('-'); return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])); };
 const fmtFecha = d => { if (!d) return '—'; const f = parseLocalDate(d); return f.toLocaleDateString('es-AR'); };
-const today    = () => new Date().toISOString().split('T')[0];
+const today    = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const addDays  = (ds,n) => { const d=parseLocalDate(ds); d.setDate(d.getDate()+n); return d.toISOString().split('T')[0]; };
 const addMonths= (ds,n) => { const d=parseLocalDate(ds); d.setMonth(d.getMonth()+n); return d.toISOString().split('T')[0]; };
 const addWeeks = (ds,n) => addDays(ds,n*7);
@@ -2106,9 +2108,12 @@ function renderConvenios() {
     const oT = !fT||c.tipo===fT;
     const p  = pagosDeConv(c.id,c.tipo).length;
     const comp = p>=c.cantCuotas;
-    const oE = !fE||(fE==='activo'&&!comp)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
+    const enPago = p>0 && !comp;
+    const oE = !fE||(fE==='activo'&&!comp)||(fE==='en-pago'&&enPago)||(fE==='completado'&&comp)||(fE==='sin-firma'&&!c.firmado);
     return oQ&&oT&&oE;
   });
+  const contador = document.getElementById('conv-count');
+  if (contador) contador.textContent = `${lista.length} resultado${lista.length===1?'':'s'}`;
   const tbody = document.getElementById('tabla-convenios');
   if (!lista.length) { tbody.innerHTML=`<tr><td colspan="13"><div class="empty"><div class="icon">📄</div><p>No hay convenios${q?' que coincidan':''}</p></div></td></tr>`; return; }
   tbody.innerHTML = lista.map((c,i)=>{
@@ -2936,6 +2941,7 @@ let busquedaTimer = null;
 
 // ─── GENERACIÓN SMS ───────────────────────────────────────────────────────────
 let _smsDatos = [];
+let _smsSeleccionSnapshot = null; // guarda la selección al copiar, para que sobreviva a un re-render de filtros
 
 async function cargarSMS() {
   document.getElementById('sms-stats').innerHTML = '<div style="color:var(--muted);font-size:13px">Cargando...</div>';
@@ -3210,14 +3216,33 @@ function copiarMailsSeleccionados() {
 
 function copiarSMSCompleto() {
   const texto = document.getElementById('sms-texto').value;
-  const n = [...document.querySelectorAll('.sms-check:checked')].length;
+  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+  const n = seleccionados.length;
+  // Guardamos snapshot: si después de esto se cambia un filtro y se pierden los checkboxes,
+  // "Marcar como enviados" va a poder usar esta lista igual.
+  _smsSeleccionSnapshot = seleccionados;
   navigator.clipboard.writeText(texto).then(() => toast(`${n} SMS copiados ✓`));
 }
 
 async function marcarSMSEnviados() {
-  const seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
-  if (!seleccionados.length) return;
-  if (!confirm(`¿Marcar ${seleccionados.length} como enviados?`)) return;
+  let seleccionados = [...document.querySelectorAll('.sms-check:checked')].map(c => parseInt(c.dataset.idx));
+
+  // Si no hay checkboxes tildados pero existe un snapshot de una selección copiada previamente
+  // (por ejemplo, porque se cambió un filtro y se perdieron los checkboxes), usamos ese snapshot.
+  let usandoSnapshot = false;
+  if (!seleccionados.length && _smsSeleccionSnapshot && _smsSeleccionSnapshot.length) {
+    seleccionados = _smsSeleccionSnapshot;
+    usandoSnapshot = true;
+  }
+
+  if (!seleccionados.length) {
+    alert('No hay ningún titular seleccionado. Si ya habías tildado y copiado antes, revisá que no se haya perdido la selección al cambiar un filtro, y volvé a seleccionarlos.');
+    return;
+  }
+
+  const nombresPreview = seleccionados.slice(0, 5).map(i => _smsDatos[i]?.nombre).filter(Boolean).join(', ');
+  const msgConfirm = `¿Marcar ${seleccionados.length} como enviados?${usandoSnapshot ? ' (usando la selección guardada al copiar, los checkboxes actuales no coinciden)' : ''}\n\nEj: ${nombresPreview}${seleccionados.length>5?'…':''}`;
+  if (!confirm(msgConfirm)) return;
   const btn = document.querySelector('#sms-acciones button');
   btn.disabled = true; btn.textContent = 'Marcando…';
   const fechaHoy = isoADMY(today());
@@ -3233,30 +3258,62 @@ async function marcarSMSEnviados() {
     if (c) logMap[c] = i + 2;
   });
 
-  // Construir todas las escrituras a hacer
+  // Leer COMENTARIOS para mapear CUIT → fila y comentario actual (columna P = índice 15)
+  const urlCom = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/COMENTARIOS!A:U?_=${Date.now()}`;
+  const rCom = await fetch(urlCom, { headers: { Authorization: 'Bearer ' + accessToken } });
+  const dCom = await rCom.json();
+  const comRows = dCom.values || [];
+  const comMap = {}; // cuit → { fila, comentarioActual }
+  comRows.slice(1).forEach((r, i) => {
+    const c = String(r[0]||'').replace(/\D/g,'');
+    if (c) comMap[c] = { fila: i + 2, comentarioActual: r[15] || '' };
+  });
+
+  // Construir todas las escrituras a hacer (LOG_SMS + COMENTARIOS)
   const dataToWrite = [];
-  let nuevasFilas = 0;
-  const nuevasFilasMap = {};
-  
+  let nuevasFilasLog = 0;
+  const nuevasFilasLogMap = {};
+  let nuevasFilasCom = 0;
+  const nuevasFilasComMap = {};
+
   for (const idx of seleccionados) {
     const item = _smsDatos[idx];
     const cuit = item.cuit;
     const colNum = item.nroContacto === 1 ? 2 : (item.nroContacto === 2 ? 3 : item.nroContacto === 3 ? 4 : 5); // B=2, C=3, D=4, E=5
     const colLetter = String.fromCharCode(65 + colNum - 1); // 2→B, 3→C, 4→D, 5→E
-    
-    let logRow = logMap[cuit] || nuevasFilasMap[cuit];
+
+    // --- LOG_SMS ---
+    let logRow = logMap[cuit] || nuevasFilasLogMap[cuit];
     if (!logRow) {
-      logRow = logRows.length + 1 + nuevasFilas;
-      nuevasFilasMap[cuit] = logRow;
-      nuevasFilas++;
-      // Crear fila nueva: cuit en A y fecha en la col correspondiente
+      logRow = logRows.length + 1 + nuevasFilasLog;
+      nuevasFilasLogMap[cuit] = logRow;
+      nuevasFilasLog++;
       const rowValues = ['', '', '', '', ''];
       rowValues[0] = cuit;
       rowValues[colNum - 1] = fechaHoy;
       dataToWrite.push({range: `LOG_SMS!A${logRow}:E${logRow}`, values: [rowValues]});
     } else {
-      // Solo actualizar la columna del contacto
       dataToWrite.push({range: `LOG_SMS!${colLetter}${logRow}`, values: [[fechaHoy]]});
+    }
+
+    // --- COMENTARIOS: agregar automáticamente la nota de contacto por SMS ---
+    const notaSMS = `Enviamos mensaje vía SMS con fecha ${fechaHoy} (contacto n.° ${item.nroContacto}).`;
+    const infoCom = comMap[cuit] || nuevasFilasComMap[cuit];
+    if (infoCom) {
+      const comentarioPrevio = infoCom.comentarioActual || '';
+      const nuevoComentario = comentarioPrevio ? `${comentarioPrevio} | ${notaSMS}` : notaSMS;
+      dataToWrite.push({range: `COMENTARIOS!P${infoCom.fila}`, values: [[nuevoComentario]]});
+      // Actualizamos en memoria para que si el mismo CUIT aparece 2 veces en esta tanda, se vayan acumulando bien
+      if (comMap[cuit]) comMap[cuit].comentarioActual = nuevoComentario;
+      else nuevasFilasComMap[cuit].comentarioActual = nuevoComentario;
+    } else {
+      const filaCom = comRows.length + 1 + nuevasFilasCom;
+      nuevasFilasComMap[cuit] = { fila: filaCom, comentarioActual: notaSMS };
+      nuevasFilasCom++;
+      const valoresCom = Array(21).fill('');
+      valoresCom[0] = cuit;      // col A: CUIT
+      valoresCom[15] = notaSMS;  // col P: comentario
+      dataToWrite.push({range: `COMENTARIOS!A${filaCom}:U${filaCom}`, values: [valoresCom]});
     }
   }
 
@@ -3276,8 +3333,9 @@ async function marcarSMSEnviados() {
   }
 
   btn.disabled = false;
-  toast(`${ok} marcados como enviados${errores ? ` · ${errores} errores (ver consola)` : ''} ✓`);
-  registrarLog('SMS enviado', `${ok} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}${errores ? ` · ${errores} errores` : ''}`);
+  toast(`${seleccionados.length} marcados como enviados (LOG_SMS + comentario)${errores ? ` · ${errores} errores en escritura (ver consola)` : ''} ✓`);
+  registrarLog('SMS enviado', `${seleccionados.length} titulares`, '', `Contacto #${_smsDatos[seleccionados[0]]?.nroContacto||'?'}${errores ? ` · ${errores} errores` : ''}`);
+  _smsSeleccionSnapshot = null;
   cargarSMS();
 }
 
@@ -3984,7 +4042,7 @@ function renderTablaContactados() {
       return mul * (toNum(a.fecha) - toNum(b.fecha));
     }
     if (col === 'ultimoSMS') {
-      return mul * ((b.ultimoSMS||'').localeCompare(a.ultimoSMS||''));
+      return mul * ((a.ultimoSMS||'').localeCompare(b.ultimoSMS||''));
     }
     if (col === 'mora')  return mul * ((parseInt(a.diasMora)||parseInt(a.diasMoraReal)||0) - (parseInt(b.diasMora)||parseInt(b.diasMoraReal)||0));
     if (col === 'inf')   return mul * ((a.deudaInf||0) - (b.deudaInf||0));
