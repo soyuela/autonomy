@@ -2548,25 +2548,37 @@ function renderVencimientos() {
   const tbF = document.getElementById('tabla-venc-firma');
   const badgeFirma = document.getElementById('badge-firma');
   if (badgeFirma) badgeFirma.textContent = firmaEnviadosAll.length || '';
+
+  // Agrupar por CUIT: un mismo titular puede tener 2+ convenios pendientes de firma
+  const firmaPorCuit = {};
+  firmaEnviados.forEach(c => {
+    const k = String(c.cuit).replace(/\D/g,'');
+    if (!firmaPorCuit[k]) firmaPorCuit[k] = [];
+    firmaPorCuit[k].push(c);
+  });
+
   tbF.innerHTML = !firmaEnviados.length
     ? `<tr><td colspan="10"><div class="empty"><div class="icon">✅</div><p>Sin convenios pendientes de firma</p></div></td></tr>`
-    : firmaEnviados.map(c => {
-        const deuda       = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
-        const ultimoInt   = c.ultimoIntento ? `<span style="font-family:var(--fm);font-size:12px;color:var(--muted)">${isoADMY(c.ultimoIntento)}</span>` : '—';
-        return `<tr>
-          <td><div style="font-weight:500">${c.nombre}</div></td>
-          <td class="mono">${c.cuit}</td>
-          <td style="font-size:13px">${c.telefono||'—'}</td>
-          <td style="font-size:12px;color:var(--muted)">${c.mail||mailDe(c.cuit)||'—'}</td>
-          <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
-          <td class="importe">${fmtPeso(deuda)}</td>
-          <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
-          <td class="mono">${fmtFecha(c.creadoEn)}</td>
-          <td style="text-align:center">${ultimoInt}</td>
-          <td><div class="actions">
+    : Object.values(firmaPorCuit).map(convs => {
+        const c0 = convs[0];
+        const detalles = convs.map(c => {
+          const deuda = c.tipo==='Alquiler'?c.deudaAlq:c.tipo==='Infracciones'?c.deudaInf:c.deudaSin;
+          const ultimoInt = c.ultimoIntento ? isoADMY(c.ultimoIntento) : '—';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0">
+            <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span>
+            <span style="font-size:12px">${fmtPeso(deuda)} · ${c.cantCuotas} ${c.modalidad} · creado ${fmtFecha(c.creadoEn)} · últ. intento ${ultimoInt}</span>
             <button class="btn btn-ghost btn-sm" onclick="registrarIntentoFirma('${c.id}')">📞 No contestó</button>
-            ${c.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c.cuit}" onclick="abrirWhatsAppFirma('${c.telefono}','${c.nombre}','${c.cuit}')">📋 Copiar recordatorio</button>` : ''}
             <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Firmado</button>
+          </div>`;
+        }).join('');
+        return `<tr>
+          <td><div style="font-weight:500">${c0.nombre}</div></td>
+          <td class="mono">${c0.cuit}</td>
+          <td style="font-size:13px">${c0.telefono||'—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${c0.mail||mailDe(c0.cuit)||'—'}</td>
+          <td colspan="5">${detalles}</td>
+          <td><div class="actions">
+            ${c0.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${c0.cuit}" onclick="abrirWhatsAppFirma('${c0.telefono}','${c0.nombre}','${c0.cuit}')">📋 Copiar recordatorio</button>` : ''}
           </div></td>
         </tr>`;
       }).join('');
