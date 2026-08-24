@@ -2101,6 +2101,7 @@ function renderDashboard() {
 
 // ─── CONVENIOS TABLE ──────────────────────────────────────────────────────────
 function renderConvenios() {
+  if (!_mailPorCuit) { cargarMailPorCuit().then(() => renderConvenios()); }
   const q  = (document.getElementById('search-convenios')?.value||'').toLowerCase();
   const fT = document.getElementById('filter-tipo')?.value||'';
   const fE = document.getElementById('filter-estado')?.value||'';
@@ -2136,7 +2137,7 @@ function renderConvenios() {
         : '';
     return `<tr style="${llamadoBg ? `background:${llamadoBg}` : ''}">
       <td style="text-align:center;font-family:var(--fm);font-size:12px;color:var(--muted)">${i+1}</td>
-      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}${llamadoBadge}</div><div style="color:var(--muted);font-size:11px">${c.mail||''}</div></td>
+      <td><div style="font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.nombre}${sinTit?` <span title="Titular ya no figura en ORIGINAL" style="color:var(--danger)">⚠</span>`:''}${llamadoBadge}</div><div style="color:var(--muted);font-size:11px">${c.mail||(_mailPorCuit&&_mailPorCuit[c.cuit])||''}</div></td>
       <td class="mono">${c.cuit}</td>
       <td style="font-size:13px;white-space:nowrap"><strong>${c.telefono||'—'}</strong></td>
       <td class="mono">${c.dominio||'—'}</td>
@@ -2436,6 +2437,21 @@ async function deletePagoEnSheets(pago) {
 }
 
 // ─── VENCIMIENTOS ─────────────────────────────────────────────────────────────
+let _mailPorCuit = null;
+async function cargarMailPorCuit() {
+  if (_mailPorCuit) return _mailPorCuit;
+  try {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/ORIGINAL!A:D`, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const d = await r.json();
+    _mailPorCuit = {};
+    (d.values||[]).slice(1).forEach(row => {
+      const c = String(row[0]||'').replace(/\D/g,'');
+      if (c) _mailPorCuit[c] = row[3]||'';
+    });
+  } catch(e) { console.warn('cargarMailPorCuit error', e); _mailPorCuit = {}; }
+  return _mailPorCuit;
+}
+
 function setVencTab(t,el) {
   document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.remove('active')); el.classList.add('active');
   ['prox','vencidas','firma','sinfirma'].forEach(v=>document.getElementById('venc-'+v).style.display=v===t?'block':'none');
@@ -2443,6 +2459,8 @@ function setVencTab(t,el) {
 }
 
 function renderVencimientos() {
+  if (!_mailPorCuit) { cargarMailPorCuit().then(() => renderVencimientos()); }
+  const mailDe = (cuit) => (_mailPorCuit && _mailPorCuit[String(cuit).replace(/\D/g,'')]) || '';
   const {prox: proxAll, venc} = calcStatus();
   // Solo mostrar próximas de convenios firmados (recordatorios de pago)
   const prox = proxAll.filter(({conv}) => conv.firmado === 'SI');
@@ -2465,7 +2483,7 @@ function renderVencimientos() {
         return `<tr>
           <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
           <td style="font-size:13px;white-space:nowrap"><strong>${conv.telefono||'—'}</strong></td>
-          <td style="font-size:12px;color:var(--muted)">${conv.mail||'—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${conv.mail||mailDe(conv.cuit)||'—'}</td>
           <td colspan="4" style="font-size:12px;line-height:2">${detalles}</td>
           <td><div class="actions">
             ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
@@ -2493,7 +2511,7 @@ function renderVencimientos() {
         return `<tr>
           <td><div style="font-weight:500">${conv.nombre}</div><div style="color:var(--muted);font-size:11px">${conv.cuit||''}</div></td>
           <td style="font-size:13px;white-space:nowrap"><strong>${conv.telefono||'—'}</strong></td>
-          <td style="font-size:12px;color:var(--muted)">${conv.mail||'—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${conv.mail||mailDe(conv.cuit)||'—'}</td>
           <td colspan="4" style="font-size:12px;line-height:2">${detalles}</td>
           <td><div class="actions">
             ${conv.telefono ? `<button class="btn btn-ghost btn-sm" data-ws-cuit="${conv.cuit}" onclick="copiarMensajeUnificado('${conv.cuit}')">📋 Copiar</button>` : ''}
@@ -2539,7 +2557,7 @@ function renderVencimientos() {
           <td><div style="font-weight:500">${c.nombre}</div></td>
           <td class="mono">${c.cuit}</td>
           <td style="font-size:13px">${c.telefono||'—'}</td>
-          <td style="font-size:12px;color:var(--muted)">${c.mail||'—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${c.mail||mailDe(c.cuit)||'—'}</td>
           <td><span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span></td>
           <td class="importe">${fmtPeso(deuda)}</td>
           <td class="mono">${c.cantCuotas} ${c.modalidad} · ${fmtPeso(c.importeCuota)}/cuota</td>
