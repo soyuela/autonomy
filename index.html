@@ -185,6 +185,7 @@
   .dep-bar-fill.danger{background:var(--danger)}
   .field input.input-error{border-color:var(--danger)!important}
   .field input.input-ok{border-color:var(--ok)!important}
+  .field input.input-locked{background:var(--bg-soft,#f3f4f6)!important;color:var(--muted)!important;cursor:not-allowed}
   .sesion-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0;cursor:default;border:2px solid var(--surface)}
   .sesion-avatar.activo{box-shadow:0 0 0 2px var(--ok)}
   .sesion-avatar.inactivo{opacity:.4}
@@ -557,8 +558,12 @@
         <div class="form-grid">
           <div class="field"><label>Tipo *</label><select id="c-tipo" onchange="onTipoChange()"><option value="Alquiler">Alquiler</option><option value="Infracciones">Infracciones</option><option value="Siniestros">Siniestros</option></select></div>
           <div class="field"><label>Modalidad</label><select id="c-modalidad"><option value="mensuales">Mensuales</option><option value="semanales">Semanales</option></select></div>
-          <div class="field"><label>Cantidad de cuotas *</label><input id="c-cant-cuotas" type="number" min="1" placeholder="6" oninput="actualizarCuota()"></div>
-          <div class="field"><label>Quita (%)</label><input id="c-quita" type="number" min="0" max="100" placeholder="0" oninput="actualizarCuota()"></div>
+          <div class="field"><label>Cantidad de cuotas *</label><input id="c-cant-cuotas" type="number" min="1" placeholder="6" oninput="renderQuitaControl()"></div>
+          <div class="field">
+            <label>Quita (%)</label>
+            <div id="c-quita-wrap"><input id="c-quita" type="number" min="0" max="100" placeholder="0" oninput="actualizarCuota()"></div>
+            <div id="quita-hint" style="font-size:11px;color:var(--muted);margin-top:4px"></div>
+          </div>
 
           <!-- DEPÓSITO A APLICAR - reemplaza el toggle SI/NO -->
           <div class="field form-full" id="deposito-field-wrap" style="display:none">
@@ -1111,9 +1116,52 @@ function getDeudaTipo(tipo) {
   return tipo === 'Alquiler' ? alq : tipo === 'Infracciones' ? inf : sin;
 }
 
+// ─── REGLAS DE QUITA POR TIPO/CUOTAS (para evitar errores humanos) ────────────
+// Infracciones: 1 cuota → hasta 50% · 2 a 6 cuotas → hasta 30% · más de 6 cuotas → sin quita
+// Alquiler y Siniestros: sin restricción por ahora, queda como campo libre.
+// El abogado decide si aplica o no la quita — acá solo se limitan las OPCIONES disponibles,
+// nunca se autocompleta ni se fuerza un valor.
+function calcularQuitaPermitida(tipo, cant) {
+  if (tipo !== 'Infracciones' || !cant || cant <= 0) return null; // null = sin restricción (campo libre)
+  if (cant === 1) return 50;
+  if (cant <= 6) return 30;
+  return 0; // más de 6 cuotas: no se admite quita
+}
+
+// Reconstruye el control de Quita: select limitado (si hay regla) o input libre (si no la hay).
+// valorPreservar: si se pasa, intenta dejarlo seleccionado/cargado (útil al editar un convenio existente).
+function renderQuitaControl(valorPreservar) {
+  const tipo = document.getElementById('c-tipo').value;
+  const cant = parseInt(document.getElementById('c-cant-cuotas').value) || 0;
+  const wrap = document.getElementById('c-quita-wrap');
+  const hint = document.getElementById('quita-hint');
+  const quitaPermitida = calcularQuitaPermitida(tipo, cant);
+  const valorActual = valorPreservar != null ? parseFloat(valorPreservar) || 0 : (parseFloat(document.getElementById('c-quita')?.value) || 0);
+
+  if (quitaPermitida !== null) {
+    // Opciones válidas: siempre "sin quita" + la que corresponda (si es >0)
+    const opciones = [0];
+    if (quitaPermitida > 0) opciones.push(quitaPermitida);
+    // Si el valor actual (por ej. al editar un convenio viejo) no está entre las opciones válidas,
+    // lo agregamos igual para no perder/pisar el dato histórico en silencio.
+    if (!opciones.includes(valorActual) && valorActual > 0) opciones.push(valorActual);
+
+    wrap.innerHTML = `<select id="c-quita" onchange="actualizarCuota()">` +
+      opciones.map(o => `<option value="${o}" ${o===valorActual?'selected':''}>${o===0?'0% (sin quita)':o+'%'}${!([0,quitaPermitida].includes(o))?' (valor guardado, fuera de norma)':''}</option>`).join('') +
+      `</select>`;
+    if (hint) hint.textContent = quitaPermitida > 0
+      ? `Infracciones en ${cant} cuota${cant===1?'':'s'}: se puede optar por 0% o hasta ${quitaPermitida}% de quita`
+      : `Infracciones en ${cant} cuotas: no se admite quita`;
+  } else {
+    wrap.innerHTML = `<input id="c-quita" type="number" min="0" max="100" placeholder="0" oninput="actualizarCuota()" value="${valorActual||''}">`;
+    if (hint) hint.textContent = '';
+  }
+  actualizarCuota();
+}
+
 function onTipoChange() {
   recalcDepositoAplicadoAutomatico();
-  actualizarCuota();
+  renderQuitaControl();
   renderDepositoWidget();
 }
 
@@ -1786,7 +1834,7 @@ function precargarForm(t) {
   document.getElementById('convenio-form-section').style.display = 'block';
   document.getElementById('btn-guardar-conv').style.display = 'inline-flex';
   recalcDepositoAplicadoAutomatico();
-  actualizarCuota();
+  renderQuitaControl(0);
 }
 
 // ─── CONVENIO ─────────────────────────────────────────────────────────────────
@@ -1821,8 +1869,9 @@ function actualizarCuota() {
   const dep  = parsePeso(document.getElementById('c-deposito-aplicado').value) || 0;
   const qui  = parseFloat(document.getElementById('c-quita').value) || 0;
   const cant = parseInt(document.getElementById('c-cant-cuotas').value) || 0;
-  let base = Math.max(0, deuda - dep);
-  base = base * (1 - qui/100);
+  // Mismo orden que la cláusula 1 del PDF: primero la quita, después se resta el depósito.
+  let base = deuda * (1 - qui/100);
+  base = Math.max(0, base - dep);
   if (cant > 0 && base > 0) {
     const importe = Math.round(base/cant*100)/100;
     document.getElementById('c-importe-cuota').value = fmtPesoCentavos(importe);
@@ -2011,7 +2060,6 @@ function editarConvenio(id) {
   document.getElementById('c-tipo').value      = c.tipo;
   document.getElementById('c-modalidad').value = c.modalidad;
   document.getElementById('c-cant-cuotas').value= c.cantCuotas;
-  document.getElementById('c-quita').value     = c.quita||0;
   document.getElementById('c-importe-cuota').value = c.importeCuota;
   document.getElementById('c-fecha-inicio').value  = isoADMY(c.fechaInicio||today());
   document.getElementById('c-firmado').value   = c.firmado||'';
@@ -2021,6 +2069,7 @@ function editarConvenio(id) {
     const el=document.getElementById(id); if(el){el.removeAttribute('readonly');el.style.opacity='1';}
   });
   recalcDepositoAplicadoAutomatico();
+  renderQuitaControl(c.quita||0);
   // En edición, restaurar el valor guardado (no auto-recalcular)
   document.getElementById('c-deposito-aplicado').value = c.depositoAplicado > 0 ? fmtPeso(c.depositoAplicado) : '';
   document.getElementById('c-importe-cuota').value = fmtPesoCentavos(c.importeCuota);
