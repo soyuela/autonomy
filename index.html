@@ -693,6 +693,10 @@ function guardarClientId() {
 let accessToken = null;
 let currentUser = null;
 let tokenClient = null;
+let tokenExpiresAt = 0;      // momento (ms) en que vence el token actual
+let _appIniciada = false;    // true una vez que la app arrancó; las renovaciones de token NO la reinician
+let _finRefresh = null;      // callback de la renovación en curso (si la hay)
+let _sesionVencida = false;  // true si no se pudo renovar el token
 
 function initTokenClient() {
   if (!CLIENT_ID) return;
@@ -700,16 +704,123 @@ function initTokenClient() {
     client_id: CLIENT_ID, scope: SCOPES, prompt: '',
     callback: (resp) => {
       if (resp.error) {
-        // Si el silent refresh falló, mostrar pantalla de login
-        document.getElementById('auth-screen').style.display = 'flex';
+        if (_finRefresh) _finRefresh(new Error(resp.error));
+        if (_appIniciada) { _sesionVencida = true; actualizarBanner(); }   // app abierta: avisar sin tapar la pantalla
+        else document.getElementById('auth-screen').style.display = 'flex'; // primer ingreso: mostrar login
         return;
       }
       accessToken = resp.access_token;
-      // Guardar hint del usuario para futuros silent refresh
-      sessionStorage.setItem('autonomy_hint', resp.email || '');
+      tokenExpiresAt = Date.now() + ((parseInt(resp.expires_in) || 3600) - 60) * 1000;
+      sessionStorage.setItem('autonomy_hint', resp.email || sessionStorage.getItem('autonomy_hint') || '');
+      _sesionVencida = false; actualizarBanner();
+      if (_finRefresh) _finRefresh(null);
+      if (_appIniciada) {                     // era una renovación: no reiniciar timers ni pisar datos locales
+        if (_dirty) drivePut(DB).catch(() => {});   // si había cambios sin guardar, reintentar ya
+        return;
+      }
+      _appIniciada = true;
       onSignedIn();
+    },
+    error_callback: (err) => {                 // popup bloqueado o cerrado
+      if (_finRefresh) _finRefresh(new Error(err && err.type || 'popup'));
+      if (_appIniciada) { _sesionVencida = true; actualizarBanner(); }
     }
   });
+}
+
+// Renueva el token y devuelve una promesa. Si ya hay una renovación en curso, se suma a esa.
+let _refreshWaiters = null, _refreshFalloEn = 0;
+function refreshAccessToken() {
+  return new Promise((res, rej) => {
+    if (_refreshWaiters) { _refreshWaiters.push({ res, rej }); return; }
+    if (!tokenClient) { rej(new Error('sin tokenClient')); return; }
+    _refreshWaiters = [{ res, rej }];
+    const t = setTimeout(() => _finRefresh && _finRefresh(new Error('timeout')), 20000);
+    _finRefresh = (err) => {
+      clearTimeout(t);
+      const w = _refreshWaiters; _refreshWaiters = null; _finRefresh = null;
+      if (err) _refreshFalloEn = Date.now();
+      w.forEach(x => err ? x.rej(err) : x.res(accessToken));
+    };
+    try { tokenClient.requestAccessToken({ prompt: '', login_hint: sessionStorage.getItem('autonomy_hint') || '' }); }
+    catch (e) { _finRefresh(e); }
+  });
+}
+
+// Antes de usar el token: si está por vencer, renovarlo (salvo que haya fallado hace menos de 1 minuto)
+async function asegurarToken() {
+  if (!_appIniciada || !tokenExpiresAt) return;
+  if (Date.now() < tokenExpiresAt - 90 * 1000) return;
+  if (Date.now() - _refreshFalloEn < 60 * 1000) return;
+  try { await refreshAccessToken(); } catch (e) { /* si falla, la llamada intentará igual y avisará */ }
+}
+
+// Todas las llamadas a Google APIs pasan por acá: token fresco y, si da 401, renovar y reintentar una vez
+const _fetchOriginal = window.fetch.bind(window);
+function _conTokenActual(opts) {
+  const o = Object.assign({}, opts || {});
+  if (o.headers && o.headers.Authorization) o.headers = Object.assign({}, o.headers, { Authorization: 'Bearer ' + accessToken });
+  return o;
+}
+window.fetch = async function (url, opts) {
+  const u = typeof url === 'string' ? url : (url && url.url) || '';
+  if (!u.includes('googleapis.com')) return _fetchOriginal(url, opts);
+  await asegurarToken();
+  let r = await _fetchOriginal(url, _conTokenActual(opts));
+  if (r.status === 401 && _appIniciada) {
+    if (Date.now() - _refreshFalloEn >= 60 * 1000) {
+      try { await refreshAccessToken(); r = await _fetchOriginal(url, _conTokenActual(opts)); } catch (e) { /* sigue abajo */ }
+    }
+    if (r.status === 401) {
+      _sesionVencida = true;
+      const metodo = String((opts && opts.method) || 'GET').toUpperCase();
+      if (metodo !== 'GET' && u.includes('sheets.googleapis.com')) {
+        // No se reintenta sola (podría caer en otra fila si alguien agregó filas mientras tanto): se avisa cuál fue
+        const m = u.match(/\/values\/([^?]+)/);
+        _escriturasFallidas.push(m ? decodeURIComponent(m[1]).replace(/:append$/, ' (fila nueva)') : 'varias celdas (envío en lote)');
+        console.warn('Escritura a planilla no guardada (sesión vencida):', u);
+      }
+      actualizarBanner();
+    }
+  }
+  return r;
+};
+
+// ─── AVISO PERSISTENTE (sesión vencida / cambios sin guardar) ───
+let _falloGuardado = false;
+let _escriturasFallidas = [];   // celdas de planilla que no se guardaron por sesión vencida
+function actualizarBanner() {
+  let b = document.getElementById('banner-estado');
+  const nFall = _escriturasFallidas.length;
+  const mostrar = _sesionVencida || (_dirty && _falloGuardado) || nFall > 0;
+  if (!mostrar) { if (b) b.style.display = 'none'; return; }
+  if (!b) {
+    b = document.createElement('div'); b.id = 'banner-estado';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B3261E;color:#fff;padding:9px 16px;font:600 13px/1.4 system-ui,Arial,sans-serif;display:flex;gap:12px;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+    document.body.appendChild(b);
+  }
+  b.style.display = 'flex';
+  b.innerHTML = '';
+  const lista = _escriturasFallidas.slice(0, 3).join(', ') + (nFall > 3 ? ` y ${nFall - 3} más` : '');
+  const cambios = `${nFall} cambio${nFall > 1 ? 's' : ''} en la planilla (${lista})`;
+  const extra = nFall ? ` Además, ${cambios} no se ${nFall > 1 ? 'guardaron' : 'guardó'}: habrá que repetir${nFall > 1 ? 'los' : 'lo'}.` : '';
+  const msg = document.createElement('span');
+  const btn = document.createElement('button');
+  btn.style.cssText = 'background:#fff;color:#B3261E;border:0;border-radius:6px;padding:5px 12px;font-weight:700;cursor:pointer';
+  if (_sesionVencida) {
+    msg.textContent = '⚠ La sesión de Google venció: los cambios recientes pueden no estar guardados.' + extra;
+    btn.textContent = 'Volver a conectar';
+    btn.onclick = () => tokenClient.requestAccessToken({ prompt: '' });   // click del usuario: el popup no se bloquea
+  } else if (_dirty && _falloGuardado) {
+    msg.textContent = '⚠ No se pudieron guardar los últimos cambios. Siguen en pantalla y se reintenta solo.' + extra;
+    btn.textContent = 'Reintentar ahora';
+    btn.onclick = () => drivePut(DB).catch(() => {});
+  } else {
+    msg.textContent = `⚠ Mientras la sesión estuvo vencida no se ${nFall > 1 ? 'guardaron' : 'guardó'} ${cambios}. Repetí esas acciones y tocá Entendido.`;
+    btn.textContent = 'Entendido';
+    btn.onclick = () => { _escriturasFallidas = []; actualizarBanner(); };
+  }
+  b.append(msg, btn);
 }
 
 // Intenta renovar el token silenciosamente si hay sesión activa en Google
@@ -755,15 +866,30 @@ function onSignedIn() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
   syncFromDrive(true);
-  setInterval(trySilentSignIn, 50 * 60 * 1000);
-  setInterval(() => syncFromDrive(true), 120000);
-  // Actualizar "última actividad" cada 5 minutos
-  setInterval(() => { if (currentUser) registrarSesion(currentUser); }, 5 * 60 * 1000);
   syncConveniosDesdeSheets().then(() => syncOriginalDesdeSheets());
   syncPagosDesdeSheets();
   reconcilePagos();
+  if (_timersIniciados) return;   // los timers se crean una sola vez por sesión del navegador
+  _timersIniciados = true;
+  // Cada minuto: si el token vence en menos de 10 minutos, renovarlo (más confiable que un timer de 50 min,
+  // que se frena con la pestaña en segundo plano o con la PC suspendida)
+  setInterval(() => {
+    if (tokenExpiresAt && Date.now() > tokenExpiresAt - 10 * 60 * 1000 && Date.now() - _refreshFalloEn > 60 * 1000)
+      refreshAccessToken().catch(() => { _sesionVencida = true; actualizarBanner(); });
+  }, 60 * 1000);
+  setInterval(() => syncFromDrive(true), 120000);
+  // Actualizar "última actividad" cada 5 minutos
+  setInterval(() => { if (currentUser) registrarSesion(currentUser); }, 5 * 60 * 1000);
   setInterval(() => syncOriginalDesdeSheets(), 5 * 60 * 1000);
+  // Al volver a la pestaña o recuperar la conexión: revisar token y reintentar lo pendiente
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { asegurarToken().then(() => { if (_dirty) drivePut(DB).catch(() => {}); }); }
+  });
+  window.addEventListener('online', () => { asegurarToken().then(() => { if (_dirty) drivePut(DB).catch(() => {}); }); });
+  // No dejar cerrar la pestaña con cambios sin guardar
+  window.addEventListener('beforeunload', (e) => { if (_dirty || _guardando > 0) { e.preventDefault(); e.returnValue = ''; } });
 }
+let _timersIniciados = false;
 
 async function registrarSesion(u) {
   try {
@@ -844,7 +970,7 @@ async function renderSesionesPanel() {
 
 function signOut() {
   if (accessToken) google.accounts.oauth2.revoke(accessToken);
-  accessToken = null;
+  accessToken = null; tokenExpiresAt = 0; _appIniciada = false; _sesionVencida = false; actualizarBanner();
   document.getElementById('app').classList.remove('visible');
   document.getElementById('auth-screen').style.display = 'flex';
 }
@@ -859,19 +985,49 @@ async function driveGet() {
   return r.json();
 }
 
-async function drivePut(data) {
-  const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
-    method: 'PATCH',
-    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!r.ok) throw new Error(r.status);
+let _dirty = false;        // hay cambios locales que todavía no llegaron a Drive
+let _guardando = 0;        // guardados en curso
+let _dirtySeq = 0;         // se incrementa con cada guardado pedido
+let _retryTimer = null;
+
+// Los guardados van en fila, de a uno: si dos se cruzaban, el más viejo podía llegar último y pisar al nuevo.
+let _colaGuardado = Promise.resolve();
+function drivePut(data) {
+  _dirtySeq++; _dirty = true; _guardando++;           // se marca pendiente ya, para que ningún sync lo pise
+  const p = _colaGuardado.then(() => _drivePutReal());
+  _colaGuardado = p.catch(() => {});
+  return p.finally(() => { _guardando--; });
+}
+
+async function _drivePutReal() {
+  const seq = _dirtySeq;                                 // incluye todos los cambios pedidos hasta este momento
+  try {
+    const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(DB)                           // el estado actual, armado recién cuando le toca el turno
+    });
+    if (!r.ok) throw new Error(r.status);
+    if (seq === _dirtySeq) { _dirty = false; }          // solo si no hubo cambios posteriores
+    _falloGuardado = false; clearTimeout(_retryTimer); actualizarBanner(); setSyncState('ok');
+  } catch (e) {
+    // Aunque quien llamó no maneje el error, el cambio NO se pierde: queda pendiente, se avisa y se reintenta solo
+    _falloGuardado = true; actualizarBanner(); setSyncState('error');
+    clearTimeout(_retryTimer);
+    _retryTimer = setTimeout(() => { if (_dirty) drivePut(DB).catch(() => {}); }, 20000);
+    throw e;
+  }
 }
 
 async function syncFromDrive(render) {
+  // No traer la copia de Drive si hay cambios sin guardar: pisaría lo que el usuario acaba de hacer
+  if (_dirty || _guardando > 0) { console.info('Sync omitido: hay cambios locales sin guardar'); return; }
+  const seq0 = _dirtySeq;
   setSyncState('syncing');
   try {
     const data = await driveGet();
+    // Si mientras tanto se hizo un cambio, descartar lo leído (es una copia vieja)
+    if (_dirty || _guardando > 0 || _dirtySeq !== seq0) { console.info('Sync descartado: cambió algo mientras se leía Drive'); setSyncState('ok'); return; }
     DB = { convenios: data.convenios || [], pagos: data.pagos || [] };
     setSyncState('ok');
     if (render) { renderDashboard(); renderConvenios(); renderPagos(); renderVencimientos(); }
@@ -886,10 +1042,7 @@ function scheduleSave() {
 
 async function trySave(attempt) {
   try { await drivePut(DB); setSyncState('ok'); }
-  catch(e) {
-    if (attempt < 4) { setSyncState('error'); setTimeout(() => trySave(attempt+1), 15000); if (attempt===0) toast('Error al guardar, reintentando…','error'); }
-    else { setSyncState('error'); toast('No se pudo guardar en Drive.','error'); }
-  }
+  catch(e) { if (attempt === 0) toast('Error al guardar, reintentando…','error'); }   // drivePut ya programa los reintentos
 }
 
 function setSyncState(s) {
