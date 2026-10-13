@@ -1016,6 +1016,16 @@ async function driveGet() {
 }
 
 let _dirty = false;        // hay cambios locales que todavía no llegaron a Drive
+// Si Google responde 404 ("File not found") el archivo de datos no es accesible para esta cuenta.
+// Con el permiso drive.file, cada cuenta solo ve los archivos de Drive que creó o abrió con la app.
+// Todas las acciones se guardan igual en las planillas, así que la app sigue sin esa copia y no insiste.
+let _driveNoDisponible = false;
+function marcarDriveNoDisponible(origen) {
+  if (_driveNoDisponible) return;
+  _driveNoDisponible = true;
+  console.warn('[drive] El archivo de datos de Drive no es accesible para esta cuenta (404 en ' + origen + '). ' +
+               'La app sigue trabajando con las planillas, que reciben todos los cambios.');
+}
 let _guardando = 0;        // guardados en curso
 let _dirtySeq = 0;         // se incrementa con cada guardado pedido
 let _retryTimer = null;
@@ -1031,12 +1041,19 @@ function drivePut(data) {
 
 async function _drivePutReal() {
   const seq = _dirtySeq;                                 // incluye todos los cambios pedidos hasta este momento
+  if (_driveNoDisponible) { if (seq === _dirtySeq) _dirty = false; return; }
   try {
     const r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FILE_ID}?uploadType=media`, {
       method: 'PATCH',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify(DB)                           // el estado actual, armado recién cuando le toca el turno
     });
+    if (r.status === 404) {                               // el archivo no existe para esta cuenta: no es un error pasajero
+      marcarDriveNoDisponible('guardado');
+      if (seq === _dirtySeq) _dirty = false;
+      _falloGuardado = false; clearTimeout(_retryTimer); actualizarBanner(); setSyncState('ok');
+      return;
+    }
     if (!r.ok) throw new Error(r.status);
     if (seq === _dirtySeq) { _dirty = false; }          // solo si no hubo cambios posteriores
     _falloGuardado = false; clearTimeout(_retryTimer); actualizarBanner(); setSyncState('ok');
@@ -1050,6 +1067,7 @@ async function _drivePutReal() {
 }
 
 async function syncFromDrive(render) {
+  if (_driveNoDisponible) return;                        // esta cuenta trabaja solo con las planillas
   // No traer la copia de Drive si hay cambios sin guardar: pisaría lo que el usuario acaba de hacer
   if (_dirty || _guardando > 0) { console.info('Sync omitido: hay cambios locales sin guardar'); return; }
   const seq0 = _dirtySeq;
@@ -1061,7 +1079,10 @@ async function syncFromDrive(render) {
     DB = { convenios: data.convenios || [], pagos: data.pagos || [] };
     setSyncState('ok');
     if (render) { renderDashboard(); renderConvenios(); renderPagos(); renderVencimientos(); }
-  } catch(e) { setSyncState('error'); console.error('Drive read error', e); }
+  } catch(e) {
+    if (String(e && e.message) === '404') { marcarDriveNoDisponible('lectura'); setSyncState('ok'); return; }
+    setSyncState('error'); console.error('Drive read error', e);
+  }
 }
 
 function scheduleSave() {
