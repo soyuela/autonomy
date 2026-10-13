@@ -705,7 +705,10 @@ function initTokenClient() {
     callback: (resp) => {
       if (resp.error) {
         if (_finRefresh) _finRefresh(new Error(resp.error));
-        if (_appIniciada) { _sesionVencida = true; actualizarBanner(); }   // app abierta: avisar sin tapar la pantalla
+        if (_appIniciada) {   // app abierta: avisar sin tapar la pantalla, pero solo si el token ya venció
+          if (accessToken && Date.now() < tokenExpiresAt) console.info('[sesión] error de renovación ignorado, el token sigue vigente:', resp.error);
+          else marcarSesionVencida('renovación rechazada: ' + resp.error);
+        }
         else document.getElementById('auth-screen').style.display = 'flex'; // primer ingreso: mostrar login
         return;
       }
@@ -723,7 +726,11 @@ function initTokenClient() {
     },
     error_callback: (err) => {                 // popup bloqueado o cerrado
       if (_finRefresh) _finRefresh(new Error(err && err.type || 'popup'));
-      if (_appIniciada) { _sesionVencida = true; actualizarBanner(); }
+      if (_appIniciada) {
+        const tipo = (err && err.type) || 'desconocido';
+        if (accessToken && Date.now() < tokenExpiresAt) console.info('[sesión] aviso de Google ignorado, el token sigue vigente:', tipo);
+        else marcarSesionVencida('ventana de Google: ' + tipo);
+      }
     }
   });
 }
@@ -771,8 +778,8 @@ window.fetch = async function (url, opts) {
     if (Date.now() - _refreshFalloEn >= 60 * 1000) {
       try { await refreshAccessToken(); r = await _fetchOriginal(url, _conTokenActual(opts)); } catch (e) { /* sigue abajo */ }
     }
-    if (r.status === 401) {
-      _sesionVencida = true;
+    if (r.status === 401 && accessToken) {
+      marcarSesionVencida('respuesta 401 de Google en ' + u.split('?')[0].replace(/^https:\/\/[^/]+/, ''));
       const metodo = String((opts && opts.method) || 'GET').toUpperCase();
       if (metodo !== 'GET' && u.includes('sheets.googleapis.com')) {
         // No se reintenta sola (podría caer en otra fila si alguien agregó filas mientras tanto): se avisa cuál fue
@@ -783,11 +790,24 @@ window.fetch = async function (url, opts) {
       actualizarBanner();
     }
   }
+  // Si una llamada con token funcionó, la sesión está bien: apagar el aviso (evita falsas alarmas)
+  if (r.ok && _sesionVencida && opts && opts.headers && opts.headers.Authorization) {
+    _sesionVencida = false;
+    console.info('[sesión] una llamada a Google funcionó: se quita el aviso');
+    actualizarBanner();
+  }
   return r;
 };
 
 // ─── AVISO PERSISTENTE (sesión vencida / cambios sin guardar) ───
 let _falloGuardado = false;
+// Enciende el aviso de sesión vencida y deja registrado por qué (consultable en la consola con: _motivoAviso)
+function marcarSesionVencida(motivo) {
+  _sesionVencida = true;
+  window._motivoAviso = { motivo, hora: new Date().toLocaleTimeString('es-AR') };
+  console.warn('[sesión] aviso mostrado:', motivo);
+  actualizarBanner();
+}
 let _escriturasFallidas = [];   // celdas de planilla que no se guardaron por sesión vencida
 function actualizarBanner() {
   let b = document.getElementById('banner-estado');
@@ -875,7 +895,7 @@ function onSignedIn() {
   // que se frena con la pestaña en segundo plano o con la PC suspendida)
   setInterval(() => {
     if (tokenExpiresAt && Date.now() > tokenExpiresAt - 10 * 60 * 1000 && Date.now() - _refreshFalloEn > 60 * 1000)
-      refreshAccessToken().catch(() => { _sesionVencida = true; actualizarBanner(); });
+      refreshAccessToken().catch(() => { if (Date.now() >= tokenExpiresAt) marcarSesionVencida('no se pudo renovar y el token venció'); });
   }, 60 * 1000);
   setInterval(() => syncFromDrive(true), 120000);
   // Actualizar "última actividad" cada 5 minutos
