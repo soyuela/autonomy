@@ -774,7 +774,8 @@ window.fetch = async function (url, opts) {
   if (!u.includes('googleapis.com')) return _fetchOriginal(url, opts);
   await asegurarToken();
   let r = await _fetchOriginal(url, _conTokenActual(opts));
-  if (r.status === 401 && _appIniciada) {
+  // /oauth2/... (nombre y mail del usuario) necesita permisos que la app no pide: su 401 NO significa sesión vencida
+  if (r.status === 401 && _appIniciada && !u.includes('/oauth2/')) {
     if (Date.now() - _refreshFalloEn >= 60 * 1000) {
       try { await refreshAccessToken(); r = await _fetchOriginal(url, _conTokenActual(opts)); } catch (e) { /* sigue abajo */ }
     }
@@ -873,7 +874,8 @@ function signIn() {
 
 function onSignedIn() {
   fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: 'Bearer ' + accessToken } })
-    .then(r => r.json()).then(u => {
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('userinfo ' + r.status))).then(u => {
+      if (!u || !u.email) throw new Error('userinfo sin mail');
       const ini = ((u.given_name||'')[0] + (u.family_name||'')[0]).toUpperCase();
       document.getElementById('user-name').textContent = u.name || u.email;
       document.getElementById('user-avatar').textContent = ini || '?';
@@ -882,6 +884,14 @@ function onSignedIn() {
       currentUser = u;
       // Registrar sesión en Sheets
       registrarSesion(u);
+    })
+    .catch(e => {
+      // Sin permiso para leer nombre/mail: mostrar el último nombre conocido y no registrar filas vacías en SESIONES
+      console.info('[sesión] no se pudo leer el nombre del usuario (' + e.message + '); la app sigue funcionando normalmente');
+      const nombreGuardado = localStorage.getItem('autonomy_user_name') || '';
+      document.getElementById('user-name').textContent = nombreGuardado || 'Usuario';
+      document.getElementById('user-avatar').textContent = (nombreGuardado.trim()[0] || '?').toUpperCase();
+      currentUser = null;
     });
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
