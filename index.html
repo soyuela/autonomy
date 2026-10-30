@@ -1880,41 +1880,49 @@ async function writeConvenioToSheets(conv) {
 
 async function updateConvenioEnSheets(conv) {
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const data = await r.json();
-    const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase()+'-'+String(conv.cuit).replace(/\D/g,'');
-    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
-    if (rowIdx < 0) { await writeConvenioToSheets(conv); return; }
-    const sheetRow = rowIdx + 1;
-    const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
-    await fetch(urlWrite, {
-      method: 'PUT',
+    const filas = await filasActivasDeConvenio(conv);
+    if (!filas.length) { await writeConvenioToSheets(conv); return; }
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+      method: 'POST',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [buildSheetRow(conv)] })
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: filas.map(n => ({ range: `CONVENIOS!A${n}:AI${n}`, values: [buildSheetRow(conv)] })) })
     });
+    if (!w.ok) throw new Error('la planilla rechazó el cambio (' + w.status + ')');
     toast('Convenio actualizado en Sheets ✓','info');
-  } catch(e) { console.warn('updateConvenioEnSheets error', e); toast('Guardado en app pero error al actualizar Sheets','error'); }
+  } catch(e) { console.warn('updateConvenioEnSheets error', e); toast('Guardado en app pero error al actualizar Sheets: ' + e.message,'error'); }
+}
+
+async function filasActivasDeConvenio(conv) {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AJ`, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!r.ok) throw new Error('no se pudo leer la hoja CONVENIOS (' + r.status + ')');
+  const rows = (await r.json()).values || [];
+  const cuit = String(conv.cuit || '').replace(/\D/g, '');
+  const ini = String(conv.tipo || '')[0].toLowerCase();
+  const key = ini + '-' + cuit;
+  const filas = [];
+  rows.forEach((row, i) => {
+    if (i === 0) return;
+    if (String(row[35] || '').trim().toUpperCase() === 'SI') return;          // dado de baja / archivado: no tocar
+    const id = String(row[29] || '').trim().toLowerCase();
+    const idNorm = id ? id[0] + '-' + id.replace(/\D/g, '') : '';
+    const tipoFila = String(row[16] || row[26] || '').trim().toLowerCase()[0] || '';
+    const cuitFila = String(row[3] || '').replace(/\D/g, '');
+    if (idNorm === key || (cuitFila === cuit && tipoFila === ini)) filas.push(i + 1);
+  });
+  return filas;
 }
 
 async function updateEstadoEnSheets(conv) {
-  try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const data = await r.json();
-    const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase()+'-'+conv.cuit;
-    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
-    if (rowIdx < 0) return;
-    const sheetRow = rowIdx + 1;
-    const urlWrite = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AH${sheetRow}:AI${sheetRow}?valueInputOption=USER_ENTERED`;
-    await fetch(urlWrite, {
-      method: 'PUT',
-      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[conv.enviado==='SI'?'SI':'NO', conv.firmado==='SI'?'SI':'NO']] })
-    });
-  } catch(e) { console.warn('updateEstadoEnSheets error', e); }
+  const filas = await filasActivasDeConvenio(conv);
+  if (!filas.length) throw new Error('no se encontró el convenio activo en la hoja CONVENIOS');
+  const valores = [[conv.enviado === 'SI' ? 'SI' : 'NO', conv.firmado === 'SI' ? 'SI' : 'NO']];
+  const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: filas.map(n => ({ range: `CONVENIOS!AH${n}:AI${n}`, values: valores })) })
+  });
+  if (!w.ok) throw new Error('la planilla rechazó el cambio (' + w.status + ')');
+  return filas;
 }
 
 // ─── SHEETS PAGOS ─────────────────────────────────────────────────────────────
@@ -2281,27 +2289,29 @@ function editarConvenio(id) {
   openModal('modal-convenio');
 }
 
-async function toggleEstado(id, campo) {
+async function toggleEstado(id, campo, valor) {
   const c = DB.convenios.find(x=>x.id===id); if (!c) return;
   const valorAnterior = c[campo];
-  c[campo] = c[campo]==='SI' ? '' : 'SI';
+  // Si se indica el valor (por ejemplo 'SI' desde el botón "✓ Firmado") se fija; si no, se invierte como antes
+  c[campo] = valor !== undefined ? valor : (c[campo]==='SI' ? '' : 'SI');
+  if (c[campo] === valorAnterior) { toast(campo==='firmado' ? 'Ya figuraba como firmado' : 'Ya figuraba como enviado','info'); renderVencimientos(); return; }
 
-  let driveOk = false, sheetsOk = false;
-  try { await drivePut(DB); driveOk = true; } catch(e) { console.warn('Drive error:', e); }
-  try { await updateEstadoEnSheets(c); sheetsOk = true; } catch(e) { console.warn('Sheets error:', e); }
-
-  if (!driveOk && !sheetsOk) {
-    // Revertir
+  // La planilla es el registro oficial: si no se puede escribir ahí, se deshace el cambio y se avisa
+  try {
+    await updateEstadoEnSheets(c);
+  } catch(e) {
     c[campo] = valorAnterior;
-    toast('Error al guardar — token expirado, volvé a iniciar sesión', 'error');
+    console.warn('Sheets error:', e);
+    toast('No se guardó: ' + e.message, 'error');
+    registrarLog('Error al cambiar estado', c.nombre, c.cuit, `${c.tipo} · ${campo} · ${e.message}`);
     return;
   }
+  try { await drivePut(DB); } catch(e) { console.warn('Drive error:', e); }
 
   renderConvenios(); renderDashboard(); renderVencimientos();
   const logMsg = campo==='firmado' ? (c.firmado==='SI'?'Convenio firmado':'Firma removida') : (c.enviado==='SI'?'Convenio enviado':'Envío removido');
   registrarLog(logMsg, c.nombre, c.cuit, `${c.tipo}`);
-  if (!sheetsOk) toast('Guardado en la app pero no en el Excel — verificá la conexión', 'error');
-  else toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
+  toast(campo==='firmado' ? (c.firmado==='SI'?'✓ Marcado como firmado':'Firma removida') : (c.enviado==='SI'?'✓ Marcado como enviado':'Envío removido'));
 }
 
 async function borrarConvenio(id) {
@@ -2316,18 +2326,15 @@ async function borrarConvenio(id) {
 
 async function deleteConvenioEnSheets(conv) {
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A:AI`;
-    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const data = await r.json();
-    const rows = data.values || [];
-    const key = conv.tipo[0].toLowerCase()+'-'+String(conv.cuit).replace(/\D/g,'');
-    const rowIdx = rows.findIndex((row,i) => i>0 && String(row[29]||'').trim()===key);
-    if (rowIdx < 0) return;
-    const sheetRow = rowIdx + 1;
-    const urlClear = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${sheetRow}:AI${sheetRow}:clear`;
-    await fetch(urlClear, { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' } });
+    const filas = await filasActivasDeConvenio(conv);
+    if (!filas.length) { toast('No se encontró el convenio en Sheets: revisá la hoja CONVENIOS','error'); return; }
+    for (const n of filas.sort((x, y) => y - x)) {
+      const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!A${n}:AI${n}:clear`,
+        { method:'POST', headers:{ Authorization:'Bearer '+accessToken, 'Content-Type':'application/json' } });
+      if (!w.ok) throw new Error('la planilla rechazó el borrado (' + w.status + ')');
+    }
     toast('Convenio eliminado de Sheets ✓','info');
-  } catch(e) { console.warn('deleteConvenioEnSheets error', e); }
+  } catch(e) { console.warn('deleteConvenioEnSheets error', e); toast('Error al eliminar en Sheets: ' + e.message,'error'); }
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
@@ -2399,8 +2406,8 @@ function renderConvenios() {
       <td class="importe">${fmtPeso(c.importeCuota)}</td>
       <td class="mono" style="text-align:center">${pg.length}/${c.cantCuotas}<div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></td>
       <td class="importe">${fmtPeso(pg.reduce((s,p)=>s+p.monto,0))}</td>
-      <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓ Enviado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\')" style="cursor:pointer" class="badge badge-pendiente">No enviado</span>'}</td>
-      <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓ Firmado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\')" style="cursor:pointer" class="badge badge-pendiente">Pendiente</span>'}</td>
+      <td>${c.enviado==='SI'?'<span class="badge badge-ok">✓ Enviado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'enviado\',\'SI\')" style="cursor:pointer" class="badge badge-pendiente">No enviado</span>'}</td>
+      <td>${c.firmado==='SI'?'<span class="badge badge-firmado">✓ Firmado</span>':'<span onclick="toggleEstado(\''+c.id+'\',\'firmado\',\'SI\')" style="cursor:pointer" class="badge badge-pendiente">Pendiente</span>'}</td>
       ${exportMode?`<td style="text-align:center"><input type="checkbox" class="conv-check" data-id="${c.id}"></td>`:'<td style="display:none"></td>'}
       <td><div class="actions">
         <button class="btn btn-ghost btn-sm" onclick="verDetalle('${c.id}')">Ver</button>
@@ -2821,7 +2828,7 @@ function renderVencimientos() {
             <span class="badge badge-${c.tipo[0].toLowerCase()}">${c.tipo}</span>
             <span style="font-size:12px">${fmtPeso(deuda)} · ${c.cantCuotas} ${c.modalidad} · creado ${fmtFecha(c.creadoEn)} · últ. intento ${ultimoInt}</span>
             <button class="btn btn-ghost btn-sm" onclick="registrarIntentoFirma('${c.id}')">📞 No contestó</button>
-            <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado')">✓ Firmado</button>
+            <button class="btn btn-primary btn-sm" onclick="toggleEstado('${c.id}','firmado','SI')">✓ Firmado</button>
           </div>`;
         }).join('');
         return `<tr>
@@ -2858,7 +2865,7 @@ function renderVencimientos() {
           <td class="mono">${fmtFecha(c.creadoEn)}</td>
           <td><div class="actions">
             <button class="btn btn-ghost btn-sm" onclick="generarConvenioPDF('${c.id}')">📄 PDF</button>
-            <button class="btn btn-ghost btn-sm" onclick="toggleEstado('${c.id}','enviado')">📤 Marcar enviado</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleEstado('${c.id}','enviado','SI')">📤 Marcar enviado</button>
             <button class="btn btn-primary btn-sm" onclick="editarConvenio('${c.id}')">✏</button>
           </div></td>
         </tr>`;
@@ -2943,21 +2950,16 @@ async function registrarIntentoFirma(convId) {
   conv.ultimoIntento = hoyIso;
   drivePut(DB).catch(e=>console.warn('Drive error:',e));
 
-  // Escribir en col AK de CONVENIOS
+  // Escribir en col AK de CONVENIOS (filas activas del convenio)
   try {
-    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
-    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dRead   = await rRead.json();
-    const rows    = dRead.values || [];
-    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convId);
-    if (rowIdx >= 0) {
-      const sheetRow = rowIdx + 1;
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AK${sheetRow}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [[isoADMY(hoyIso)]] })
-      });
-    }
-  } catch(e) { console.warn('Error registrando intento:', e); }
+    const filas = await filasActivasDeConvenio(conv);
+    if (!filas.length) throw new Error('no se encontró el convenio activo en CONVENIOS');
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: filas.map(n => ({ range: `CONVENIOS!AK${n}`, values: [[isoADMY(hoyIso)]] })) })
+    });
+    if (!w.ok) throw new Error('la planilla rechazó el cambio (' + w.status + ')');
+  } catch(e) { console.warn('Error registrando intento:', e); toast('No se pudo registrar el intento en Sheets: ' + e.message, 'error'); return; }
 
   renderVencimientos();
   toast(`Intento registrado para ${conv.nombre.split(',')[0]} ✓`);
