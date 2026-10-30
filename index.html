@@ -1763,20 +1763,16 @@ async function archivarConvenio(convId) {
   if (!confirm('¿Archivar este convenio? Desaparecerá de la lista activa pero quedará registrado en el Sheets.')) return;
   const conv = DB.convenios.find(c => c.id === convId);
   if (!conv) return;
-  // Marcar AJ = "SI" en CONVENIOS
+  // Marcar AJ = "SI" en las filas ACTIVAS del convenio (antes podía marcar una fila vieja ya dada de baja)
   try {
-    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
-    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dRead   = await rRead.json();
-    const rows    = dRead.values || [];
-    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convId);
-    if (rowIdx >= 0) {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AJ${rowIdx+1}?valueInputOption=USER_ENTERED`, {
-        method:'PUT', headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
-        body: JSON.stringify({ values:[['SI']] })
-      });
-    }
-  } catch(e) { console.warn('archivarConvenio Sheets error', e); }
+    const filas = await filasActivasDeConvenio(conv);
+    if (!filas.length) throw new Error('no se encontró el convenio activo en la hoja CONVENIOS');
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: filas.map(n => ({ range: `CONVENIOS!AJ${n}`, values: [['SI']] })) })
+    });
+    if (!w.ok) throw new Error('la planilla rechazó el cambio (' + w.status + ')');
+  } catch(e) { console.warn('archivarConvenio Sheets error', e); toast('No se pudo marcar en Sheets: ' + e.message, 'error'); return; }
 
   // También marcar Baja por incobrable (col R) en COMENTARIOS
   try {
@@ -3120,22 +3116,16 @@ async function darDeBajaConvenio(convId) {
   const conv = DB.convenios.find(c => c.id === convId);
   if (!conv) return;
 
-  // Marcar col AJ (índice 35) = "SI" en CONVENIOS
+  // Marcar AJ = "SI" en las filas ACTIVAS del convenio (antes podía marcar una fila vieja ya dada de baja)
   try {
-    const urlRead = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AD:AD`;
-    const rRead   = await fetch(urlRead, { headers: { Authorization: 'Bearer ' + accessToken } });
-    const dRead   = await rRead.json();
-    const rows    = dRead.values || [];
-    const convIdSheet = conv.id;
-    const rowIdx  = rows.findIndex((r,i) => i>0 && String(r[0]||'').trim() === convIdSheet);
-    if (rowIdx >= 0) {
-      const sheetRow = rowIdx + 1;
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/CONVENIOS!AJ${sheetRow}?valueInputOption=USER_ENTERED`, {
-        method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ values: [['SI']] })
-      });
-    }
-  } catch(e) { console.warn('Error marcando baja en Sheets:', e); }
+    const filas = await filasActivasDeConvenio(conv);
+    if (!filas.length) throw new Error('no se encontró el convenio activo en la hoja CONVENIOS');
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: filas.map(n => ({ range: `CONVENIOS!AJ${n}`, values: [['SI']] })) })
+    });
+    if (!w.ok) throw new Error('la planilla rechazó el cambio (' + w.status + ')');
+  } catch(e) { console.warn('Error marcando baja en Sheets:', e); toast('No se pudo marcar en Sheets: ' + e.message, 'error'); return; }
 
   // También marcar Baja por incobrable (col R) en COMENTARIOS
   try {
