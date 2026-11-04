@@ -250,6 +250,7 @@
       <div class="nav-item" onclick="setView('vencimientos')"><span class="icon">🗓</span><span class="nav-label"> Vencimientos</span></div>
       <div class="nav-item" onclick="setView('informes')"><span class="icon">📊</span><span class="nav-label"> Informes</span></div>
       <div class="nav-item" onclick="setView('sms')"><span class="icon">📱</span><span class="nav-label"> Generación SMS</span></div>
+      <div class="nav-item" onclick="setView('campana')"><span class="icon">🎯</span><span class="nav-label"> Campaña 2025</span></div>
     </nav>
     <div id="sesiones-panel" style="padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:5px;min-height:36px"></div>
     <div class="user-chip">
@@ -446,13 +447,47 @@
     <!-- INFORMES -->
     <div id="view-sms" class="view">
       <div class="page-header">
-        <div><div class="page-title">Generación SMS</div><div class="page-sub">Segundo contacto — titulares con mora ≤ 100 días, sin convenio y sin baja</div></div>
+        <div><div class="page-title">Generación SMS</div><div class="page-sub">Titulares sin convenio y sin baja, con deuda de 2026 (la deuda de 2025 se trabaja en Campaña 2025)</div></div>
         <button class="btn btn-ghost" onclick="cargarSMS()">↻ Actualizar</button>
       </div>
       <div id="sms-stats" style="margin-bottom:16px"></div>
       <div id="sms-lista" style="margin-bottom:16px"></div>
       <div id="sms-acciones" style="display:none">
         <button class="btn btn-primary" onclick="marcarSMSEnviados()">✓ Marcar como enviados</button>
+      </div>
+    </div>
+
+    <div id="view-campana" class="view">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Campaña: recontacto deuda 2025</div>
+          <div class="page-sub">Titulares con deuda de 2025 (fin de contrato antes del 01/01/2026), sin convenio y sin baja. Se registra aparte del circuito normal (pestaña CAMPANAS de la planilla).</div>
+        </div>
+        <button class="btn btn-ghost" onclick="cargarCampana()">↻ Actualizar</button>
+      </div>
+      <div id="camp-stats" style="margin-bottom:16px"></div>
+      <div class="table-wrap">
+        <div class="table-toolbar" style="flex-wrap:wrap;gap:10px">
+          <select class="filter-select" id="camp-filtro" onchange="renderCampana()">
+            <option value="pend-sms">1. Pendientes de SMS (secretaría)</option>
+            <option value="falta-llamar">2. SMS enviado, falta llamar (abogados)</option>
+            <option value="llamados">3. Llamados</option>
+            <option value="convenio">4. Con convenio después del SMS</option>
+            <option value="todos">Todos</option>
+          </select>
+          <input class="search-input" id="camp-buscar" placeholder="Buscar nombre o CUIT…" oninput="renderCampana()">
+          <span style="font-size:13px;color:var(--muted)">Tanda: seleccionar los primeros</span>
+          <input type="number" id="camp-n" value="50" min="1" style="width:64px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <button class="btn btn-ghost btn-sm" onclick="seleccionarPrimerosCampana()">Seleccionar</button>
+          <button class="btn btn-ghost btn-sm" onclick="limpiarSeleccionCampana()">Limpiar</button>
+          <span id="camp-sel" style="margin-left:auto;font-size:12px;color:var(--muted)"></span>
+        </div>
+        <table><thead><tr><th style="width:28px"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Deuda neta</th><th>Fin contrato</th><th>SMS campaña</th><th>Último llamado</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="camp-tabla"></tbody></table>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="copiarSMSCampana()">📋 Copiar SMS seleccionados</button>
+        <button class="btn btn-primary" onclick="marcarCampanaEnviados()">✓ Marcar seleccionados como enviados</button>
       </div>
     </div>
 
@@ -1407,7 +1442,8 @@ function setView(v) {
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  document.querySelectorAll('.nav-item')[['dashboard','busqueda','contactados','convenios','pagos','vencimientos','informes'].indexOf(v)].classList.add('active');
+  const navActivo = document.querySelector(`.nav-item[onclick="setView('${v}')"]`);   // antes usaba una lista fija sin 'sms' y fallaba
+  if (navActivo) navActivo.classList.add('active');
   if(v==='dashboard') renderDashboard();
   if(v==='convenios') renderConvenios();
   if(v==='pagos') renderPagos();
@@ -1415,6 +1451,7 @@ function setView(v) {
   if(v==='contactados') cargarContactados();
   if(v==='informes') initInformes();
   if(v==='sms') cargarSMS();
+  if(v==='campana') cargarCampana();
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
@@ -1428,7 +1465,7 @@ function toggleSidebar() {
   // Guardar preferencia
   localStorage.setItem('autonomy_sidebar_collapsed', collapsed ? '1' : '0');
   // Agregar tooltips en modo colapsado
-  const labels = ['Dashboard','Búsqueda','Contactados','Convenios','Pagos','Vencimientos','Informes'];
+  const labels = ['Dashboard','Búsqueda','Contactados','Convenios','Pagos','Vencimientos','Informes','Generación SMS','Campaña 2025'];
   document.querySelectorAll('.nav-item').forEach((el, i) => {
     el.title = collapsed ? (labels[i]||'') : '';
   });
@@ -3258,6 +3295,7 @@ async function cargarSMS() {
       const deudaNeta = parsePeso(row[13]);
       if (deudaNeta <= 0) return;
       if (bajaMapSMS[cuit] === 'SI') return;
+      if (esDeudaAntigua(row[7]||'')) return;   // deuda 2025: se considera ya contactada y se trabaja en la pantalla Campaña 2025
 
       // Mora desde fecha fin
       const fechaFinObj = parseFechaFin(row[7]||'');
@@ -5139,6 +5177,211 @@ function imprimirInforme(periodo) {
   win.document.close();
   win.focus();
   setTimeout(() => { win.print(); }, 800);
+}
+
+
+// ─── CAMPAÑA: RECONTACTO DEUDA 2025 ───────────────────────────────────────────
+// Circuito aparte del normal: los titulares de deuda 2025 se consideran ya contactados en el circuito normal.
+// Cada SMS de campaña se registra en la pestaña CAMPANAS (CUIT | Campaña | Fecha SMS | Usuario), no en LOG_SMS.
+const CAMPANA_ACTUAL = 'Recontacto deuda 2025';
+const HOJA_CAMPANAS  = 'CAMPANAS';
+let _campDatos = [];
+let _campVisibles = [];
+let _campSel = new Set();
+const _cDig = v => String(v || '').replace(/\D/g, '');
+const _cEsc = v => String(v || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const _cIso = s => { const p = String(s || '').trim().split('/'); if (p.length !== 3) return ''; let a = p[2].trim(); if (a.length <= 2) a = '20' + a.padStart(2, '0'); return `${a}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`; };
+
+async function _campLeer(rango) {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(rango)}?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (r.status === 400) return [];                 // la pestaña todavía no existe
+  if (!r.ok) throw new Error(`no se pudo leer ${rango} (${r.status})`);
+  return (await r.json()).values || [];
+}
+
+function _campEstado(d) {
+  if (d.sms && d.convenio) return 'convenio';
+  if (d.sms && d.baja) return 'baja';
+  if (d.sms && d.llamado && d.llamado >= d.sms) return 'llamados';
+  if (d.sms) return 'falta-llamar';
+  return 'pend-sms';
+}
+const _campEtiqueta = { 'pend-sms': 'Pendiente de SMS', 'falta-llamar': 'Falta llamar', 'llamados': 'Llamado', 'convenio': 'Con convenio', 'baja': 'Dado de baja' };
+
+async function cargarCampana() {
+  const tb = document.getElementById('camp-tabla');
+  tb.innerHTML = `<tr><td colspan="11"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando campaña…</div></td></tr>`;
+  try {
+    const base = await _campLeer('BASE!A:N');
+    const com  = await _campLeer('COMENTARIOS!A:U');
+    const camp = await _campLeer(HOJA_CAMPANAS + '!A:D');
+    const comMap = {};
+    com.slice(1).forEach(r => { const c = _cDig(r[0]); if (c) comMap[c] = { baja: String(r[17] || '').trim().toUpperCase() === 'SI', llamado: _cIso(r[20]) }; });
+    const smsCamp = {};
+    camp.slice(1).forEach(r => {
+      const c = _cDig(r[0]);
+      if (c && String(r[1] || '').trim() === CAMPANA_ACTUAL) { const f = _cIso(r[2]); if (!smsCamp[c] || f > smsCamp[c]) smsCamp[c] = f; }
+    });
+    const vistos = new Set();
+    _campDatos = [];
+    base.slice(1).forEach(row => {
+      const cuit = _cDig(row[0]);
+      if (cuit.length < 10 || vistos.has(cuit) || !esDeudaAntigua(row[7] || '')) return;
+      const deudaNeta = parsePeso(row[13]);
+      const info = comMap[cuit] || {};
+      const convenio = DB.convenios.some(c => _cDig(c.cuit) === cuit);
+      const sms = smsCamp[cuit] || '';
+      // Entran: deuda > 0, sin baja y sin convenio. Los que ya recibieron el SMS de campaña quedan para el seguimiento.
+      if (!sms && (deudaNeta <= 0 || info.baja || convenio)) return;
+      vistos.add(cuit);
+      _campDatos.push({ cuit, nombre: row[1] || '', telefono: _cDig(row[4]), deudaNeta, fin: row[7] || '', sms, llamado: info.llamado || '', baja: !!info.baja, convenio });
+    });
+    _campDatos.sort((a, b) => b.deudaNeta - a.deudaNeta);
+    _campSel = new Set([..._campSel].filter(c => _campDatos.some(d => d.cuit === c && _campEstado(d) === 'pend-sms')));
+    renderCampana();
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${_cEsc(e.message)}</p></div></td></tr>`;
+  }
+}
+
+function renderCampana() {
+  const filtro = document.getElementById('camp-filtro')?.value || 'pend-sms';
+  const q = (document.getElementById('camp-buscar')?.value || '').trim().toLowerCase();
+  const cuenta = { 'pend-sms': 0, 'falta-llamar': 0, 'llamados': 0, 'convenio': 0, 'baja': 0 };
+  _campDatos.forEach(d => cuenta[_campEstado(d)]++);
+  const deudaPend = _campDatos.filter(d => _campEstado(d) === 'pend-sms').reduce((x, d) => x + d.deudaNeta, 0);
+  const caja = (t, v, color) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px"><span style="color:var(--muted)">${t}:</span> <strong style="${color ? 'color:' + color : ''}">${v}</strong></div>`;
+  document.getElementById('camp-stats').innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">
+    ${caja('Grupo de la campaña', _campDatos.length)}${caja('Pendientes de SMS', cuenta['pend-sms'])}
+    ${caja('Falta llamar', cuenta['falta-llamar'], cuenta['falta-llamar'] ? 'var(--warning)' : '')}${caja('Llamados', cuenta['llamados'])}
+    ${caja('Con convenio después del SMS', cuenta['convenio'], cuenta['convenio'] ? 'var(--ok)' : '')}
+    ${caja('Deuda neta pendiente de SMS', '$' + Math.round(deudaPend).toLocaleString('es-AR'))}</div>`;
+
+  _campVisibles = _campDatos.filter(d => (filtro === 'todos' || _campEstado(d) === filtro)
+    && (!q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q)));
+  const tb = document.getElementById('camp-tabla');
+  if (!_campVisibles.length) {
+    tb.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="icon">🎯</div><p>No hay titulares en este grupo</p></div></td></tr>`;
+  } else {
+    tb.innerHTML = _campVisibles.map((d, i) => {
+      const est = _campEstado(d);
+      const seleccionable = est === 'pend-sms' && d.telefono.length >= 10;
+      return `<tr>
+        <td>${seleccionable ? `<input type="checkbox" ${_campSel.has(d.cuit) ? 'checked' : ''} onchange="toggleCampSel('${d.cuit}', this.checked)">` : ''}</td>
+        <td style="text-align:center;color:var(--muted);font-size:12px">${i + 1}</td>
+        <td><div style="font-weight:500">${_cEsc(d.nombre)}</div></td>
+        <td class="mono">${d.cuit}</td>
+        <td style="font-size:13px">${d.telefono || '<span style="color:var(--danger)">sin teléfono</span>'}</td>
+        <td class="importe">${fmtPeso(d.deudaNeta)}</td>
+        <td class="mono">${_cEsc(d.fin)}</td>
+        <td class="mono">${d.sms ? isoADMY(d.sms) : '—'}</td>
+        <td class="mono">${d.llamado ? isoADMY(d.llamado) : '—'}</td>
+        <td><span class="badge ${est === 'convenio' || est === 'llamados' ? 'badge-ok' : 'badge-pendiente'}">${_campEtiqueta[est]}</span></td>
+        <td><div class="actions">
+          ${d.sms && est !== 'convenio' ? `<button class="btn btn-ghost btn-sm" onclick="llamadoCampana('${d.cuit}', this)">📞 Llamado</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="verFichaCampana('${d.cuit}')">🔍 Ver</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('camp-sel').textContent = _campSel.size ? `${_campSel.size} seleccionados` : '';
+}
+
+function toggleCampSel(cuit, on) { if (on) _campSel.add(cuit); else _campSel.delete(cuit); renderCampana(); }
+function limpiarSeleccionCampana() { _campSel.clear(); renderCampana(); }
+function seleccionarPrimerosCampana() {
+  const n = parseInt(document.getElementById('camp-n').value) || 0;
+  const candidatos = _campVisibles.filter(d => _campEstado(d) === 'pend-sms' && d.telefono.length >= 10 && !_campSel.has(d.cuit));
+  candidatos.slice(0, Math.max(0, n - _campSel.size)).forEach(d => _campSel.add(d.cuit));
+  if (!candidatos.length) toast('No hay pendientes de SMS en la lista actual (elegí el filtro "Pendientes de SMS")', 'info');
+  renderCampana();
+}
+
+function copiarSMSCampana() {
+  const sel = _campDatos.filter(d => _campSel.has(d.cuit));
+  if (!sel.length) { toast('Seleccioná primero los titulares de la tanda', 'error'); return; }
+  const texto = sel.map(d => `${d.telefono}/${d.nombre}/${d.deudaNeta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join('\n');
+  navigator.clipboard.writeText(texto).then(() => toast(`${sel.length} SMS de campaña copiados ✓`));
+}
+
+async function asegurarHojaCampanas() {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!r.ok) throw new Error('no se pudo leer la estructura de la planilla (' + r.status + ')');
+  const titulos = ((await r.json()).sheets || []).map(x => x.properties.title);
+  if (titulos.includes(HOJA_CAMPANAS)) return;
+  const c = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: HOJA_CAMPANAS } } }] })
+  });
+  if (!c.ok) throw new Error('no se pudo crear la pestaña ' + HOJA_CAMPANAS + ' (' + c.status + ')');
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A1:D1')}?valueInputOption=RAW`, {
+    method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [['CUIT', 'Campaña', 'Fecha SMS', 'Usuario']] })
+  });
+}
+
+// Agrega una nota al comentario (columna P de COMENTARIOS) de cada CUIT, sin borrar lo que ya tenía
+async function _campAgregarNota(cuits, nota) {
+  const rows = await _campLeer('COMENTARIOS!A:U');
+  const fila = {}, previo = {};
+  rows.forEach((r, i) => { if (i === 0) return; const c = _cDig(r[0]); if (c && !fila[c]) { fila[c] = i + 1; previo[c] = r[15] || ''; } });
+  const updates = [], nuevas = [];
+  cuits.forEach(c => {
+    if (fila[c]) updates.push({ range: `COMENTARIOS!P${fila[c]}`, values: [[previo[c] ? previo[c] + ' | ' + nota : nota]] });
+    else { const v = Array(21).fill(''); v[0] = c; v[15] = nota; nuevas.push(v); }
+  });
+  for (let i = 0; i < updates.length; i += 100) {
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'USER_ENTERED', data: updates.slice(i, i + 100) })
+    });
+    if (!w.ok) throw new Error('no se pudieron actualizar los comentarios (' + w.status + ')');
+  }
+  if (nuevas.length) {
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent('COMENTARIOS!A:U')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: nuevas })
+    });
+    if (!w.ok) throw new Error('no se pudieron agregar los comentarios (' + w.status + ')');
+  }
+}
+
+async function marcarCampanaEnviados() {
+  const sel = _campDatos.filter(d => _campSel.has(d.cuit));
+  if (!sel.length) { alert('No hay titulares seleccionados. Elegí la tanda con "Seleccionar" o tildando las casillas.'); return; }
+  const nuevos = sel.filter(d => !d.sms);
+  if (!nuevos.length) { toast('Los seleccionados ya tenían registrado el SMS de la campaña', 'info'); return; }
+  const ej = nuevos.slice(0, 5).map(d => d.nombre).join(', ');
+  if (!confirm(`¿Registrar el SMS de la campaña para ${nuevos.length} titulares?\n\nEj: ${ej}${nuevos.length > 5 ? '…' : ''}`)) return;
+  const fechaHoy = isoADMY(today());
+  const usuario = (currentUser && (currentUser.name || currentUser.email)) || localStorage.getItem('autonomy_user_name') || '';
+  try {
+    await asegurarHojaCampanas();
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A:D')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: nuevos.map(d => [d.cuit, CAMPANA_ACTUAL, fechaHoy, usuario]) })
+    });
+    if (!w.ok) throw new Error('la planilla rechazó el registro (' + w.status + ')');
+  } catch (e) { toast('No se registró el envío: ' + e.message, 'error'); return; }
+  try { await _campAgregarNota(nuevos.map(d => d.cuit), `Campaña ${CAMPANA_ACTUAL}: enviamos SMS con fecha ${fechaHoy}.`); }
+  catch (e) { toast('SMS registrado, pero no se pudo agregar el comentario: ' + e.message, 'error'); }
+  registrarLog('SMS campaña', `${nuevos.length} titulares`, '', CAMPANA_ACTUAL);
+  nuevos.forEach(d => { d.sms = today(); _campSel.delete(d.cuit); });
+  renderCampana();
+  toast(`${nuevos.length} SMS de campaña registrados ✓`);
+}
+
+async function llamadoCampana(cuit, btn) {
+  await registrarLlamado(cuit, btn);
+  const d = _campDatos.find(x => x.cuit === cuit);
+  if (d) d.llamado = today();
+  renderCampana();
+}
+
+function verFichaCampana(cuit) {
+  setView('busqueda');
+  document.getElementById('busqueda-input').value = cuit;
+  ejecutarBusqueda();
 }
 
 </script>
