@@ -361,6 +361,7 @@
         <div><div class="page-title">Búsqueda</div><div class="page-sub">Consultá la situación de un titular por CUIT o nombre</div></div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost" id="btn-volver-contactados" onclick="volverAContactados()" style="display:none">← Volver a Contactados</button>
+          <button class="btn btn-ghost" id="btn-volver-campana" onclick="volverACampana()" style="display:none">← Volver a Campaña 2025</button>
           <button class="btn btn-ghost" id="btn-cerrar-busqueda" onclick="cerrarBusqueda()" style="display:none">✕ Cerrar búsqueda</button>
         </div>
       </div>
@@ -461,18 +462,20 @@
       <div class="page-header">
         <div>
           <div class="page-title">Campaña: recontacto deuda 2025</div>
-          <div class="page-sub">Titulares con deuda de 2025 (fin de contrato antes del 01/01/2026), sin convenio y sin baja. Se registra aparte del circuito normal (pestaña CAMPANAS de la planilla).</div>
+          <div class="page-sub">Titulares con deuda de 2025 (fin de contrato antes del 01/01/2026), sin convenio y sin baja. Hasta 3 SMS por titular. Se registra aparte del circuito normal (pestaña CAMPANAS de la planilla).</div>
         </div>
         <button class="btn btn-ghost" onclick="cargarCampana()">↻ Actualizar</button>
       </div>
       <div id="camp-stats" style="margin-bottom:16px"></div>
       <div class="table-wrap">
         <div class="table-toolbar" style="flex-wrap:wrap;gap:10px">
-          <select class="filter-select" id="camp-filtro" onchange="renderCampana()">
-            <option value="pend-sms">1. Pendientes de SMS (secretaría)</option>
-            <option value="falta-llamar">2. SMS enviado, falta llamar (abogados)</option>
-            <option value="llamados">3. Llamados</option>
-            <option value="convenio">4. Con convenio después del SMS</option>
+          <select class="filter-select" id="camp-filtro" onchange="_campSel.clear(); renderCampana()">
+            <option value="envio1">1° SMS pendiente (secretaria)</option>
+            <option value="envio2">2° SMS: ya recibieron 1 (secretaria)</option>
+            <option value="envio3">3° SMS: ya recibieron 2 (secretaria)</option>
+            <option value="falta-llamar">Falta llamar después del último SMS (abogados)</option>
+            <option value="llamados">Llamados</option>
+            <option value="convenio">Con convenio después del SMS</option>
             <option value="todos">Todos</option>
           </select>
           <input class="search-input" id="camp-buscar" placeholder="Buscar nombre o CUIT…" oninput="renderCampana()">
@@ -482,11 +485,12 @@
           <button class="btn btn-ghost btn-sm" onclick="limpiarSeleccionCampana()">Limpiar</button>
           <span id="camp-sel" style="margin-left:auto;font-size:12px;color:var(--muted)"></span>
         </div>
-        <table><thead><tr><th style="width:28px"></th><th style="width:36px;text-align:center">#</th><th>Titular</th><th>CUIT</th><th>Teléfono</th><th>Deuda neta</th><th>Fin contrato</th><th>SMS campaña</th><th>Último llamado</th><th>Estado</th><th></th></tr></thead>
+        <table><thead><tr><th style="width:28px"></th><th style="width:36px;text-align:center">#</th><th>Titular / mail</th><th>CUIT</th><th>Teléfono</th><th>Deuda neta</th><th>Texto SMS</th><th>Car.</th><th>SMS enviados</th><th>Último llamado</th><th>Estado</th><th></th></tr></thead>
         <tbody id="camp-tabla"></tbody></table>
       </div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="copiarSMSCampana()">📋 Copiar SMS seleccionados</button>
+        <button class="btn btn-ghost" onclick="copiarMailsCampana()">📧 Copiar mails seleccionados</button>
         <button class="btn btn-primary" onclick="marcarCampanaEnviados()">✓ Marcar seleccionados como enviados</button>
       </div>
     </div>
@@ -1438,6 +1442,15 @@ function recalcDepositoAplicadoAutomatico() {
 }
 
 // ─── NAV ──────────────────────────────────────────────────────────────────────
+// Cambia la pantalla visible sin recargar datos (lo usan los botones "← Volver" para no perder el lugar)
+function mostrarVista(v) {
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  const navActivo = document.querySelector(`.nav-item[onclick="setView('${v}')"]`);
+  if (navActivo) navActivo.classList.add('active');
+}
+
 function setView(v) {
   document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));
@@ -3138,6 +3151,7 @@ function cerrarBusqueda() {
   document.getElementById('busqueda-resultado').innerHTML = '';
   document.getElementById('btn-cerrar-busqueda').style.display = 'none';
   document.getElementById('btn-volver-contactados').style.display = 'none';
+  document.getElementById('btn-volver-campana').style.display = 'none';
   _busquedaTitular = null;
   document.getElementById('busqueda-input').focus();
 }
@@ -4129,9 +4143,9 @@ async function guardarComentarioBusqueda(cuit) {
 // ─── CONTACTADOS ──────────────────────────────────────────────────────────────
 let _contactadosData = []; // cache para filtrado sin re-fetch
 
-async function cargarContactados() {
+async function cargarContactados(opts) {
   const tbody = document.getElementById('tabla-contactados');
-  tbody.innerHTML = `<tr><td colspan="8"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando contactados…</div></td></tr>`;
+  if (!(opts && opts.silencioso)) tbody.innerHTML = `<tr><td colspan="8"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando contactados…</div></td></tr>`;
 
   try {
     // 1. Leer ORIGINAL primero para saber qué CUITs existen
@@ -4435,50 +4449,65 @@ function renderTablaContactados() {
   }).join('');
 }
 
+function irAFilaPorCuit(tbodyId, cuit, suave) {
+  const filas = document.querySelectorAll('#' + tbodyId + ' tr');
+  for (const fila of filas) {
+    // el CUIT puede estar en su propia celda o en una línea debajo del nombre (con otros números en la misma celda)
+    if (Array.from(fila.querySelectorAll('td, div, span')).some(el => el.textContent.replace(/\D/g,'') === cuit)) {
+      fila.scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'center' });
+      fila.style.transition = 'background-color 1.5s';
+      fila.style.backgroundColor = 'rgba(234,179,8,.25)';
+      setTimeout(() => { fila.style.backgroundColor = ''; }, 1800);
+      return true;
+    }
+  }
+  return false;
+}
+
 function buscarDesdeContactados(cuit) {
-  // Guardar estado actual de Contactados
+  // Guardar estado actual de Contactados (filtros, orden y posición)
   _contactadosEstado = {
     q:           document.getElementById('search-contactados')?.value || '',
     fConv:       document.getElementById('filter-contactados-convenio')?.value || '',
     fComent:     document.getElementById('filter-contactados-comentario')?.value || '',
+    fSemana:     document.getElementById('filter-contactados-semana')?.value || '',
     sort:        { ..._contactadosSort },
     ultimoCuit:  cuit,
   };
   setView('busqueda');
   document.getElementById('busqueda-input').value = cuit;
   // Mostrar botón de volver
+  document.getElementById('btn-volver-campana').style.display = 'none';
   document.getElementById('btn-volver-contactados').style.display = 'inline-flex';
   ejecutarBusqueda();
 }
 
-function volverAContactados() {
+async function volverAContactados() {
   document.getElementById('btn-volver-contactados').style.display = 'none';
-  setView('contactados');
-  if (_contactadosEstado) {
-    const { q, fConv, fComent, sort, ultimoCuit } = _contactadosEstado;
-    document.getElementById('search-contactados').value = q;
-    document.getElementById('filter-contactados-convenio').value = fConv;
-    document.getElementById('filter-contactados-comentario').value = fComent;
-    _contactadosSort = sort;
-    ['fecha','mora','alq','inf','sin','total'].forEach(c => {
-      const el = document.getElementById('th-cont-'+c);
-      if (!el) return;
-      el.classList.remove('asc','desc');
-      if (c === sort.col) el.classList.add(sort.dir);
-    });
+  // Antes se recargaba la lista entera: la tabla se vaciaba, la página volvía arriba y se perdía el lugar.
+  // Ahora se muestra la lista que ya estaba (mismo orden y filtros), se vuelve a la fila, y se actualiza sin vaciarla.
+  mostrarVista('contactados');
+  if (!_contactadosEstado) { cargarContactados(); return; }
+  const { q, fConv, fComent, fSemana, sort, ultimoCuit } = _contactadosEstado;
+  document.getElementById('search-contactados').value = q;
+  document.getElementById('filter-contactados-convenio').value = fConv;
+  document.getElementById('filter-contactados-comentario').value = fComent;
+  if (fSemana !== undefined) document.getElementById('filter-contactados-semana').value = fSemana;
+  _contactadosSort = sort;
+  ['fecha','mora','alq','inf','sin','total','ultimoSMS'].forEach(c => {
+    const el = document.getElementById('th-cont-'+c);
+    if (!el) return;
+    el.classList.remove('asc','desc');
+    if (c === sort.col) el.classList.add(sort.dir);
+  });
+  if (_contactadosData && _contactadosData.length) {
     renderTablaContactados();
-    if (ultimoCuit) {
-      setTimeout(() => {
-        const rows = document.querySelectorAll('#tabla-contactados tr');
-        for (const row of rows) {
-          const celdas = row.querySelectorAll('td');
-          if (Array.from(celdas).some(td => td.textContent.replace(/\D/g,'') === ultimoCuit)) {
-            row.scrollIntoView({ behavior:'smooth', block:'start' });
-            break;
-          }
-        }
-      }, 400);
-    }
+    if (ultimoCuit) irAFilaPorCuit('tabla-contactados', ultimoCuit, false);
+    await cargarContactados({ silencioso: true });   // trae lo que se haya cambiado en la ficha
+    if (ultimoCuit) irAFilaPorCuit('tabla-contactados', ultimoCuit, false);
+  } else {
+    await cargarContactados();
+    if (ultimoCuit) irAFilaPorCuit('tabla-contactados', ultimoCuit, true);
   }
 }
 
@@ -5182,15 +5211,20 @@ function imprimirInforme(periodo) {
 
 // ─── CAMPAÑA: RECONTACTO DEUDA 2025 ───────────────────────────────────────────
 // Circuito aparte del normal: los titulares de deuda 2025 se consideran ya contactados en el circuito normal.
-// Cada SMS de campaña se registra en la pestaña CAMPANAS (CUIT | Campaña | Fecha SMS | Usuario), no en LOG_SMS.
+// Hasta 3 SMS por titular. Cada SMS se registra en la pestaña CAMPANAS (CUIT | Campaña | Fecha SMS | Usuario | N° envío),
+// no en LOG_SMS. La cantidad de envíos de cada titular sale de contar sus filas en CAMPANAS.
 const CAMPANA_ACTUAL = 'Recontacto deuda 2025';
 const HOJA_CAMPANAS  = 'CAMPANAS';
+const CAMP_MAX_SMS   = 3;
+const CAMP_MAX_CAR   = 49;   // mismo límite que Generación SMS
 let _campDatos = [];
 let _campVisibles = [];
 let _campSel = new Set();
+let _campEstadoVolver = null;
 const _cDig = v => String(v || '').replace(/\D/g, '');
 const _cEsc = v => String(v || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 const _cIso = s => { const p = String(s || '').trim().split('/'); if (p.length !== 3) return ''; let a = p[2].trim(); if (a.length <= 2) a = '20' + a.padStart(2, '0'); return `${a}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`; };
+const _cDdMm = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
 
 async function _campLeer(rango) {
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(rango)}?_=${Date.now()}`, { headers: { Authorization: 'Bearer ' + accessToken } });
@@ -5199,29 +5233,44 @@ async function _campLeer(rango) {
   return (await r.json()).values || [];
 }
 
+// Estado del titular en la campaña
 function _campEstado(d) {
-  if (d.sms && d.convenio) return 'convenio';
-  if (d.sms && d.baja) return 'baja';
-  if (d.sms && d.llamado && d.llamado >= d.sms) return 'llamados';
-  if (d.sms) return 'falta-llamar';
-  return 'pend-sms';
+  if (!d.n) return 'envio1';
+  if (d.convenio) return 'convenio';
+  if (d.baja) return 'baja';
+  if (d.llamado && d.llamado >= d.ultimo) return 'llamados';
+  return 'falta-llamar';
 }
-const _campEtiqueta = { 'pend-sms': 'Pendiente de SMS', 'falta-llamar': 'Falta llamar', 'llamados': 'Llamado', 'convenio': 'Con convenio', 'baja': 'Dado de baja' };
+const _campEtiqueta = { 'envio1': '1° SMS pendiente', 'falta-llamar': 'Falta llamar', 'llamados': 'Llamado', 'convenio': 'Con convenio', 'baja': 'Dado de baja' };
+// ¿Se le puede mandar el próximo SMS de la campaña?
+const _campSeleccionable = d => d.telefono.length >= 10 && !d.convenio && !d.baja && d.n < CAMP_MAX_SMS && !d.envHoy;
+function _campCumpleFiltro(d, f) {
+  if (f === 'todos') return true;
+  if (f === 'envio1') return d.n === 0;
+  if (f === 'envio2') return d.n === 1 && !d.convenio && !d.baja;
+  if (f === 'envio3') return d.n === 2 && !d.convenio && !d.baja;
+  return _campEstado(d) === f;
+}
+const _campEsFiltroEnvio = f => f === 'envio1' || f === 'envio2' || f === 'envio3';
+const _campTextoBase = d => `${d.telefono}/${d.nombre}/${d.deudaNeta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-async function cargarCampana() {
+async function cargarCampana(opts) {
   const tb = document.getElementById('camp-tabla');
-  tb.innerHTML = `<tr><td colspan="11"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando campaña…</div></td></tr>`;
+  if (!(opts && opts.silencioso)) tb.innerHTML = `<tr><td colspan="12"><div style="display:flex;align-items:center;gap:10px;padding:20px;color:var(--muted);font-size:13px"><div class="spinner"></div> Cargando campaña…</div></td></tr>`;
   try {
     const base = await _campLeer('BASE!A:N');
     const com  = await _campLeer('COMENTARIOS!A:U');
-    const camp = await _campLeer(HOJA_CAMPANAS + '!A:D');
+    const camp = await _campLeer(HOJA_CAMPANAS + '!A:E');
     const comMap = {};
     com.slice(1).forEach(r => { const c = _cDig(r[0]); if (c) comMap[c] = { baja: String(r[17] || '').trim().toUpperCase() === 'SI', llamado: _cIso(r[20]) }; });
-    const smsCamp = {};
+    const envios = {};   // cuit → fechas (yyyy-mm-dd) de cada SMS de la campaña
     camp.slice(1).forEach(r => {
       const c = _cDig(r[0]);
-      if (c && String(r[1] || '').trim() === CAMPANA_ACTUAL) { const f = _cIso(r[2]); if (!smsCamp[c] || f > smsCamp[c]) smsCamp[c] = f; }
+      if (c && String(r[1] || '').trim() === CAMPANA_ACTUAL) (envios[c] = envios[c] || []).push(_cIso(r[2]));
     });
+    const textosEditados = {};   // conservar lo que se haya editado a mano antes de actualizar
+    _campDatos.forEach(d => { if (d.texto !== _campTextoBase(d)) textosEditados[d.cuit] = d.texto; });
+    const hoyIso = today();
     const vistos = new Set();
     _campDatos = [];
     base.slice(1).forEach(row => {
@@ -5230,103 +5279,144 @@ async function cargarCampana() {
       const deudaNeta = parsePeso(row[13]);
       const info = comMap[cuit] || {};
       const convenio = DB.convenios.some(c => _cDig(c.cuit) === cuit);
-      const sms = smsCamp[cuit] || '';
-      // Entran: deuda > 0, sin baja y sin convenio. Los que ya recibieron el SMS de campaña quedan para el seguimiento.
-      if (!sms && (deudaNeta <= 0 || info.baja || convenio)) return;
+      const fechas = (envios[cuit] || []).filter(Boolean).sort();
+      // Entran: deuda > 0, sin baja y sin convenio. Los que ya recibieron algún SMS de campaña quedan para el seguimiento.
+      if (!fechas.length && (deudaNeta <= 0 || info.baja || convenio)) return;
       vistos.add(cuit);
-      _campDatos.push({ cuit, nombre: row[1] || '', telefono: _cDig(row[4]), deudaNeta, fin: row[7] || '', sms, llamado: info.llamado || '', baja: !!info.baja, convenio });
+      const d = { cuit, nombre: row[1] || '', mail: String(row[3] || '').trim(), telefono: _cDig(row[4]), deudaNeta, fin: row[7] || '',
+        fechas, n: Math.min(fechas.length, CAMP_MAX_SMS), ultimo: fechas[fechas.length - 1] || '', envHoy: fechas.includes(hoyIso),
+        llamado: info.llamado || '', baja: !!info.baja, convenio };
+      d.texto = textosEditados[cuit] || _campTextoBase(d);
+      _campDatos.push(d);
     });
     _campDatos.sort((a, b) => b.deudaNeta - a.deudaNeta);
-    _campSel = new Set([..._campSel].filter(c => _campDatos.some(d => d.cuit === c && _campEstado(d) === 'pend-sms')));
+    _campSel = new Set([..._campSel].filter(c => _campDatos.some(d => d.cuit === c && _campSeleccionable(d))));
     renderCampana();
   } catch (e) {
-    tb.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${_cEsc(e.message)}</p></div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="icon">⚠</div><p>Error al cargar: ${_cEsc(e.message)}</p></div></td></tr>`;
   }
 }
 
 function renderCampana() {
-  const filtro = document.getElementById('camp-filtro')?.value || 'pend-sms';
+  const filtro = document.getElementById('camp-filtro')?.value || 'envio1';
   const q = (document.getElementById('camp-buscar')?.value || '').trim().toLowerCase();
-  const cuenta = { 'pend-sms': 0, 'falta-llamar': 0, 'llamados': 0, 'convenio': 0, 'baja': 0 };
-  _campDatos.forEach(d => cuenta[_campEstado(d)]++);
-  const deudaPend = _campDatos.filter(d => _campEstado(d) === 'pend-sms').reduce((x, d) => x + d.deudaNeta, 0);
+  const cuenta = f => _campDatos.filter(d => _campCumpleFiltro(d, f)).length;
   const caja = (t, v, color) => `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px"><span style="color:var(--muted)">${t}:</span> <strong style="${color ? 'color:' + color : ''}">${v}</strong></div>`;
+  const nFalta = cuenta('falta-llamar'), nConv = cuenta('convenio');
   document.getElementById('camp-stats').innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap">
-    ${caja('Grupo de la campaña', _campDatos.length)}${caja('Pendientes de SMS', cuenta['pend-sms'])}
-    ${caja('Falta llamar', cuenta['falta-llamar'], cuenta['falta-llamar'] ? 'var(--warning)' : '')}${caja('Llamados', cuenta['llamados'])}
-    ${caja('Con convenio después del SMS', cuenta['convenio'], cuenta['convenio'] ? 'var(--ok)' : '')}
-    ${caja('Deuda neta pendiente de SMS', '$' + Math.round(deudaPend).toLocaleString('es-AR'))}</div>`;
+    ${caja('Grupo de la campaña', _campDatos.length)}${caja('1° SMS pendiente', cuenta('envio1'))}
+    ${caja('Para 2° SMS', cuenta('envio2'))}${caja('Para 3° SMS', cuenta('envio3'))}
+    ${caja('Falta llamar', nFalta, nFalta ? 'var(--warning)' : '')}${caja('Llamados', cuenta('llamados'))}
+    ${caja('Con convenio después del SMS', nConv, nConv ? 'var(--ok)' : '')}</div>`;
 
-  _campVisibles = _campDatos.filter(d => (filtro === 'todos' || _campEstado(d) === filtro)
-    && (!q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q)));
+  const conCheck = _campEsFiltroEnvio(filtro);
+  _campVisibles = _campDatos.filter(d => _campCumpleFiltro(d, filtro) && (!q || d.nombre.toLowerCase().includes(q) || d.cuit.includes(q)));
   const tb = document.getElementById('camp-tabla');
   if (!_campVisibles.length) {
-    tb.innerHTML = `<tr><td colspan="11"><div class="empty"><div class="icon">🎯</div><p>No hay titulares en este grupo</p></div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="12"><div class="empty"><div class="icon">🎯</div><p>No hay titulares en este grupo</p></div></td></tr>`;
   } else {
     tb.innerHTML = _campVisibles.map((d, i) => {
       const est = _campEstado(d);
-      const seleccionable = est === 'pend-sms' && d.telefono.length >= 10;
+      const largo = d.texto.length, excede = largo > CAMP_MAX_CAR;
+      const enviados = d.fechas.length ? d.fechas.slice(0, CAMP_MAX_SMS).map((f, k) => `${k + 1}° ${_cDdMm(f)}`).join(' · ') : '—';
+      const motivo = !d.telefono || d.telefono.length < 10 ? 'Sin teléfono' : d.envHoy ? 'Ya se le envió hoy' : '';
       return `<tr>
-        <td>${seleccionable ? `<input type="checkbox" ${_campSel.has(d.cuit) ? 'checked' : ''} onchange="toggleCampSel('${d.cuit}', this.checked)">` : ''}</td>
+        <td>${conCheck && _campSeleccionable(d) ? `<input type="checkbox" ${_campSel.has(d.cuit) ? 'checked' : ''} onchange="toggleCampSel('${d.cuit}', this.checked)">` : (conCheck && motivo ? `<span title="${motivo}" style="color:var(--muted)">–</span>` : '')}</td>
         <td style="text-align:center;color:var(--muted);font-size:12px">${i + 1}</td>
-        <td><div style="font-weight:500">${_cEsc(d.nombre)}</div></td>
+        <td><div style="font-weight:500">${_cEsc(d.nombre)}</div><div style="font-size:11px;color:var(--muted)">${d.mail ? _cEsc(d.mail) : 'sin mail'}</div></td>
         <td class="mono">${d.cuit}</td>
         <td style="font-size:13px">${d.telefono || '<span style="color:var(--danger)">sin teléfono</span>'}</td>
         <td class="importe">${fmtPeso(d.deudaNeta)}</td>
-        <td class="mono">${_cEsc(d.fin)}</td>
-        <td class="mono">${d.sms ? isoADMY(d.sms) : '—'}</td>
+        <td style="min-width:200px">${d.telefono ? `<input type="text" id="camp-txt-${d.cuit}" value="${_cEsc(d.texto)}" oninput="editarTextoCampana('${d.cuit}', this)" style="width:100%;font-family:var(--fm);font-size:11px;padding:3px 6px;border:1px solid ${excede ? 'var(--danger)' : 'var(--border)'};border-radius:4px;background:${excede ? 'rgba(220,38,38,.04)' : 'transparent'}">` : ''}</td>
+        <td class="mono" id="camp-car-${d.cuit}" style="text-align:center;${excede ? 'color:var(--danger);font-weight:700' : ''}">${d.telefono ? largo : ''}</td>
+        <td class="mono" style="font-size:11px;white-space:nowrap">${enviados}</td>
         <td class="mono">${d.llamado ? isoADMY(d.llamado) : '—'}</td>
         <td><span class="badge ${est === 'convenio' || est === 'llamados' ? 'badge-ok' : 'badge-pendiente'}">${_campEtiqueta[est]}</span></td>
         <td><div class="actions">
-          ${d.sms && est !== 'convenio' ? `<button class="btn btn-ghost btn-sm" onclick="llamadoCampana('${d.cuit}', this)">📞 Llamado</button>` : ''}
+          ${d.n && est !== 'convenio' ? `<button class="btn btn-ghost btn-sm" onclick="llamadoCampana('${d.cuit}', this)">📞 Llamado</button>` : ''}
           <button class="btn btn-ghost btn-sm" onclick="verFichaCampana('${d.cuit}')">🔍 Ver</button>
         </div></td>
       </tr>`;
     }).join('');
   }
-  document.getElementById('camp-sel').textContent = _campSel.size ? `${_campSel.size} seleccionados` : '';
+  const nSel = _campSel.size;
+  const largos = _campDatos.filter(d => _campSel.has(d.cuit) && d.texto.length > CAMP_MAX_CAR).length;
+  document.getElementById('camp-sel').innerHTML = nSel ? `${nSel} seleccionados${largos ? ` · <span style="color:var(--danger)">${largos} superan ${CAMP_MAX_CAR} caracteres</span>` : ''}` : '';
+}
+
+// Editar el texto del SMS sin redibujar la tabla (así no se pierde el cursor)
+function editarTextoCampana(cuit, input) {
+  const d = _campDatos.find(x => x.cuit === cuit); if (!d) return;
+  d.texto = input.value;
+  const excede = d.texto.length > CAMP_MAX_CAR;
+  const car = document.getElementById('camp-car-' + cuit);
+  if (car) { car.textContent = d.texto.length; car.style.color = excede ? 'var(--danger)' : 'var(--ok)'; car.style.fontWeight = excede ? '700' : 'normal'; }
+  input.style.borderColor = excede ? 'var(--danger)' : 'var(--ok)';
+  input.style.background = excede ? 'rgba(220,38,38,.04)' : 'transparent';
+  const largos = _campDatos.filter(x => _campSel.has(x.cuit) && x.texto.length > CAMP_MAX_CAR).length;
+  if (_campSel.size) document.getElementById('camp-sel').innerHTML = `${_campSel.size} seleccionados${largos ? ` · <span style="color:var(--danger)">${largos} superan ${CAMP_MAX_CAR} caracteres</span>` : ''}`;
 }
 
 function toggleCampSel(cuit, on) { if (on) _campSel.add(cuit); else _campSel.delete(cuit); renderCampana(); }
 function limpiarSeleccionCampana() { _campSel.clear(); renderCampana(); }
 function seleccionarPrimerosCampana() {
+  const filtro = document.getElementById('camp-filtro')?.value || '';
+  if (!_campEsFiltroEnvio(filtro)) { toast('Para armar una tanda elegí el filtro del 1°, 2° o 3° SMS', 'info'); return; }
   const n = parseInt(document.getElementById('camp-n').value) || 0;
-  const candidatos = _campVisibles.filter(d => _campEstado(d) === 'pend-sms' && d.telefono.length >= 10 && !_campSel.has(d.cuit));
+  const candidatos = _campVisibles.filter(d => _campSeleccionable(d) && !_campSel.has(d.cuit));
   candidatos.slice(0, Math.max(0, n - _campSel.size)).forEach(d => _campSel.add(d.cuit));
-  if (!candidatos.length) toast('No hay pendientes de SMS en la lista actual (elegí el filtro "Pendientes de SMS")', 'info');
+  if (!candidatos.length) toast('No quedan titulares para seleccionar en esta lista', 'info');
   renderCampana();
 }
 
 function copiarSMSCampana() {
   const sel = _campDatos.filter(d => _campSel.has(d.cuit));
   if (!sel.length) { toast('Seleccioná primero los titulares de la tanda', 'error'); return; }
-  const texto = sel.map(d => `${d.telefono}/${d.nombre}/${d.deudaNeta.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).join('\n');
-  navigator.clipboard.writeText(texto).then(() => toast(`${sel.length} SMS de campaña copiados ✓`));
+  const largos = sel.filter(d => d.texto.length > CAMP_MAX_CAR).length;
+  navigator.clipboard.writeText(sel.map(d => d.texto).join('\n')).then(() =>
+    toast(`${sel.length} SMS copiados ✓${largos ? ` — ojo: ${largos} superan ${CAMP_MAX_CAR} caracteres` : ''}`, largos ? 'error' : 'success'));
+}
+
+function copiarMailsCampana() {
+  const sel = _campDatos.filter(d => _campSel.has(d.cuit));
+  if (!sel.length) { toast('Seleccioná primero los titulares de la tanda', 'error'); return; }
+  const mails = [...new Set(sel.map(d => d.mail).filter(Boolean))];
+  if (!mails.length) { toast('Ninguno de los seleccionados tiene mail cargado', 'error'); return; }
+  const sinMail = sel.filter(d => !d.mail).length;
+  navigator.clipboard.writeText(mails.join(', ')).then(() =>
+    toast(`${mails.length} mails copiados ✓${sinMail ? ` (${sinMail} sin mail)` : ''}`));
 }
 
 async function asegurarHojaCampanas() {
   const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`, { headers: { Authorization: 'Bearer ' + accessToken } });
   if (!r.ok) throw new Error('no se pudo leer la estructura de la planilla (' + r.status + ')');
   const titulos = ((await r.json()).sheets || []).map(x => x.properties.title);
-  if (titulos.includes(HOJA_CAMPANAS)) return;
-  const c = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
-    method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: HOJA_CAMPANAS } } }] })
-  });
-  if (!c.ok) throw new Error('no se pudo crear la pestaña ' + HOJA_CAMPANAS + ' (' + c.status + ')');
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A1:D1')}?valueInputOption=RAW`, {
-    method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [['CUIT', 'Campaña', 'Fecha SMS', 'Usuario']] })
-  });
+  if (!titulos.includes(HOJA_CAMPANAS)) {
+    const c = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+      method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: HOJA_CAMPANAS } } }] })
+    });
+    if (!c.ok) throw new Error('no se pudo crear la pestaña ' + HOJA_CAMPANAS + ' (' + c.status + ')');
+  }
+  // Encabezado (agrega la columna "N° envío" si la pestaña venía de la versión anterior)
+  const enc = await _campLeer(HOJA_CAMPANAS + '!A1:E1');
+  if (!enc.length || String((enc[0] || [])[4] || '').trim() !== 'N° envío') {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A1:E1')}?valueInputOption=RAW`, {
+      method: 'PUT', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [['CUIT', 'Campaña', 'Fecha SMS', 'Usuario', 'N° envío']] })
+    });
+  }
 }
 
-// Agrega una nota al comentario (columna P de COMENTARIOS) de cada CUIT, sin borrar lo que ya tenía
-async function _campAgregarNota(cuits, nota) {
+// Agrega una nota al comentario (columna P de COMENTARIOS) de cada CUIT, sin borrar lo que ya tenía. notas: { cuit: texto }
+async function _campAgregarNota(notas) {
+  const cuits = Object.keys(notas);
   const rows = await _campLeer('COMENTARIOS!A:U');
   const fila = {}, previo = {};
   rows.forEach((r, i) => { if (i === 0) return; const c = _cDig(r[0]); if (c && !fila[c]) { fila[c] = i + 1; previo[c] = r[15] || ''; } });
   const updates = [], nuevas = [];
   cuits.forEach(c => {
+    const nota = notas[c];
     if (fila[c]) updates.push({ range: `COMENTARIOS!P${fila[c]}`, values: [[previo[c] ? previo[c] + ' | ' + nota : nota]] });
     else { const v = Array(21).fill(''); v[0] = c; v[15] = nota; nuevas.push(v); }
   });
@@ -5349,26 +5439,32 @@ async function _campAgregarNota(cuits, nota) {
 async function marcarCampanaEnviados() {
   const sel = _campDatos.filter(d => _campSel.has(d.cuit));
   if (!sel.length) { alert('No hay titulares seleccionados. Elegí la tanda con "Seleccionar" o tildando las casillas.'); return; }
-  const nuevos = sel.filter(d => !d.sms);
-  if (!nuevos.length) { toast('Los seleccionados ya tenían registrado el SMS de la campaña', 'info'); return; }
-  const ej = nuevos.slice(0, 5).map(d => d.nombre).join(', ');
-  if (!confirm(`¿Registrar el SMS de la campaña para ${nuevos.length} titulares?\n\nEj: ${ej}${nuevos.length > 5 ? '…' : ''}`)) return;
+  const aMarcar = sel.filter(_campSeleccionable);
+  if (!aMarcar.length) { toast('Los seleccionados ya tienen registrado el SMS de hoy o completaron los 3 SMS', 'info'); return; }
+  const porEnvio = {};
+  aMarcar.forEach(d => { porEnvio[d.n + 1] = (porEnvio[d.n + 1] || 0) + 1; });
+  const resumen = Object.keys(porEnvio).sort().map(k => `${porEnvio[k]} con su ${k}° SMS`).join(', ');
+  const ej = aMarcar.slice(0, 5).map(d => d.nombre).join(', ');
+  if (!confirm(`¿Registrar el SMS de la campaña para ${aMarcar.length} titulares (${resumen})?\n\nEj: ${ej}${aMarcar.length > 5 ? '…' : ''}`)) return;
   const fechaHoy = isoADMY(today());
   const usuario = (currentUser && (currentUser.name || currentUser.email)) || localStorage.getItem('autonomy_user_name') || '';
   try {
     await asegurarHojaCampanas();
-    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A:D')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(HOJA_CAMPANAS + '!A:E')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
       method: 'POST', headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: nuevos.map(d => [d.cuit, CAMPANA_ACTUAL, fechaHoy, usuario]) })
+      body: JSON.stringify({ values: aMarcar.map(d => [d.cuit, CAMPANA_ACTUAL, fechaHoy, usuario, String(d.n + 1)]) })
     });
     if (!w.ok) throw new Error('la planilla rechazó el registro (' + w.status + ')');
   } catch (e) { toast('No se registró el envío: ' + e.message, 'error'); return; }
-  try { await _campAgregarNota(nuevos.map(d => d.cuit), `Campaña ${CAMPANA_ACTUAL}: enviamos SMS con fecha ${fechaHoy}.`); }
+  const notas = {};
+  aMarcar.forEach(d => { notas[d.cuit] = `Campaña ${CAMPANA_ACTUAL}: enviamos SMS N° ${d.n + 1} con fecha ${fechaHoy}.`; });
+  try { await _campAgregarNota(notas); }
   catch (e) { toast('SMS registrado, pero no se pudo agregar el comentario: ' + e.message, 'error'); }
-  registrarLog('SMS campaña', `${nuevos.length} titulares`, '', CAMPANA_ACTUAL);
-  nuevos.forEach(d => { d.sms = today(); _campSel.delete(d.cuit); });
+  registrarLog('SMS campaña', `${aMarcar.length} titulares`, '', `${CAMPANA_ACTUAL} · ${resumen}`);
+  const hoyIso = today();
+  aMarcar.forEach(d => { d.fechas.push(hoyIso); d.n = Math.min(d.fechas.length, CAMP_MAX_SMS); d.ultimo = hoyIso; d.envHoy = true; _campSel.delete(d.cuit); });
   renderCampana();
-  toast(`${nuevos.length} SMS de campaña registrados ✓`);
+  toast(`${aMarcar.length} SMS de campaña registrados ✓`);
 }
 
 async function llamadoCampana(cuit, btn) {
@@ -5379,9 +5475,34 @@ async function llamadoCampana(cuit, btn) {
 }
 
 function verFichaCampana(cuit) {
+  _campEstadoVolver = {
+    filtro: document.getElementById('camp-filtro')?.value || 'envio1',
+    buscar: document.getElementById('camp-buscar')?.value || '',
+    cuit
+  };
   setView('busqueda');
   document.getElementById('busqueda-input').value = cuit;
+  document.getElementById('btn-volver-contactados').style.display = 'none';
+  document.getElementById('btn-volver-campana').style.display = 'inline-flex';
   ejecutarBusqueda();
+}
+
+async function volverACampana() {
+  document.getElementById('btn-volver-campana').style.display = 'none';
+  mostrarVista('campana');
+  const st = _campEstadoVolver;
+  if (!st) { cargarCampana(); return; }
+  document.getElementById('camp-filtro').value = st.filtro;
+  document.getElementById('camp-buscar').value = st.buscar;
+  if (_campDatos.length) {
+    renderCampana();                                  // misma lista, mismo orden y selección
+    irAFilaPorCuit('camp-tabla', st.cuit, false);
+    await cargarCampana({ silencioso: true });        // trae lo que se haya cambiado en la ficha
+    irAFilaPorCuit('camp-tabla', st.cuit, false);
+  } else {
+    await cargarCampana();
+    irAFilaPorCuit('camp-tabla', st.cuit, true);
+  }
 }
 
 </script>
